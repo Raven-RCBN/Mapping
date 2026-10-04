@@ -75,7 +75,15 @@ export default function RemoteTimeline() {
     return () => clearInterval(timer);
   }, [playing, s.date, key, data]);
   const choose = (date, activity = s.activity, override = null) =>
-    dispatch(patch({ date, activity, override, review: false }));
+    dispatch(
+      patch({
+        date,
+        activity,
+        override,
+        review: false,
+        ...(override ? { base: "satellite", compare: null } : {}),
+      })
+    );
   const total = data?.series.reduce((n, r) => n + r.totals.count, 0) || 0;
   const kindType = (k) =>
     k === "harvesting" ? "Harvesting" : "Field activity";

@@ -538,13 +538,18 @@ export default function MapView({
         {!collapsed && (
           <>
             <div className="base-tabs">
-              {["satellite", "road", "topography"].map((b) => (
+              {[
+                ["road", "Road map"],
+                ["satellite", "Satellite"],
+                ["topography", "Topography"],
+              ].map(([b, title]) => (
                 <button
                   key={b}
                   className={base === b ? "active" : ""}
+                  aria-pressed={base === b}
                   onClick={() => dispatch(patch({ base: b, compare: null }))}
                 >
-                  {b[0].toUpperCase() + b.slice(1)}
+                  {title}
                 </button>
               ))}
             </div>
@@ -647,11 +652,19 @@ export default function MapView({
       <div className="map-caption">
         <span className="status-dot" />
         <b>{label(date)}</b>
-        <span>{data.offline ? "Offline map" : "Map + activity timeline"}</span>
+        <span>
+          {data.offline
+            ? "Offline map"
+            : base === "road"
+            ? "Activity date · current road map"
+            : "Map + activity timeline"}
+        </span>
       </div>
       {notice && <div id="mapNotice">{notice}</div>}
       <div id="mapSourceLabel">
-        {base === "topography"
+        {base === "road"
+          ? "OpenStreetMap · road map"
+          : base === "topography"
           ? "Copernicus GLO-30 · acquired mainly 2011–2015 · surface elevation, includes canopy"
           : images
               .map(

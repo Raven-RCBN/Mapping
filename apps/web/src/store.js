@@ -34,7 +34,7 @@ const slice = createSlice({
     selectedBlock: null,
     date: "2026-10-03",
     period: "day",
-    base: "satellite",
+    base: "road",
     terrain: "terrain",
     contours: true,
     showActivities: true,
@@ -74,6 +74,13 @@ const slice = createSlice({
         if (!s.selected.length) s.selected = ids.slice(0, 1);
       }
       s.selected = oneEstate(s.selected, ids);
+      if (payload.offline && s.base === "road") {
+        s.base = payload.assets?.some(
+          (a) => s.selected.includes(a.estateId) && a.kind === "terrain"
+        )
+          ? "topography"
+          : "satellite";
+      }
       if (restore) restoreVisibility(s);
     },
     patch(s, { payload }) {

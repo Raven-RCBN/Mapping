@@ -77,6 +77,7 @@ function LocalTimeline() {
         activity,
         override,
         review: false,
+        ...(override ? { base: "satellite", compare: null } : {}),
       })
     );
     if (!windows.some((b) => contains(date, b))) setAnchor(date);
