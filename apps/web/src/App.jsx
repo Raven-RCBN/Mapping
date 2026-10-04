@@ -28,6 +28,7 @@ import {
 import SummaryCards from "./components/SummaryCards";
 import { dashboardCardState } from "../../../packages/shared/dashboard-summary.js";
 import EstatePicker from "./components/EstatePicker";
+import GlobalBrandLogo from "./components/GlobalBrandLogo";
 const MapView = lazy(() => import("./components/MapView"));
 import Timeline from "./components/Timeline";
 import Dialogs from "./components/Dialogs";
@@ -380,6 +381,7 @@ export default function App() {
   return (
     <>
       <aside className="rail">
+        <GlobalBrandLogo />
         <a className="brand map-brand" href="#" aria-label="DigitalPalm home">
           <img src={import.meta.env.BASE_URL + "icon.svg"} alt="" />
         </a>

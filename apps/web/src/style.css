@@ -2774,6 +2774,43 @@ body.topography-mode .map-stage {
   width: 45px;
   height: 45px;
 }
+.global-brand {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+  width: calc(100% - 20px);
+  height: 70px;
+  margin-top: 14px;
+  border-radius: 4px;
+}
+.global-brand img {
+  display: block;
+  max-width: 100%;
+  max-height: 70px;
+  object-fit: contain;
+}
+.global-brand:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 4px;
+}
+.global-brand + .map-brand {
+  height: 66px;
+  flex-shrink: 0;
+}
+@media (max-width: 600px) {
+  .global-brand {
+    width: calc(100% - 14px);
+    height: 54px;
+    margin-top: 10px;
+  }
+  .global-brand img {
+    max-height: 54px;
+  }
+  .global-brand + .map-brand {
+    height: 56px;
+  }
+}
 .map-block-label {
   white-space: nowrap;
   color: white;
