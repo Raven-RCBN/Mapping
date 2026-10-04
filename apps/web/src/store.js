@@ -1,10 +1,12 @@
-import {
-  allMapActivities,
-  validMapVisibility,
-} from "../../../packages/shared/map-visibility.js";
+import { validMapVisibility } from "../../../packages/shared/map-visibility.js";
 import { configureStore, createSlice } from "@reduxjs/toolkit";
+const defaultMapActivities = () => ({
+  mode: "include",
+  fields: [],
+  harvesting: true,
+});
 const visibilityKey = (s) =>
-  "estate-atlas-map-activities:" +
+  "estate-atlas-map-activities:v2:" +
   JSON.stringify([
     import.meta.env.BASE_URL,
     s.data?.access?.subject,
@@ -13,9 +15,11 @@ const visibilityKey = (s) =>
 function restoreVisibility(s) {
   try {
     const saved = JSON.parse(localStorage.getItem(visibilityKey(s)) || "null");
-    s.mapVisibility = validMapVisibility(saved) ? saved : allMapActivities();
+    s.mapVisibility = validMapVisibility(saved)
+      ? saved
+      : defaultMapActivities();
   } catch {
-    s.mapVisibility = allMapActivities();
+    s.mapVisibility = defaultMapActivities();
   }
 }
 const slice = createSlice({
@@ -25,7 +29,7 @@ const slice = createSlice({
     selected: [],
     activity: "all",
     block: "all",
-    mapVisibility: allMapActivities(),
+    mapVisibility: defaultMapActivities(),
     selectedBlock: null,
     date: "2026-10-03",
     period: "day",

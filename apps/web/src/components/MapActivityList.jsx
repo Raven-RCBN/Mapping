@@ -1,6 +1,14 @@
 import { mappedRecords } from "../../../../packages/shared/mapped-records.js";
-import { useEffect, useMemo, useState } from "react";
+import {
+  useEffect,
+  useId,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { createPortal } from "react-dom";
 import { api } from "../api";
 import { patch } from "../store";
 import {
@@ -9,7 +17,7 @@ import {
   fieldVisible,
 } from "../../../../packages/shared/map-visibility.js";
 
-export default function MapActivityList() {
+function ActivityChoices() {
   const s = useSelector((s) => s),
     dispatch = useDispatch();
   const [search, setSearch] = useState(""),
@@ -111,7 +119,7 @@ export default function MapActivityList() {
     <section className="map-activity-list" aria-label="Map activity selection">
       <div className="map-activity-title">
         <div>
-          <strong>All activities</strong>
+          <strong>Activities</strong>
           <p>Choose activities to display on the map and timeline.</p>
         </div>
         <div className="map-activity-actions">
@@ -120,6 +128,7 @@ export default function MapActivityList() {
         </div>
       </div>
       <input
+        autoFocus
         type="search"
         aria-label="Search activities to display"
         placeholder="Search activities…"
@@ -225,5 +234,122 @@ export default function MapActivityList() {
       )}
       {error && <p role="alert">{error}</p>}
     </section>
+  );
+}
+
+export default function MapActivityList() {
+  const selection = useSelector((s) => s.mapVisibility);
+  const activity = useSelector((s) => s.activity);
+  const [open, setOpen] = useState(false);
+  const [position, setPosition] = useState({ left: 0, top: 0 });
+  const trigger = useRef(null),
+    panel = useRef(null);
+  const id = useId();
+  const count =
+    selection.mode === "include"
+      ? selection.fields.length + Number(selection.harvesting)
+      : "All";
+  useLayoutEffect(() => {
+    if (!open) return;
+    const place = () => {
+      const button = trigger.current.getBoundingClientRect();
+      const popup = panel.current.getBoundingClientRect();
+      const below = button.bottom + 8;
+      const above = button.top - popup.height - 8;
+      setPosition({
+        left: Math.max(
+          8,
+          Math.min(button.left, window.innerWidth - popup.width - 8)
+        ),
+        top:
+          below + popup.height <= window.innerHeight - 8
+            ? below
+            : above >= 8
+            ? above
+            : Math.max(8, window.innerHeight - popup.height - 8),
+      });
+    };
+    place();
+    const observer = new ResizeObserver(place);
+    observer.observe(panel.current);
+    window.addEventListener("resize", place);
+    window.addEventListener("scroll", place, true);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener("resize", place);
+      window.removeEventListener("scroll", place, true);
+    };
+  }, [open]);
+  useEffect(() => {
+    if (!open) return;
+    const outside = (event) => {
+      if (
+        !trigger.current?.contains(event.target) &&
+        !panel.current?.contains(event.target)
+      )
+        setOpen(false);
+    };
+    document.addEventListener("pointerdown", outside);
+    return () => document.removeEventListener("pointerdown", outside);
+  }, [open]);
+  const close = () => {
+    setOpen(false);
+    trigger.current?.focus();
+  };
+  return (
+    <div
+      className="map-activity-picker"
+      onKeyDown={(event) => {
+        if (event.key === "Escape" && open) {
+          event.stopPropagation();
+          close();
+        }
+      }}
+      onBlur={(event) => {
+        if (
+          event.relatedTarget &&
+          !trigger.current?.contains(event.relatedTarget) &&
+          !panel.current?.contains(event.relatedTarget)
+        )
+          setOpen(false);
+      }}
+    >
+      <button
+        ref={trigger}
+        className={
+          "history-filter activity-picker-trigger " +
+          (activity === "all" ? "active" : "")
+        }
+        aria-label="Choose map activities"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-controls={open ? id : undefined}
+        onClick={() => setOpen(!open)}
+      >
+        ◷ Activities <small>{count}</small>
+        <span aria-hidden="true">⌄</span>
+      </button>
+      {open &&
+        createPortal(
+          <div
+            ref={panel}
+            id={id}
+            role="dialog"
+            aria-label="Map activity selection"
+            className="map-activity-dropdown"
+            style={position}
+          >
+            <button
+              className="activity-picker-close"
+              aria-label="Close activity list"
+              onClick={close}
+            >
+              ×
+            </button>
+            <ActivityChoices />
+          </div>,
+          document.body
+        )}
+    </div>
   );
 }

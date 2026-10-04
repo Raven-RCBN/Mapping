@@ -1,10 +1,10 @@
 # Activity display selection
 
-The Estate timeline's All activities list replaces the single field-description dropdown. Each harvesting/field description has a Display in map checkbox. Search is literal and case-insensitive, with 50 field descriptions per page. Select all and Clear all apply across pages/search results. Choices persist locally per signed-in user and selected estate combination.
+The Estate timeline's Activities button opens a compact checklist beside the button, with outside-click and Escape dismissal. The checklist is loaded only when opened. Each harvesting/field description has a Display in map checkbox. Search is literal and case-insensitive, with 50 field descriptions per page. Select all and Clear all apply across pages/search results. Choices persist locally per signed-in user and selected estate combination.
 
 Selection affects individual map records, their bubble popups, the timeline and operation totals. Only records linked to current boundary polygons are displayed. Source Data tables remain unfiltered by these display choices. The activity type, block and date filters still intersect with the selection. The review tab narrows map/list records while the summary cards retain totals for the complete selection. Changing a checkbox returns the activity type to All types and enables the activity layer. Map and imagery layers are unaffected.
 
-The same selection helper filters saved browser offline records. Existing offline packages need no data migration. First use shows all activities, preserving the existing map; Clear all followed by individual checks selects a subset.
+The same selection helper filters saved browser offline records. Existing offline packages need no data migration. The initial selection is Harvesting only. Version 2 of the saved preference starts existing users with this default once; subsequent explicit choices persist per user and estate combination. Clear all hides activities until the user selects them again.
 
 ## API
 

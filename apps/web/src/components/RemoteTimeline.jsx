@@ -127,7 +127,8 @@ export default function RemoteTimeline() {
       </div>
       <div className="timeline-filter-bar">
         <div id="timelineFilters">
-          {["all", "Harvesting", "Field activity"].map((t) => (
+          <MapActivityList />
+          {["Harvesting", "Field activity"].map((t) => (
             <button
               key={t}
               className={"history-filter " + (s.activity === t ? "active" : "")}
@@ -158,7 +159,6 @@ export default function RemoteTimeline() {
           </select>
         </label>
       </div>
-      <MapActivityList />
       <div className="timeline-window">
         <span>
           {s.period === "all" ? "12-month history window" : "Timeline window"}

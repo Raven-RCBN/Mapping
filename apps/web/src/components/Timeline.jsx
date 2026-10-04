@@ -110,29 +110,34 @@ function LocalTimeline() {
       </div>
       <div className="timeline-filter-bar">
         <div id="timelineFilters">
-          {["all", ...activeTypes.map(([t]) => t)].map((t) => (
-            <button
-              className={"history-filter " + (s.activity === t ? "active" : "")}
-              key={t}
-              onClick={() =>
-                choose(
-                  records(s.data, s.selected, {
-                    activity: t,
-                    block: s.block,
-                    mapVisibility: s.mapVisibility,
-                    mappedOnly: true,
-                  })
-                    .map((r) => r.date)
-                    .sort()
-                    .at(-1) || s.date,
-                  t
-                )
-              }
-            >
-              {types[t]?.icon || "◷"} {t === "all" ? "All types" : t}{" "}
-              <small>{counts(t)}</small>
-            </button>
-          ))}
+          <MapActivityList />
+          {activeTypes
+            .map(([t]) => t)
+            .map((t) => (
+              <button
+                className={
+                  "history-filter " + (s.activity === t ? "active" : "")
+                }
+                key={t}
+                onClick={() =>
+                  choose(
+                    records(s.data, s.selected, {
+                      activity: t,
+                      block: s.block,
+                      mapVisibility: s.mapVisibility,
+                      mappedOnly: true,
+                    })
+                      .map((r) => r.date)
+                      .sort()
+                      .at(-1) || s.date,
+                    t
+                  )
+                }
+              >
+                {types[t]?.icon || "◷"} {t === "all" ? "All types" : t}{" "}
+                <small>{counts(t)}</small>
+              </button>
+            ))}
         </div>
         <label className="timeline-block-label">
           Block
@@ -164,7 +169,6 @@ function LocalTimeline() {
           </select>
         </label>
       </div>
-      <MapActivityList />
       {s.period !== "all" && (
         <div className="timeline-window">
           <span>Timeline window</span>
