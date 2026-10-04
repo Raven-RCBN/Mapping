@@ -158,7 +158,7 @@ export function installQueries(api, models, expose) {
   const cache = new SummaryCache();
   const readPost = (req) =>
     req.method === "POST" &&
-    (["/dashboard", "/timeline"].includes(req.path) ||
+    (["/dashboard", "/timeline", "/map-popup"].includes(req.path) ||
       /^\/records\/(blocks|harvesting|field)$/.test(req.path));
   // POST read queries keep large multi-selections out of proxy URL limits.
   const readRoute = (path, handler) => {
@@ -171,6 +171,7 @@ export function installQueries(api, models, expose) {
       (req.method !== "GET" && !readPost(req)) ||
       (![
         "/activity-options",
+        "/map-popup",
         "/dashboard",
         "/timeline",
         "/snapshot",
@@ -453,6 +454,101 @@ export function installQueries(api, models, expose) {
         };
       })
     );
+  });
+
+  readRoute("/map-popup", async (req, res) => {
+    const q = selection(req);
+    // A popup is scoped to one block/location; never scan an entire unselected estate.
+    if (!q.blockCode || !q.gps)
+      throw new QueryError("Select an activity location");
+    const matches = kinds.map(([kind]) => matchRecords(q, kind));
+    const fingerprint = createHash("sha256")
+      .update(JSON.stringify([matches, q.limit]))
+      .digest("hex");
+    let after = null;
+    if (q.cursor) {
+      try {
+        const c = JSON.parse(Buffer.from(q.cursor, "base64url").toString());
+        if (
+          c.f !== fingerprint ||
+          !["field", "harvesting"].includes(c.kind) ||
+          typeof c.activity !== "string" ||
+          c.activity.length > 500
+        )
+          throw Error();
+        after = c;
+      } catch {
+        throw new QueryError("This page does not match the selected activity.");
+      }
+    }
+    const result = await cached(
+      req,
+      ["map-popup", matches, q.limit, after],
+      async () => {
+        const lists = await Promise.all(
+          kinds.map(async ([kind, model], i) => {
+            if (after && kind < after.kind) return [];
+            const items = await aggregate(model, [
+              { $match: matches[i] },
+              {
+                $group: {
+                  _id:
+                    kind === "harvesting"
+                      ? { $literal: "Harvesting" }
+                      : {
+                          $cond: [
+                            {
+                              $eq: [
+                                { $ifNull: ["$activityDescription", ""] },
+                                "",
+                              ],
+                            },
+                            "Field activity",
+                            "$activityDescription",
+                          ],
+                        },
+                  mandays: { $sum: kind === "harvesting" ? 0 : "$mandays" },
+                },
+              },
+              ...(after?.kind === kind
+                ? [{ $match: { _id: { $gt: after.activity } } }]
+                : []),
+              { $sort: { _id: 1 } },
+              { $limit: q.limit + 1 },
+            ]);
+            return items.map((r) => ({
+              kind,
+              activity: r._id || "Field activity",
+              mandays: kind === "harvesting" ? null : r.mandays,
+            }));
+          })
+        );
+        const ordered = lists
+          .flat()
+          .sort((a, b) =>
+            Buffer.compare(
+              Buffer.from(a.kind + "\0" + a.activity),
+              Buffer.from(b.kind + "\0" + b.activity)
+            )
+          );
+        const rows = ordered.slice(0, q.limit),
+          last = rows.at(-1);
+        return {
+          items: rows.map(({ activity, mandays }) => ({ activity, mandays })),
+          nextCursor:
+            ordered.length > q.limit
+              ? Buffer.from(
+                  JSON.stringify({
+                    f: fingerprint,
+                    kind: last.kind,
+                    activity: last.activity,
+                  })
+                ).toString("base64url")
+              : null,
+        };
+      }
+    );
+    res.json(result);
   });
 
   api.get("/activity-options", async (req, res) => {

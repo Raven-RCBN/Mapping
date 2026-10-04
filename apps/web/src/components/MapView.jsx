@@ -1,4 +1,7 @@
-import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
+import Overlay from "ol/Overlay";
+import MapActivityPopup from "./MapActivityPopup";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import Map from "ol/Map";
 import View from "ol/View";
@@ -33,11 +36,20 @@ const featuresOf = (json) =>
     dataProjection: "EPSG:4326",
     featureProjection: "EPSG:3857",
   });
-export default function MapView({ rows, onRecord, onImport, onOffline }) {
+export default function MapView({
+  rows,
+  requestedRecord,
+  onImport,
+  onOffline,
+}) {
   const state = useSelector((s) => s),
     dispatch = useDispatch(),
     host = useRef(),
     mapRef = useRef(),
+    overlayRef = useRef(),
+    pointsRef = useRef([]),
+    popupElement = useMemo(() => document.createElement("div"), []),
+    [popup, setPopup] = useState(null),
     fitRef = useRef(""),
     [notice, setNotice] = useState(""),
     [split, setSplit] = useState(50),
@@ -61,14 +73,46 @@ export default function MapView({ rows, onRecord, onImport, onOffline }) {
       view: new View({ center: fromLonLat([102, 4]), zoom: 6 }),
     });
     mapRef.current = map;
+    const overlay = new Overlay({
+      element: popupElement,
+      positioning: "bottom-center",
+      offset: [0, -22],
+      autoPan: { animation: { duration: 160 }, margin: 16 },
+      stopEvent: true,
+    });
+    map.addOverlay(overlay);
+    overlayRef.current = overlay;
+    const popupResize = new ResizeObserver(() => {
+      if (overlay.getPosition())
+        overlay.panIntoView({ animation: { duration: 160 }, margin: 16 });
+    });
+    popupResize.observe(popupElement);
     const ro = new ResizeObserver(() => map.updateSize());
     ro.observe(host.current);
     return () => {
       ro.disconnect();
+      popupResize.disconnect();
       map.setTarget(null);
       map.dispose();
     };
   }, []);
+  useEffect(() => {
+    overlayRef.current?.setPosition(popup?.coordinate);
+  }, [popup]);
+  useEffect(() => {
+    if (!requestedRecord || !state.showActivities) return;
+    const point = pointsRef.current.find(
+      (p) => p.group.id === requestedRecord.groupId
+    );
+    // Unmatched records stay in Data; do not invent a location on the map.
+    if (point) setPopup(point);
+    else {
+      setPopup(null);
+      setNotice(
+        "This activity has no mapped location. Its records are available in Data."
+      );
+    }
+  }, [requestedRecord]);
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
@@ -78,6 +122,8 @@ export default function MapView({ rows, onRecord, onImport, onOffline }) {
       urls = [];
     setNotice("");
     setSample(null);
+    setPopup(null);
+    pointsRef.current = [];
     const add = (layer, z) => {
       layer.setZIndex(z);
       map.addLayer(layer);
@@ -153,6 +199,7 @@ export default function MapView({ rows, onRecord, onImport, onOffline }) {
                 ? fromLonLat(group.geolocation)
                 : interiorPosition(linked(r));
               if (!p) return [];
+              pointsRef.current.push({ group, coordinate: p });
               const feature = new Feature({
                 geometry: new Point(p),
                 record: group,
@@ -322,13 +369,21 @@ export default function MapView({ rows, onRecord, onImport, onOffline }) {
     const inspect = (e) => {
       const record = map.forEachFeatureAtPixel(
         e.pixel,
-        (f) => f.get("record"),
+        (f) =>
+          f.get("record")
+            ? {
+                group: f.get("record"),
+                coordinate: f.getGeometry().getCoordinates(),
+              }
+            : undefined,
         { hitTolerance: 3 }
       );
       if (record) {
-        onRecord(record);
+        setPopup(record);
+        setSample(null);
         return;
       }
+      setPopup(null);
       const feature = map.forEachFeatureAtPixel(e.pixel, (f) =>
         f.get("blockName") ? f : undefined
       );
@@ -381,11 +436,20 @@ export default function MapView({ rows, onRecord, onImport, onOffline }) {
     state.showBoundaries,
     state.showLabels,
     state.opacity,
-    onRecord,
   ]);
   return (
     <div className="map-stage">
       <div ref={host} id="estateMap" />
+      {popup &&
+        createPortal(
+          <MapActivityPopup
+            key={popup.group.id + JSON.stringify(state.mapQuery)}
+            group={popup.group}
+            query={state.mapQuery}
+            onClose={() => setPopup(null)}
+          />,
+          popupElement
+        )}
       <div className={"map-layer-panel " + (collapsed ? "collapsed" : "")}>
         <h3>
           Map layers{" "}

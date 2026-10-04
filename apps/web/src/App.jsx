@@ -79,6 +79,7 @@ export default function App() {
     dispatch = useDispatch(),
     [error, setError] = useState(""),
     [dialog, setDialog] = useState(null),
+    [mapRecord, setMapRecord] = useState(null),
     [token, setInputToken] = useState("");
   const reload = useCallback(async () => {
     const data = await getSnapshot();
@@ -223,28 +224,14 @@ export default function App() {
     dataView,
     storageView,
   ]);
-  const onRecord = useCallback(
-    (record) =>
-      setDialog(
-        record.rows
-          ? {
-              type: "records",
-              group: record,
-              server: record.rows.some((r) => r.summary)
-                ? {
-                    ...s.mapQuery,
-                    estates: record.estateId,
-                    block: `${record.estateId}::${record.block}`,
-                    gps: record.geolocation
-                      ? record.geolocation.join(",")
-                      : "block",
-                  }
-                : null,
-            }
-          : { type: "record", record }
-      ),
-    [s.mapQuery]
-  );
+  const onRecord = useCallback((record) => {
+    if (record.rows) {
+      setMapRecord({ groupId: record.id, requestedAt: Date.now() });
+      document
+        .getElementById("estateMap")
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    } else setDialog({ type: "record", record });
+  }, []);
   if (!s.data)
     return (
       <main className="startup">
@@ -577,7 +564,7 @@ export default function App() {
                   <Suspense fallback={<p role="status">Loading map viewer…</p>}>
                     <MapView
                       rows={rows}
-                      onRecord={onRecord}
+                      requestedRecord={mapRecord}
                       onImport={() => setDialog({ type: "import" })}
                       onOffline={() => setDialog({ type: "offline" })}
                     />

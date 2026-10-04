@@ -3032,3 +3032,22 @@ button:disabled {
 .summary-scope strong { color: #254b35; }
 .summary-note { margin: -12px 0 22px; padding: 12px 16px; background: #faf6e9; border: 1px solid #e9dec0; border-radius: 8px; color: #657459; font-size: 13px; }
 .stats .text-button:disabled { opacity: .5; cursor: default; }
+
+.map-activity-popup { position: relative; width: min(300px, calc(100vw - 112px)); min-width: 150px; padding: 28px 12px 12px; border: 1px solid #d3dfd0; border-radius: 10px; background: #fff; color: #244a36; box-shadow: 0 5px 22px #12342530; box-sizing: border-box; }
+.map-activity-popup::after { content: ""; position: absolute; left: calc(50% - 7px); bottom: -8px; width: 14px; height: 14px; background: #fff; border-right: 1px solid #d3dfd0; border-bottom: 1px solid #d3dfd0; transform: rotate(45deg); }
+.map-popup-close { position: absolute; top: 3px; right: 4px; width: 28px; height: 28px; padding: 0; border: 0; border-radius: 5px; background: transparent; font-size: 22px; color: #214b34; cursor: pointer; }
+.map-popup-close:hover { background: #eef4e9; }
+.map-popup-close:focus-visible { outline: 2px solid #cda744; }
+.map-popup-scroll { max-height: 200px; overflow-y: auto; overscroll-behavior: contain; }
+.map-activity-popup table { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+.map-activity-popup th { text-align: left; padding: 7px 5px; color: #617458; background: #f3f6ee; font-weight: 600; position: sticky; top: 0; }
+.map-activity-popup td { padding: 10px 5px; border-bottom: 1px solid #edf1e9; overflow-wrap: anywhere; line-height: 1.5; }
+.map-activity-popup th:last-child, .map-activity-popup td:last-child { width: 64px; text-align: right; font-variant-numeric: tabular-nums; }
+.map-activity-popup tr:last-child td { border-bottom: 0; }
+.map-activity-popup p { font-size: 12px; margin: 6px 0; }
+.map-popup-pages { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; }
+.map-popup-pages button { padding: 6px 8px; border: 1px solid #d3dfd0; border-radius: 5px; background: #f3f6ee; color: #244a36; font-size: 11px; }
+.map-popup-pages button:disabled { opacity: .4; }
+
+/* Keep the anchored popup above the floating map controls. */
+.map-stage #estateMap .ol-overlaycontainer-stopevent { z-index: 850 !important; }

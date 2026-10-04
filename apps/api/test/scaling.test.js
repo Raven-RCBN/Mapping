@@ -635,3 +635,49 @@ test("cards preserve verified denominator in review mode and refresh correctly a
     mandays: 2.25,
   });
 });
+
+test("compact map popups return only activity and mandays, with filtered totals and bounded pages", async () => {
+  const read = async (extra = {}, target = app) =>
+    request(target)
+      .post("/api/map-popup")
+      .set("X-Mapping-Client", "1")
+      .send({ estates: "cards", block: "cards::C1", gps: "block", ...extra });
+  const first = await read({ limit: 1 });
+  assert.equal(first.status, 200, JSON.stringify(first.body));
+  assert.deepEqual(first.body.items, [{ activity: "Spraying", mandays: 1.5 }]);
+  const second = await read({ limit: 1, cursor: first.body.nextCursor });
+  assert.deepEqual(second.body.items, [{ activity: "Weeding", mandays: 2.25 }]);
+  const third = await read({ limit: 1, cursor: second.body.nextCursor });
+  assert.deepEqual(third.body.items, [
+    { activity: "Harvesting", mandays: null },
+  ]);
+  assert.equal(third.body.nextCursor, null);
+  assert.equal(
+    (await read({ limit: 1, cursor: first.body.nextCursor, review: "true" }))
+      .status,
+    400
+  );
+  const only = await read({
+    mapVisibility: { mode: "include", fields: ["Weeding"], harvesting: false },
+  });
+  assert.deepEqual(only.body.items, [{ activity: "Weeding", mandays: 2.25 }]);
+  const noMatch = await read({ from: "2027-01-01", to: "2027-01-02" });
+  assert.deepEqual(noMatch.body.items, []);
+  assert.equal((await read({}, scoped)).status, 403);
+  assert.equal((await read({ block: "all" })).status, 400);
+  // Distinct GPS locations must not be merged into the block-position bubble.
+  await models.FieldActivity.create({
+    _id: "popup-gps",
+    estateId: "cards",
+    blockCode: "C1",
+    workDate: "2025-12-12",
+    activityDescription: "Spraying",
+    mandays: 100,
+    geolocation: { type: "Point", coordinates: [101, 3] },
+  });
+  const gps = await read({ gps: "101,3" });
+  assert.deepEqual(gps.body.items, [{ activity: "Spraying", mandays: 100 }]);
+  assert.deepEqual((await read({ review: "true" })).body.items, [
+    { activity: "Weeding", mandays: 2.25 },
+  ]);
+});
