@@ -1,0 +1,16 @@
+services:
+  mongo:
+    image: mongo:6.0
+    ports: ["127.0.0.1:27019:27017"]
+    volumes: ["mapping-mongo:/data/db"]
+  qgis:
+    image: qgis/qgis-server:ltr@sha256:fe17f02a5ae1c42e1890504afbc4996b834fb66f375d62d31679e35e03bdf3f4
+    platform: linux/amd64
+    environment:
+      QT_QPA_PLATFORM: offscreen
+    entrypoint: ["/bin/sh", "-c"]
+    command: ["nginx; exec spawn-fcgi -n -u www-data -g www-data -d /var/lib/qgis -p 9993 -- /usr/lib/cgi-bin/qgis_mapserv.fcgi"]
+    ports: ["127.0.0.1:4191:80"]
+    volumes: ["./data:/data:ro"]
+volumes:
+  mapping-mongo:

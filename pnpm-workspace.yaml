@@ -1,0 +1,10 @@
+packages:
+  - 'apps/web'
+  - 'apps/api'
+  - 'apps/mobile'
+  - 'packages/*'
+allowBuilds:
+  esbuild: true
+  sharp: true
+# Native Gradle and Metro resolve packages from this workspace's node_modules.
+enableGlobalVirtualStore: false

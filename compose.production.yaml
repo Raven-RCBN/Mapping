@@ -1,0 +1,19 @@
+services:
+  app:
+    build: .
+    ports: ["127.0.0.1:4180:4180"]
+    environment:
+      NODE_ENV: production
+      AUTH_MODE: jwt
+      MONGODB_URI: mongodb://mongo:27017/DigitalPalmMapping
+      DATA_DIR: /app/data
+      QGIS_SERVER_URL: http://qgis/ows/
+      QGIS_PROJECT_ROOT: /data/estates
+      JWT_PUBLIC_KEY_PATH: /run/keys/digitalpalm-public.pem
+      JWT_ISSUER: ${JWT_ISSUER:?Set JWT_ISSUER}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:?Set JWT_AUDIENCE}
+      CORS_ORIGINS: ${CORS_ORIGINS:?Set the HTTPS app origin}
+    volumes:
+      - ./data:/app/data
+      - ${JWT_PUBLIC_KEY_PATH:?Set public key path}:/run/keys/digitalpalm-public.pem:ro
+    depends_on: [mongo, qgis]

@@ -1,0 +1,18 @@
+{
+  "name": "digitalpalm-mapping",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@11.7.0",
+  "engines": {
+    "node": ">=22.13 <25"
+  },
+  "scripts": {
+    "dev": "pnpm --parallel --filter @mapping/web --filter @mapping/api dev",
+    "build": "pnpm --filter @mapping/web build",
+    "start": "pnpm --filter @mapping/api start",
+    "test": "pnpm --filter @mapping/api test && node --test packages/shared/*.test.js",
+    "import:atlas": "node apps/api/scripts/import-atlas.js",
+    "check": "pnpm test && pnpm build",
+    "mobile:viewer": "node scripts/build-mobile-viewer.mjs"
+  }
+}

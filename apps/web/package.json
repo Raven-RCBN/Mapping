@@ -1,0 +1,24 @@
+{
+  "name": "@mapping/web",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 5177",
+    "build": "vite build",
+    "preview": "vite preview --host 127.0.0.1 --port 4175"
+  },
+  "dependencies": {
+    "react": "19.2.0",
+    "react-dom": "19.2.0",
+    "react-redux": "9.2.0",
+    "@reduxjs/toolkit": "2.8.1",
+    "react-router-dom": "6.30.1",
+    "axios": "1.13.6",
+    "@ant-design/icons": "6.3.2",
+    "ol": "10.7.0"
+  },
+  "devDependencies": {
+    "vite": "6.3.1",
+    "@vitejs/plugin-react": "4.3.4"
+  }
+}
