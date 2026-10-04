@@ -3117,3 +3117,13 @@ button:disabled {
 .gis-layer-options label i { flex: 0 0 9px; height: 9px; border-radius: 2px; }
 .gis-layer-options label small { margin-left: auto; font-variant-numeric: tabular-nums; }
 .map-layer-panel { max-height: calc(100% - 125px); overflow-y: auto; overscroll-behavior: contain; }
+
+.context-facts { align-items: center; }
+.estate-export-wrap { position: relative; display: flex; align-items: center; }
+.estate-export-button { display: inline-flex; align-items: center; justify-content: center; width: 42px; height: 42px; border: 1px solid #d6dfd3; border-radius: 10px; color: #174d38; background: #f8faf5; }
+.estate-export-button:hover:not(:disabled) { background: #f7edcc; border-color: #b98d2b; }
+.estate-export-button:disabled { opacity: .4; cursor: not-allowed; }
+.estate-export-button svg { width: 21px; height: 21px; }
+.estate-export-status { position: absolute; right: 0; top: calc(100% + 10px); z-index: 1100; width: min(330px, 80vw); padding: 14px 16px; border: 1px solid #d6dfd3; border-radius: 10px; background: #fff; box-shadow: 0 8px 25px #10392322; font-size: 13px; line-height: 1.5; color: #26432e; }
+.estate-export-status p { margin: 0 0 8px; }
+.estate-export-status button { font-weight: 600; color: #174d38; }
