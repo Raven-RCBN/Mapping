@@ -16,7 +16,7 @@ import VectorSource from "ol/source/Vector";
 import OSM from "ol/source/OSM";
 import GeoJSON from "ol/format/GeoJSON";
 import { fromLonLat, toLonLat, transformExtent } from "ol/proj";
-import { isEmpty } from "ol/extent";
+import { isEmpty, getCenter } from "ol/extent";
 import { Style, Fill, Stroke, Text, Circle as CircleStyle } from "ol/style";
 import "ol/ol.css";
 import { patch } from "../store";
@@ -46,6 +46,7 @@ export default function MapView({
     dispatch = useDispatch(),
     host = useRef(),
     mapRef = useRef(),
+    roadRef = useRef(),
     overlayRef = useRef(),
     pointsRef = useRef([]),
     popupElement = useMemo(() => document.createElement("div"), []),
@@ -56,10 +57,6 @@ export default function MapView({
     [collapsed, setCollapsed] = useState(innerWidth < 600),
     [sample, setSample] = useState(null);
   const { data, selected, date, base, terrain, override, compare } = state;
-  useEffect(() => {
-    document.body.classList.toggle("topography-mode", base === "topography");
-    return () => document.body.classList.remove("topography-mode");
-  }, [base]);
   const images = imagesAt(
       state.data.paged ? state.mapAssets || [] : data.assets,
       selected,
@@ -75,10 +72,28 @@ export default function MapView({
   );
   const gisCache = useRef(new globalThis.Map());
   useEffect(() => {
+    const initialSource = new VectorSource({
+      features: estates.flatMap((e) =>
+        featuresOf(e.boundary || { type: "FeatureCollection", features: [] })
+      ),
+    });
+    const extent = initialSource.getExtent();
+    const road = new TileLayer({
+      source: new OSM(),
+      visible: base === "road" && !data.offline,
+    });
+    roadRef.current = road;
     const map = new Map({
       target: host.current,
-      view: new View({ center: fromLonLat([102, 4]), zoom: 6 }),
+      layers: [road],
+      view: new View({
+        center: isEmpty(extent) ? [0, 0] : getCenter(extent),
+        zoom: 2,
+      }),
     });
+    if (!isEmpty(extent))
+      map.getView().fit(extent, { padding: [60, 60, 60, 60], maxZoom: 16 });
+    initialSource.dispose();
     mapRef.current = map;
     const overlay = new Overlay({
       element: popupElement,
@@ -103,6 +118,9 @@ export default function MapView({
       map.dispose();
     };
   }, []);
+  useEffect(() => {
+    roadRef.current?.setVisible(base === "road" && !data.offline);
+  }, [base, data.offline]);
   useEffect(() => {
     overlayRef.current?.setPosition(popup?.coordinate);
   }, [popup]);
@@ -330,7 +348,6 @@ export default function MapView({
             );
             return;
           }
-          add(new TileLayer({ source: new OSM() }), 0);
           return;
         }
         if (base === "satellite") {

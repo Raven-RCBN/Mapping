@@ -1,4 +1,3 @@
-import { mergeEstateWorkspace } from "../../../packages/shared/estate-selection.js";
 import {
   lazy,
   Suspense,
@@ -9,7 +8,15 @@ import {
 } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { loaded, patch } from "./store";
+import {
+  loaded,
+  patch,
+  workspaceLoaded,
+  assetsLoaded,
+  rowsLoaded,
+  estateLoadFailed,
+  estateMapReady,
+} from "./store";
 import {
   getSnapshot,
   setToken,
@@ -93,6 +100,10 @@ export default function App() {
     reload().catch((e) => setError(errorMessage(e)));
   }, [reload]);
   useEffect(() => {
+    document.body.classList.toggle("topography-mode", s.base === "topography");
+    return () => document.body.classList.remove("topography-mode");
+  }, [s.base]);
+  useEffect(() => {
     setMapRecord(null);
     setError("");
   }, [s.selected[0]]);
@@ -143,6 +154,9 @@ export default function App() {
     mapPaging.key === pageKey ? mapPaging.cursors : [undefined];
   const mapCursor = pageCursors.at(-1);
   const dashboardKey = JSON.stringify([pageKey, mapCursor]);
+  const estateRequest = { estateId: s.selected[0], refresh: s.data?.refresh };
+  const failEstateLoad = (e) =>
+    dispatch(estateLoadFailed({ ...estateRequest, message: errorMessage(e) }));
   useEffect(() => {
     if (!s.data?.paged || s.data.offline) return;
     const controller = new AbortController();
@@ -153,19 +167,13 @@ export default function App() {
       })
       .then(({ data }) => {
         if (controller.signal.aborted) return;
-        dispatch(
-          patch({
-            data: {
-              ...s.data,
-              estates: mergeEstateWorkspace(s.data.estates, data.estates),
-              blocks: data.blocks,
-              sources: data.sources,
-            },
-          })
-        );
+        dispatch(workspaceLoaded({ ...estateRequest, data }));
       })
       .catch((e) => {
-        if (e.code !== "ERR_CANCELED") setError(errorMessage(e));
+        if (e.code !== "ERR_CANCELED" && !controller.signal.aborted) {
+          failEstateLoad(e);
+          setError(errorMessage(e));
+        }
       });
     return () => controller.abort();
   }, [s.selected.join(","), s.data?.refresh]);
@@ -188,18 +196,22 @@ export default function App() {
       .then(({ data }) => {
         if (controller.signal.aborted) return;
         dispatch(
-          patch({
-            dashboard: data,
-            dashboardKey,
-            mapRows: data.rows,
-            mapQuery: mapParams,
-            mapLoading: false,
+          rowsLoaded({
+            ...estateRequest,
+            patch: {
+              dashboard: data,
+              dashboardKey,
+              mapRows: data.rows,
+              mapQuery: mapParams,
+              mapLoading: false,
+            },
           })
         );
         setError("");
       })
       .catch((e) => {
-        if (e.code !== "ERR_CANCELED") {
+        if (e.code !== "ERR_CANCELED" && !controller.signal.aborted) {
+          failEstateLoad(e);
           setError(errorMessage(e));
           dispatch(
             patch({
@@ -225,10 +237,14 @@ export default function App() {
         signal: controller.signal,
       })
       .then(({ data }) => {
-        if (!controller.signal.aborted) dispatch(patch({ mapAssets: data }));
+        if (!controller.signal.aborted)
+          dispatch(assetsLoaded({ ...estateRequest, data }));
       })
       .catch((e) => {
-        if (e.code !== "ERR_CANCELED") setError(errorMessage(e));
+        if (e.code !== "ERR_CANCELED" && !controller.signal.aborted) {
+          failEstateLoad(e);
+          setError(errorMessage(e));
+        }
       });
     return () => controller.abort();
   }, [
@@ -241,7 +257,11 @@ export default function App() {
     storageView,
   ]);
   const onRecord = useCallback((record) => {
-    setMapRecord({ recordKey: recordKey(record), requestedAt: Date.now() });
+    setMapRecord({
+      estateId: record.estateId,
+      recordKey: recordKey(record),
+      requestedAt: Date.now(),
+    });
     document
       .getElementById("estateMap")
       ?.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -577,15 +597,55 @@ export default function App() {
                       dispatch(patch({ selectedBlock: null, block: "all" }))
                     }
                   />
-                  <Suspense fallback={<p role="status">Loading map viewer…</p>}>
-                    <MapView
-                      key={s.selected[0]}
-                      rows={displayRows}
-                      pageOffset={(pageCursors.length - 1) * 100}
-                      requestedRecord={mapRecord}
-                      onImport={() => setDialog({ type: "import" })}
-                      onOffline={() => setDialog({ type: "offline" })}
-                    />
+                  <Suspense
+                    fallback={
+                      <div
+                        className="map-stage estate-map-loading"
+                        role="status"
+                      >
+                        Loading map viewer…
+                      </div>
+                    }
+                  >
+                    {estateMapReady(s) ? (
+                      <MapView
+                        key={s.selected[0]}
+                        rows={displayRows}
+                        pageOffset={(pageCursors.length - 1) * 100}
+                        requestedRecord={
+                          mapRecord?.estateId === s.selected[0]
+                            ? mapRecord
+                            : null
+                        }
+                        onImport={() => setDialog({ type: "import" })}
+                        onOffline={() => setDialog({ type: "offline" })}
+                      />
+                    ) : (
+                      <div
+                        className="map-stage estate-map-loading"
+                        role="status"
+                        aria-busy={!s.estateLoadError}
+                      >
+                        {s.estateLoadError ? (
+                          <>
+                            <p>
+                              Could not load this estate’s map.{" "}
+                              {s.estateLoadError}
+                            </p>
+                            <button
+                              className="button"
+                              onClick={() =>
+                                reload().catch((e) => setError(errorMessage(e)))
+                              }
+                            >
+                              Retry map
+                            </button>
+                          </>
+                        ) : (
+                          <p>Loading {estates[0]?.name || "estate"} map…</p>
+                        )}
+                      </div>
+                    )}
                   </Suspense>
                   {s.compare && (
                     <div className="compare-options">

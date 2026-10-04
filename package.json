@@ -10,7 +10,7 @@
     "dev": "pnpm --parallel --filter @mapping/web --filter @mapping/api dev",
     "build": "pnpm --filter @mapping/web build",
     "start": "pnpm --filter @mapping/api start",
-    "test": "pnpm --filter @mapping/api test && node --test packages/shared/*.test.js",
+    "test": "pnpm --filter @mapping/api test && node --test packages/shared/*.test.js apps/web/src/*.test.js",
     "import:atlas": "node apps/api/scripts/import-atlas.js",
     "check": "pnpm test && pnpm build",
     "mobile:viewer": "node scripts/build-mobile-viewer.mjs"
