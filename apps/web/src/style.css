@@ -3022,7 +3022,7 @@ button:disabled {
 .map-activity-scope { font-size: 12px; }
 @media(max-width: 560px) {
   .map-activity-list { padding: 10px; }
-  .map-activity-columns, .map-activity-option { grid-template-columns: minmax(0, 1fr) 82px; gap: 5px; padding: 9px; }
+  .map-activity-columns, .map-activity-option { grid-template-columns: minmax(0, 1fr) 62px; gap: 5px; padding: 8px; }
   .map-activity-actions { margin-bottom: 10px; }
   .map-activity-pages { width: 100%; }
   .map-activity-pages small { margin-right: auto; }
