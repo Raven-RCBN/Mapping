@@ -203,8 +203,8 @@ export default function DataTables({
       </div>
       {popup && (
         <p className="table-note">
-          Records for the selected map period. Missing GPS is shown as “Not
-          supplied”; the bubble is placed inside the matched block.
+          Records for the selected period. The location columns distinguish
+          supplied GPS, block placement and pending map matches.
         </p>
       )}
       <div className="data-table-scroll" tabIndex="0">
