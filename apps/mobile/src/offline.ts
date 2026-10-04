@@ -22,7 +22,7 @@ export async function removeSaved() {
 export function serverURL(input: string) {
   const s = input.trim().replace(/\/$/, '');
   if (
-    !/^https:\/\/[^\s/?#]+(?::\d+)?$/.test(s) &&
+    !/^https:\/\/[^\s/?#]+(?::\d+)?(?:\/EstateAtlas)?$/.test(s) &&
     !/^http:\/\/(127\.0\.0\.1|localhost|10\.0\.2\.2)(:\d+)?$/.test(s)
   )
     throw Error(
@@ -30,8 +30,14 @@ export function serverURL(input: string) {
     );
   return s;
 }
+function connection(host: string) {
+  const base = serverURL(host);
+  const hosted = base.endsWith("/EstateAtlas");
+  return { origin: hosted ? base.slice(0, -"/EstateAtlas".length) : base, api: hosted ? "/api/EstateAtlas" : "/api" };
+}
 export async function loadEstates(host: string, token: string) {
-  const response = await fetch(serverURL(host) + '/api/snapshot', {
+  const { origin, api } = connection(host);
+  const response = await fetch(origin + api + '/snapshot', {
     headers: { Authorization: 'Bearer ' + token },
   });
   if (!response.ok)
@@ -44,10 +50,10 @@ export async function downloadPack(
   ids: string[],
   progress: (s: string) => void,
 ): Promise<SavedPack> {
-  const base = serverURL(host),
+  const { origin: base, api } = connection(host),
     headers = { Authorization: 'Bearer ' + token };
   const response = await fetch(
-    base + '/api/offline?estates=' + ids.map(encodeURIComponent).join(','),
+    base + api + '/offline?estates=' + ids.map(encodeURIComponent).join(','),
     { headers },
   );
   if (!response.ok) throw Error('Unable to download these estates.');
@@ -61,7 +67,7 @@ export async function downloadPack(
       const f = pack.files[i];
       if (
         !/^[a-zA-Z0-9-]+$/.test(f.id) ||
-        !/^\/api\/assets\/[a-zA-Z0-9-]+\/file$/.test(f.url) ||
+        f.url !== `${api}/assets/${f.id}/file` ||
         !/^[a-f0-9]{64}$/.test(f.sha256)
       )
         throw Error('Invalid file in manifest');

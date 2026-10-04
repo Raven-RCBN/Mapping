@@ -1,0 +1,16 @@
+import fs from "node:fs/promises";
+import assert from "node:assert/strict";
+const dir = new URL("../../apps/web/dist/", import.meta.url);
+const html = await fs.readFile(new URL("index.html", dir), "utf8");
+assert.match(html, /src="\/EstateAtlas\/assets\//);
+assert.match(html, /href="\/EstateAtlas\/manifest.webmanifest"/);
+const manifest = JSON.parse(await fs.readFile(new URL("manifest.webmanifest", dir), "utf8"));
+assert.equal(manifest.scope, "/EstateAtlas/");
+assert.equal(manifest.start_url, "/EstateAtlas/");
+assert.equal(manifest.icons[0].src, "/EstateAtlas/icon.svg");
+const sw = await fs.readFile(new URL("sw.js", dir), "utf8");
+assert.ok(sw.includes('const BASE = "/EstateAtlas/"'));
+assert.ok(sw.includes('!url.pathname.startsWith(BASE)'));
+assert.ok(!sw.includes('__SHELL_FILES__'));
+assert.ok(!sw.includes('"/assets/'));
+console.log("EstateAtlas asset, manifest and service-worker scope checks passed");

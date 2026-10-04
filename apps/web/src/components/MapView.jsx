@@ -17,7 +17,7 @@ import { getCenter, isEmpty } from "ol/extent";
 import { Style, Fill, Stroke, Text, Circle as CircleStyle } from "ol/style";
 import "ol/ol.css";
 import { patch } from "../store";
-import { imageBlob, authorisedFile } from "../api";
+import { imageBlob, authorisedFile, apiBase } from "../api";
 import { imagesAt, types, label } from "../../../../packages/shared/timeline";
 const geo = new GeoJSON();
 const featuresOf = (json) =>
@@ -247,7 +247,7 @@ export default function MapView({ rows, onRecord, onImport, onOffline }) {
             await raster(a);
             if (!data.offline && e.qgis) {
               const wms = new ImageWMS({
-                url: `/api/estates/${e.id}/qgis`,
+                url: `${apiBase}/estates/${e.id}/qgis`,
                 params: {
                   LAYERS: terrain,
                   VERSION: "1.1.1",

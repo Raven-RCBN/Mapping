@@ -74,6 +74,7 @@ test('complete download writes local HTML then replaces the active manifest', as
 });
 test('hosting address permits HTTPS and local development only', () => {
   expect(serverURL('https://mapping.example/')).toBe('https://mapping.example');
+  expect(serverURL('https://agrinexus.digitalpalm.ai/EstateAtlas/')).toBe('https://agrinexus.digitalpalm.ai/EstateAtlas');
   expect(() => serverURL('http://other-host.example')).toThrow('HTTPS');
   expect(() => serverURL('https://host.example/path')).toThrow('HTTPS');
 });

@@ -78,3 +78,8 @@ Tests cover image persistence, checksum retrieval after a fresh app instance, of
 Hosting has not been deployed. See [deployment](docs/DEPLOYMENT.md) for persistent volumes, QGIS, HTTPS and DigitalPalm JWT access. Scheduled acquisition and AgriNexus activity synchronisation are not running; source configuration is stored for that integration. No production credentials are included.
 
 Terrain is Copernicus GLO-30 surface elevation, including vegetation, at approximately 30 m spacing. Ten-metre contours do not imply ten-metre survey accuracy. Retain the source attribution and obtain surveyed ground data for engineering work.
+
+
+## Hosted Estate Atlas
+
+Open [EstateAtlas](https://agrinexus.digitalpalm.ai/EstateAtlas/) using your AgriNexus sign-in. The existing `/mapping` page is preserved. Hosted assets and offline caches are scoped to `/EstateAtlas/`, and the isolated API is `/api/EstateAtlas`. See [deployment details](docs/DEPLOYMENT.md) for release, storage, QGIS and rollback information.

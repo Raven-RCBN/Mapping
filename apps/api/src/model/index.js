@@ -1,9 +1,12 @@
 import mongoose from "mongoose";
 const { Schema } = mongoose;
 const options = { versionKey: false, timestamps: true };
-const model = (name, shape) =>
-  mongoose.models[name] || mongoose.model(name, new Schema(shape, options));
-export const Estate = model("MappingEstate", {
+export function createModels(connection = mongoose, prefix = "Mapping") {
+const model = (name, shape) => {
+  name = name.replace(/^Mapping/, prefix);
+  return connection.models[name] || connection.model(name, new Schema(shape, options));
+};
+const Estate = model("MappingEstate", {
   _id: String,
   name: { type: String, required: true },
   location: String,
@@ -13,7 +16,7 @@ export const Estate = model("MappingEstate", {
   source: String,
   qgis: Boolean,
 });
-export const Asset = model("MappingAsset", {
+const Asset = model("MappingAsset", {
   _id: String,
   estateId: { type: String, required: true, index: true },
   name: String,
@@ -40,7 +43,7 @@ export const Asset = model("MappingAsset", {
   sourceUrl: String,
 });
 Asset.schema.index({ estateId: 1, acquiredAt: 1 });
-export const Activity = model("MappingActivity", {
+const Activity = model("MappingActivity", {
   _id: String,
   estateId: { type: String, index: true },
   block: String,
@@ -55,7 +58,7 @@ export const Activity = model("MappingActivity", {
   verifiedBy: String,
   verifiedAt: Date,
 });
-export const Source = model("MappingSource", {
+const Source = model("MappingSource", {
   _id: String,
   estateId: { type: String, index: true },
   name: String,
@@ -64,9 +67,13 @@ export const Source = model("MappingSource", {
   schedule: String,
   retention: String,
 });
-export const AccessGrant = model("MappingAccessGrant", {
+const AccessGrant = model("MappingAccessGrant", {
   _id: String,
   role: { type: String, enum: ["viewer", "manager", "admin"] },
   estateIds: [String],
   active: Boolean,
 });
+
+return { Estate, Asset, Activity, Source, AccessGrant };
+}
+export const { Estate, Asset, Activity, Source, AccessGrant } = createModels();

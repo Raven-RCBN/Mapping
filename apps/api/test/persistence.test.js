@@ -8,6 +8,7 @@ import mongoose from "mongoose";
 import request from "supertest";
 import sharp from "sharp";
 import jwt from "jsonwebtoken";
+import { agrinexusAccess } from "../src/integrations/agrinexus.js";
 import { createApp } from "../src/app.js";
 import { Estate, Asset, AccessGrant } from "../src/model/index.js";
 import { resolveStoredFile } from "../src/service/files.js";
@@ -151,4 +152,34 @@ test("invalid image bytes are rejected without residual files", async () => {
   assert.equal(r.status, 400);
   assert.deepEqual(await fs.readdir(path.join(root, ".staging")), []);
   assert.equal(await Asset.countDocuments(), 1);
+});
+
+
+test("EstateAtlas has namespaced files, auth and offline manifests without claiming /mapping", async () => {
+  const standalone = await createApp({ ...config, apiPath: "", publicApiPath: "/api/EstateAtlas", serveWeb: false });
+  const r = await request(standalone).get("/snapshot");
+  assert.equal(r.status, 200);
+  assert.match(r.body.assets[0].url, /^\/api\/EstateAtlas\/assets\//);
+  const pack = await request(standalone).get("/offline?estates=estate-a");
+  assert.match(pack.body.files[0].url, /^\/api\/EstateAtlas\/assets\//);
+  assert.equal((await request(standalone).get("/mapping")).status, 404);
+});
+
+test("AgriNexus integration requires host-verified identity and explicit non-root grants", async () => {
+  const express = (await import("express")).default;
+  const fakeHostAuth = (req, _res, next) => {
+    req.user = { Id: req.headers.authorization.slice(7), RootUser: req.headers.authorization === "Bearer root" };
+    next();
+  };
+  const host = express();
+  host.use(agrinexusAccess(fakeHostAuth, AccessGrant));
+  host.get("/", (req, res) => res.json(req.access));
+  assert.equal((await request(host).get("/")).status, 401);
+  assert.equal((await request(host).get("/").set("Authorization", "Bearer ungranted")).status, 403);
+  const viewer = await request(host).get("/").set("Authorization", "Bearer viewer");
+  assert.equal(viewer.body.role, "viewer");
+  assert.deepEqual(viewer.body.estateIds, ["estate-b"]);
+  const root = await request(host).get("/").set("Authorization", "Bearer root");
+  assert.equal(root.body.role, "admin");
+  assert.equal(root.body.estateIds, null);
 });

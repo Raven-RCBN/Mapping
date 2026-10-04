@@ -1,4 +1,5 @@
 import express from "express";
+import { renderQgisCgi } from "./service/qgis.js";
 import cors from "cors";
 import helmet from "helmet";
 import multer from "multer";
@@ -6,7 +7,7 @@ import path from "node:path";
 import fs from "node:fs/promises";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { Estate, Asset, Activity, Source } from "./model/index.js";
+import * as defaultModels from "./model/index.js";
 import {
   authentication,
   estateQuery,
@@ -45,18 +46,22 @@ const clean = (doc) => {
   const { _id, __v, ...rest } = doc;
   return { ...rest, id: _id };
 };
-const publicAsset = (a) => {
+const publicAsset = (a, base = "/api") => {
   const { _id, file, ...rest } = a;
   return {
     ...rest,
     id: _id,
-    url: `/api/assets/${_id}/file`,
+    url: `${base}/assets/${_id}/file`,
     mime: file.mime,
     bytes: file.bytes,
     sha256: file.sha256,
   };
 };
 export async function createApp(config) {
+  const { Estate, Asset, Activity, Source } = config.models || defaultModels;
+  const apiPath = config.apiPath ?? "/api";
+  const mount = apiPath || "/";
+  const expose = (a) => publicAsset(a, config.publicApiPath || "/api");
   const app = express();
   app.disable("x-powered-by");
   app.use(helmet({ contentSecurityPolicy: false }));
@@ -70,9 +75,9 @@ export async function createApp(config) {
       return res.status(403).json({ error: "Origin not allowed" });
     next();
   });
-  app.use("/api", cors({ origin: config.origins }));
+  app.use(mount, cors({ origin: config.origins }));
   app.use(express.json({ limit: "8mb" }));
-  app.get("/api/health", (_req, res) =>
+  app.get(apiPath + "/health", (_req, res) =>
     res.json({
       status: "ok",
       storage: "filesystem",
@@ -81,7 +86,7 @@ export async function createApp(config) {
     })
   );
   const api = express.Router();
-  api.use(authentication(config));
+  api.use(config.authenticate || authentication(config));
   api.use((req, res, next) => {
     res.set("Cache-Control", "no-store");
     if (
@@ -103,7 +108,7 @@ export async function createApp(config) {
     return {
       version: 1,
       estates: estates.map(clean),
-      assets: assets.map(publicAsset),
+      assets: assets.map(expose),
       activities: activities.map(clean),
       sources: sources.map(clean),
       access: { role: req.access.role, subject: req.access.subject },
@@ -113,7 +118,7 @@ export async function createApp(config) {
     const estateId = id.parse(req.params.id);
     if (!canAccess(req, estateId)) return res.sendStatus(403);
     if (
-      !config.qgisUrl ||
+      (!config.qgisUrl && !config.qgisCommand) ||
       !(await Estate.exists({ _id: estateId, qgis: true }))
     )
       return res.status(503).json({ error: "QGIS service not configured" });
@@ -134,8 +139,7 @@ export async function createApp(config) {
       bbox[1] >= bbox[3]
     )
       return res.status(400).json({ error: "Invalid map extent" });
-    const url = new URL(config.qgisUrl);
-    url.search = new URLSearchParams({
+    const params = new URLSearchParams({
       ...q,
       MAP: `${config.qgisRoot}/${estateId}/qgis/published.qgz`,
       SERVICE: "WMS",
@@ -144,8 +148,11 @@ export async function createApp(config) {
       SRS: "EPSG:3857",
       FORMAT: "image/png",
       TRANSPARENT: "true",
-    }).toString();
+    });
     try {
+      if (config.qgisCommand) return res.type("png").send(await renderQgisCgi(config.qgisCommand, params));
+      const url = new URL(config.qgisUrl);
+      url.search = params.toString();
       const response = await fetch(url, { signal: AbortSignal.timeout(20000) });
       if (
         !response.ok ||
@@ -290,7 +297,7 @@ export async function createApp(config) {
           importedAt: new Date().toISOString(),
           attribution: "Estate image upload",
         });
-        res.status(201).json(publicAsset(asset.toObject()));
+        res.status(201).json(expose(asset.toObject()));
       } catch (e) {
         if (saved)
           await fs
@@ -372,13 +379,15 @@ export async function createApp(config) {
       files,
     });
   });
-  app.use("/api", api);
-  app.use("/api", (_req, res) =>
+  app.use(mount, api);
+  app.use(mount, (_req, res) =>
     res.status(404).json({ error: "Unknown API endpoint" })
   );
+  if (config.serveWeb !== false) {
   const web = path.join(ROOT, "apps/web/dist");
   app.use(express.static(web));
   app.get("/{*path}", (req, res) => res.sendFile(path.join(web, "index.html")));
+  }
   app.use((err, _req, res, _next) => {
     const bad =
       err instanceof ImageInputError ||

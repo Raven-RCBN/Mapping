@@ -1,6 +1,36 @@
-# Hosting handover
+# AgriNexus deployment
 
-The user's hosting provider is still to be supplied. No DNS, production deployment or production database connection has been made.
+The existing AgriNexus frontend stays intact. Nginx's existing directory handling serves a separate `dist/EstateAtlas` symlink and redirects `/EstateAtlas` to `/EstateAtlas/`. No Nginx configuration changes are needed for this single-page app.
+
+Build with:
+
+```sh
+VITE_BASE_PATH=/EstateAtlas/ VITE_API_BASE=/api/EstateAtlas VITE_AGRINEXUS_SESSION=true pnpm build
+node scripts/deploy/check-subpath.mjs
+```
+
+Vite assets, React Router basename, icons, manifest and service-worker scope use `/EstateAtlas/`. The worker and offline caches are namespaced and never control `/mapping`. The native app accepts `https://agrinexus.digitalpalm.ai/EstateAtlas` as its server address.
+
+## Current host integration
+
+- Persistent files: `/opt/digitalpalm/agrinexus/estate-atlas/data/estates/<id>/`.
+- Versioned releases and `current` link: `/opt/digitalpalm/agrinexus/estate-atlas/`.
+- API: `/api/EstateAtlas`, mounted before existing routes through `scripts/deploy/agrinexus-entry.mjs`.
+- Uses the existing AgriNexus MongoDB connection with dedicated `EstateAtlas*` models/collections. No existing application records or schemas are modified. Images remain ordinary files.
+- Reuses the host's `AuthHandler` to verify its existing signed session cookie or bearer token. Existing root administrators can manage EstateAtlas. Other users need an active `EstateAtlasAccessGrant` with a role and explicit estate IDs. Never use the browser's user/role JSON as proof of authorization.
+- Initial estate import checks all file SHA-256 values and uses `$setOnInsert`; a persistent marker prevents repeated initial imports. It does not overwrite uploads or activities on later deploys.
+- QGIS 3.44.14 is installed in an isolated conda-forge runtime under `tools/qgis`. On this host, the private CGI adapter invokes the QGIS Python rendering engine against `published.qgz`. It supports only the validated elevation/hillshade/slope requests, at most two simultaneous renders with a 25-second limit. No QGIS network port is exposed. A dedicated QGIS Server WMS deployment remains supported for larger installations.
+- AgriNexus API remains managed by its existing service wrapper. The host Node runtime, its dependency tree, environment and credentials are unchanged; EstateAtlas has its own locked dependencies.
+
+## Publish and rollback
+
+Stage source, install production API dependencies with the repository lockfile and validate QGIS rendering before publishing. Re-resolve the AgriNexus `current` link, back up the API entry file and checksum the existing frontend. Mount the integration in the backend and restart only with the documented `agrinexus-service` wrapper. Publish only the new `EstateAtlas` symlink; never replace the parent frontend or `/mapping`.
+
+The first deployment's backup is `/home/deploy_agrinexus/releases/EstateAtlas-before-20261004`, containing the previous API entry file and frontend checksums. To roll back, restore that entry file, restart the API, and remove only the new frontend symlink. Keep the persistent data directory. Subsequent releases can switch the EstateAtlas links after verification; retain older releases for rollback.
+
+## Standalone deployment
+
+EstateAtlas is deployed at `https://agrinexus.digitalpalm.ai/EstateAtlas/`. Capitalization is significant. The existing `/mapping` frontend and API remain separate.
 
 ## Services and storage
 
@@ -26,7 +56,7 @@ Viewers cannot import, configure sources or verify activity. Managers are limite
 
 ## Next production connections
 
-Provide the hosting address, persistent disk/object-storage arrangement, DigitalPalm issuer/public key details and authorised activity API contract. Add the actual identity login flow, acquisition scheduler and reviewed QField synchronisation using those contracts. The current source settings persist configuration only; no background acquisition jobs are claimed to run.
+For standalone hosting, configure the persistent disk/object-storage arrangement and DigitalPalm issuer/public key. AgriNexus hosting already reuses its existing identity flow. Add activity synchronization, the acquisition scheduler and reviewed QField synchronisation using their authorised API contracts. The current source settings persist configuration only; no background acquisition jobs are claimed to run.
 
 ## QGIS updates
 

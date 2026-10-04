@@ -1,4 +1,6 @@
-const SHELL = "mapping-shell-__VERSION__";
+const BASE = "__BASE_PATH__";
+const PREFIX = "estate-atlas-shell-" + encodeURIComponent(BASE) + "-";
+const SHELL = PREFIX + "__VERSION__";
 const FILES = __SHELL_FILES__;
 self.addEventListener("install", (event) =>
   event.waitUntil(
@@ -12,7 +14,7 @@ self.addEventListener("activate", (event) =>
   event.waitUntil(
     (async () => {
       for (const name of await caches.keys())
-        if (name.startsWith("mapping-shell-") && name !== SHELL)
+        if (name.startsWith(PREFIX) && name !== SHELL)
           await caches.delete(name);
       await self.clients.claim();
     })()
@@ -23,6 +25,8 @@ self.addEventListener("fetch", (event) => {
   if (
     url.origin !== location.origin ||
     event.request.method !== "GET" ||
+    !url.pathname.startsWith(BASE) ||
+    url.pathname.startsWith(BASE + "api/") ||
     url.pathname.startsWith("/api/")
   )
     return;
@@ -34,7 +38,7 @@ self.addEventListener("fetch", (event) => {
       return (
         (await cache.match(event.request, { ignoreVary: true })) ||
         (event.request.mode === "navigate"
-          ? await cache.match("/index.html", { ignoreVary: true })
+          ? await cache.match(BASE + "index.html", { ignoreVary: true })
           : new Response("Not saved offline", { status: 503 }))
       );
     })

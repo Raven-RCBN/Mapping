@@ -1,10 +1,18 @@
 import axios from "axios";
+export const apiBase = import.meta.env.VITE_API_BASE || "/api";
+const namespace = "estate-atlas-" + encodeURIComponent(import.meta.env.BASE_URL);
 export const api = axios.create({
-  baseURL: "/api",
+  baseURL: apiBase,
+  withCredentials: true,
   headers: { "X-Mapping-Client": "1" },
   timeout: 60000,
 });
 let token = "";
+api.interceptors.request.use((config) => {
+  const sessionToken = token || (import.meta.env.VITE_AGRINEXUS_SESSION === "true" ? localStorage.getItem("token") : "");
+  if (sessionToken && !["null", "undefined"].includes(sessionToken)) config.headers.Authorization = "Bearer " + sessionToken;
+  return config;
+});
 export function setToken(value) {
   token = value;
   api.defaults.headers.common.Authorization = value
@@ -12,14 +20,16 @@ export function setToken(value) {
     : undefined;
 }
 export async function authorisedFile(url) {
-  return (await api.get(url.replace(/^\/api/, ""), { responseType: "blob" }))
+  const path = new URL(url, location.origin);
+  if (path.origin !== location.origin || !path.pathname.startsWith(apiBase + "/")) throw Error("Invalid map resource URL");
+  return (await api.get(path.pathname.slice(apiBase.length) + path.search, { responseType: "blob" }))
     .data;
 }
-const manifestCache = "mapping-offline-manifest-v1";
+const manifestCache = namespace + "-manifest-v1";
 let offlineIndex = null;
 export async function offlineManifest() {
   const c = await caches.open(manifestCache);
-  const r = await c.match("/offline-manifest");
+  const r = await c.match(import.meta.env.BASE_URL + "offline-manifest");
   return r ? await r.json() : null;
 }
 export async function getSnapshot() {
@@ -64,7 +74,7 @@ export async function saveOffline(ids, onProgress) {
   const { data: pack } = await api.get("/offline", {
     params: { estates: ids.join(",") },
   });
-  const cacheName = "mapping-pack-" + crypto.randomUUID(),
+  const cacheName = namespace + "-pack-" + crypto.randomUUID(),
     cache = await caches.open(cacheName);
   try {
     for (let i = 0; i < pack.files.length; i++) {
@@ -89,7 +99,7 @@ export async function saveOffline(ids, onProgress) {
     await (
       await caches.open(manifestCache)
     ).put(
-      "/offline-manifest",
+      import.meta.env.BASE_URL + "offline-manifest",
       new Response(JSON.stringify({ ...pack, cacheName }))
     );
     if (previous?.cacheName) await caches.delete(previous.cacheName);

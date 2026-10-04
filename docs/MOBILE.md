@@ -12,3 +12,5 @@ React Native 0.83 / React 19.2 matches DigitalPalm mobile. Android and iOS nativ
 Saved maps are private app documents, with Android backup disabled. Removing downloaded maps clears the active package. Logging in as a different subject removes the previous subject's package. Treat a device with downloaded estate data as a trusted field device; offline grants cannot be remotely revoked until the device reconnects. An offline activity capture/review sync queue is not implemented.
 
 The API's development mode accepts localhost only. Android emulator testing can use `adb reverse tcp:4180 tcp:4180` and `http://127.0.0.1:4180`; for physical devices configure JWT mode and HTTPS. Never expose development mode to the LAN.
+
+For AgriNexus, enter `https://agrinexus.digitalpalm.ai/EstateAtlas` as the server address. The client uses `/api/EstateAtlas` and validates downloaded file URLs against that exact namespace. Older preview APKs built before this change need rebuilding to use this hosted path.

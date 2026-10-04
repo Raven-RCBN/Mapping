@@ -13,6 +13,10 @@ import EstatePicker from "./components/EstatePicker";
 import MapView from "./components/MapView";
 import Timeline from "./components/Timeline";
 import Dialogs from "./components/Dialogs";
+function errorMessage(error) {
+  const detail = error.response?.data?.error;
+  return (typeof detail === "string" ? detail : detail?.desc || detail?.message) || error.message || "Unable to load the workspace.";
+}
 function Thumbnail({ asset }) {
   const [url, setUrl] = useState("");
   useEffect(() => {
@@ -50,8 +54,7 @@ export default function App() {
   useEffect(() => {
     reload().catch((e) =>
       setError(
-        e.response?.data?.error ||
-          "API unavailable. Start the API or open a saved offline package."
+        errorMessage(e)
       )
     );
   }, [reload]);
@@ -79,24 +82,25 @@ export default function App() {
   if (!s.data)
     return (
       <main className="startup">
-        <img src="/icon.svg" width="60" />
+        <img src={import.meta.env.BASE_URL + "icon.svg"} width="60" />
         <h1>Estate Atlas</h1>
         <p>{error || "Loading your estate workspace…"}</p>
         {error && (
           <>
+            {import.meta.env.VITE_AGRINEXUS_SESSION === "true" && <p><a className="button primary" href="/login">Sign in to AgriNexus</a><br />Then return to Estate Atlas.</p>}
             <button
               className="button"
-              onClick={() => reload().catch((e) => setError(e.message))}
+              onClick={() => reload().catch((e) => setError(errorMessage(e)))}
             >
               Retry connection
             </button>
-            <form
+            {import.meta.env.VITE_AGRINEXUS_SESSION !== "true" && <form
               onSubmit={async (e) => {
                 e.preventDefault();
                 await clearOffline();
                 setToken(token);
                 reload().catch((e) =>
-                  setError(e.response?.data?.error || e.message)
+                  setError(errorMessage(e))
                 );
               }}
             >
@@ -110,7 +114,7 @@ export default function App() {
                 />
               </label>
               <button className="button primary">Connect</button>
-            </form>
+            </form>}
           </>
         )}
       </main>
@@ -137,7 +141,7 @@ export default function App() {
     <>
       <aside className="rail">
         <a className="brand map-brand" href="#" aria-label="DigitalPalm home">
-          <img src="/icon.svg" alt="" />
+          <img src={import.meta.env.BASE_URL + "icon.svg"} alt="" />
         </a>
         <div className="rail-divider" />
         <button

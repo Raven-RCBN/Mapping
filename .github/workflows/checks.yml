@@ -20,6 +20,11 @@ jobs:
       - run: pnpm check
         env:
           MONGODB_TEST_URI: mongodb://127.0.0.1:27018/MappingTest_CI
+      - run: pnpm build && node scripts/deploy/check-subpath.mjs
+        env:
+          VITE_BASE_PATH: /EstateAtlas/
+          VITE_API_BASE: /api/EstateAtlas
+          VITE_AGRINEXUS_SESSION: "true"
       - run: pnpm mobile:viewer
       - run: pnpm --filter @mapping/mobile exec tsc --noEmit
       - run: pnpm --filter @mapping/mobile test --runInBand

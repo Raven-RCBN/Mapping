@@ -27,7 +27,7 @@ const slice = createSlice({
       if (!s.selected.length) {
         try {
           s.selected = JSON.parse(
-            localStorage.getItem("mapping-selected") || "[]"
+            localStorage.getItem("estate-atlas-selected:" + import.meta.env.BASE_URL) || "[]"
           ).filter((id) => ids.includes(id));
         } catch {}
         if (!s.selected.length) s.selected = ids.slice(0, 1);
@@ -41,7 +41,7 @@ const slice = createSlice({
       s.block = "all";
       s.override = null;
       s.compare = null;
-      localStorage.setItem("mapping-selected", JSON.stringify(payload));
+      localStorage.setItem("estate-atlas-selected:" + import.meta.env.BASE_URL, JSON.stringify(payload));
     },
   },
 });

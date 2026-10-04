@@ -29,3 +29,5 @@ coverage/
 *.keystore
 *.xcuserstate
 apps/mobile/assets/viewer.json
+
+.deploy/
