@@ -20,6 +20,7 @@ import {
   ImageInputError,
 } from "./service/files.js";
 import { ROOT } from "./config/index.js";
+import { activityView } from "../../../packages/shared/activities.js";
 const date = z
   .string()
   .regex(/^\d{4}-\d{2}-\d{2}$/)
@@ -58,7 +59,15 @@ const publicAsset = (a, base = "/api") => {
   };
 };
 export async function createApp(config) {
-  const { Estate, Asset, Activity, Source } = config.models || defaultModels;
+  const {
+    Estate,
+    Asset,
+    Activity,
+    Source,
+    Block,
+    HarvestingActivity,
+    FieldActivity,
+  } = config.models || defaultModels;
   const apiPath = config.apiPath ?? "/api";
   const mount = apiPath || "/";
   const expose = (a) => publicAsset(a, config.publicApiPath || "/api");
@@ -99,21 +108,137 @@ export async function createApp(config) {
   const estateIds = (req) =>
     req.access.estateIds === null ? {} : { _id: { $in: req.access.estateIds } };
   const snapshot = async (req) => {
-    const [estates, assets, activities, sources] = await Promise.all([
-      Estate.find(estateIds(req)).lean(),
-      Asset.find(estateQuery(req)).lean(),
-      Activity.find(estateQuery(req)).lean(),
-      Source.find(estateQuery(req)).lean(),
-    ]);
+    const [estates, assets, activities, sources, blocks, harvesting, field] =
+      await Promise.all([
+        Estate.find(estateIds(req)).lean(),
+        Asset.find(estateQuery(req)).lean(),
+        Activity.find(estateQuery(req)).lean(),
+        Source.find(estateQuery(req)).lean(),
+        Block.find(estateQuery(req)).lean(),
+        HarvestingActivity.find(estateQuery(req)).lean(),
+        FieldActivity.find(estateQuery(req)).lean(),
+      ]);
     return {
-      version: 1,
+      version: 2,
+      blocks: blocks.map(clean),
       estates: estates.map(clean),
       assets: assets.map(expose),
-      activities: activities.map(clean),
+      activities: [
+        ...activities
+          .filter(
+            (r) => !estates.find((e) => e._id === r.estateId)?.workbookImportId
+          )
+          .map(clean),
+        ...harvesting.map((r) => activityView(r, "harvesting")),
+        ...field.map((r) => activityView(r, "field")),
+      ],
       sources: sources.map(clean),
       access: { role: req.access.role, subject: req.access.subject },
     };
   };
+  const geolocation = z
+    .object({
+      type: z.literal("Point"),
+      coordinates: z.tuple([
+        z.number().min(-180).max(180),
+        z.number().min(-90).max(90),
+      ]),
+      accuracyMetres: z.number().min(0).optional(),
+    })
+    .nullable();
+  for (const [route, model, kind] of [
+    ["harvesting", HarvestingActivity, "harvesting"],
+    ["field-activities", FieldActivity, "field"],
+  ]) {
+    api.get("/" + route, async (req, res) => {
+      res.json((await model.find(estateQuery(req)).lean()).map(clean));
+    });
+    api.post("/" + route, requireWrite, async (req, res) => {
+      const common = {
+        estateId: id,
+        blockId: id,
+        workDate: date,
+        gang: z.string().max(200),
+        geolocation: geolocation.default(null),
+      };
+      const details =
+        kind === "harvesting"
+          ? {
+              employeeNo: z.string().max(100),
+              employeeName: z.string().max(200),
+              activity: z.literal("Harvesting").default("Harvesting"),
+              bunches: z.number().finite().min(0),
+            }
+          : {
+              activityCode: z.string().min(1).max(100),
+              activityDescription: z.string().min(1).max(500),
+              mandays: z.number().finite().min(0),
+            };
+      const row = z.object({ ...common, ...details }).parse(req.body);
+      if (!canAccess(req, row.estateId)) return res.sendStatus(403);
+      const block = await Block.findOne({
+        _id: row.blockId,
+        estateId: row.estateId,
+      }).lean();
+      if (!block)
+        return res.status(400).json({ error: "Choose a block in this estate" });
+      const record = await model.create({
+        ...row,
+        _id: randomUUID(),
+        blockCode: block.blockCode,
+        status: "recorded",
+      });
+      res.status(201).json(activityView(record.toObject(), kind));
+    });
+    api.patch(
+      "/" + route + "/:id/geolocation",
+      requireWrite,
+      async (req, res) => {
+        const record = await model.findById(id.parse(req.params.id));
+        if (!record) return res.sendStatus(404);
+        if (!canAccess(req, record.estateId)) return res.sendStatus(403);
+        record.geolocation = geolocation.parse(req.body.geolocation);
+        record.locationUpdatedBy = req.access.subject;
+        record.locationUpdatedAt = new Date();
+        await record.save();
+        res.json(activityView(record.toObject(), kind));
+      }
+    );
+    api.patch("/" + route + "/:id/verify", requireWrite, async (req, res) => {
+      const record = await model.findById(id.parse(req.params.id));
+      if (!record) return res.sendStatus(404);
+      if (!canAccess(req, record.estateId)) return res.sendStatus(403);
+      record.status = "verified";
+      record.verifiedBy = req.access.subject;
+      record.verifiedAt = new Date();
+      await record.save();
+      res.json(activityView(record.toObject(), kind));
+    });
+  }
+  api.get("/blocks", async (req, res) =>
+    res.json((await Block.find(estateQuery(req)).lean()).map(clean))
+  );
+  api.patch("/blocks/:id/map-links", requireWrite, async (req, res) => {
+    const block = await Block.findById(id.parse(req.params.id));
+    if (!block) return res.sendStatus(404);
+    if (!canAccess(req, block.estateId)) return res.sendStatus(403);
+    const links = z
+      .array(z.string().min(1))
+      .max(100)
+      .parse(req.body.mapBlockNames);
+    const estate = await Estate.findById(block.estateId).lean();
+    const names = new Set(
+      estate.boundary?.features.map((f) => f.properties.blockName)
+    );
+    if (links.some((name) => !names.has(name)))
+      return res
+        .status(400)
+        .json({ error: "Choose map blocks from this estate" });
+    block.mapBlockNames = [...new Set(links)];
+    block.mapLinkMethod = "confirmed";
+    await block.save();
+    res.json(clean(block.toObject()));
+  });
   api.get("/estates/:id/qgis", async (req, res) => {
     const estateId = id.parse(req.params.id);
     if (!canAccess(req, estateId)) return res.sendStatus(403);
@@ -150,7 +275,10 @@ export async function createApp(config) {
       TRANSPARENT: "true",
     });
     try {
-      if (config.qgisCommand) return res.type("png").send(await renderQgisCgi(config.qgisCommand, params));
+      if (config.qgisCommand)
+        return res
+          .type("png")
+          .send(await renderQgisCgi(config.qgisCommand, params));
       const url = new URL(config.qgisUrl);
       url.search = params.toString();
       const response = await fetch(url, { signal: AbortSignal.timeout(20000) });
@@ -359,7 +487,7 @@ export async function createApp(config) {
     if (!wanted.length || wanted.some((x) => !canAccess(req, x)))
       return res.status(400).json({ error: "Select authorised estates" });
     const data = await snapshot(req);
-    for (const k of ["estates", "assets", "activities", "sources"])
+    for (const k of ["estates", "assets", "activities", "sources", "blocks"])
       data[k] = data[k].filter((x) =>
         wanted.includes(k === "estates" ? x.id : x.estateId)
       );
@@ -384,9 +512,11 @@ export async function createApp(config) {
     res.status(404).json({ error: "Unknown API endpoint" })
   );
   if (config.serveWeb !== false) {
-  const web = path.join(ROOT, "apps/web/dist");
-  app.use(express.static(web));
-  app.get("/{*path}", (req, res) => res.sendFile(path.join(web, "index.html")));
+    const web = path.join(ROOT, "apps/web/dist");
+    app.use(express.static(web));
+    app.get("/{*path}", (req, res) =>
+      res.sendFile(path.join(web, "index.html"))
+    );
   }
   app.use((err, _req, res, _next) => {
     const bad =
@@ -394,13 +524,11 @@ export async function createApp(config) {
       err instanceof z.ZodError ||
       err instanceof SyntaxError ||
       err instanceof multer.MulterError;
-    res
-      .status(bad ? 400 : 500)
-      .json({
-        error: bad
-          ? err.issues?.[0]?.message || err.message
-          : "Unable to save or load this resource. Check the API log.",
-      });
+    res.status(bad ? 400 : 500).json({
+      error: bad
+        ? err.issues?.[0]?.message || err.message
+        : "Unable to save or load this resource. Check the API log.",
+    });
     if (!bad) console.error(err.message);
   });
   return app;

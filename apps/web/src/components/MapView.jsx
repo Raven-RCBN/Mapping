@@ -13,12 +13,17 @@ import VectorSource from "ol/source/Vector";
 import OSM from "ol/source/OSM";
 import GeoJSON from "ol/format/GeoJSON";
 import { fromLonLat, toLonLat, transformExtent } from "ol/proj";
-import { getCenter, isEmpty } from "ol/extent";
+import { isEmpty } from "ol/extent";
 import { Style, Fill, Stroke, Text, Circle as CircleStyle } from "ol/style";
 import "ol/ol.css";
 import { patch } from "../store";
 import { imageBlob, authorisedFile, apiBase } from "../api";
 import { imagesAt, types, label } from "../../../../packages/shared/timeline";
+import { activityGroups } from "../../../../packages/shared/activities.js";
+import {
+  linkedFeatures,
+  interiorPosition,
+} from "../../../../packages/shared/map-placement.js";
 const geo = new GeoJSON();
 const featuresOf = (json) =>
   geo.readFeatures(json, {
@@ -80,26 +85,15 @@ export default function MapView({ rows, onRecord, onImport, onOffline }) {
         })),
       })
     );
-    const source = new VectorSource({ features: fs }),
-      centers = new globalThis.Map();
-    for (const f of fs) {
-      const geometry = f.getGeometry();
-      const center =
-        geometry.getType() === "Polygon"
-          ? geometry.getInteriorPoint().getCoordinates()
-          : geometry.getInteriorPoints().getCoordinates()[0];
-      centers.set(`${f.get("estateId")}::${f.get("blockName")}`, center);
-    }
+    const source = new VectorSource({ features: fs });
+    const groups = activityGroups(rows);
+    const linked = (r) => linkedFeatures(r, data.blocks || [], fs);
     if (state.showBoundaries || state.showLabels)
       add(
         new VectorLayer({
           source,
           style: (f) => {
-            const r = rows.find(
-                (r) =>
-                  r.estateId === f.get("estateId") &&
-                  r.block === f.get("blockName")
-              ),
+            const r = rows.find((r) => linked(r).includes(f)),
               color =
                 base === "topography"
                   ? "#17412b"
@@ -145,25 +139,28 @@ export default function MapView({ rows, onRecord, onImport, onOffline }) {
       add(
         new VectorLayer({
           source: new VectorSource({
-            features: rows.flatMap((r) => {
-              const p = centers.get(`${r.estateId}::${r.block}`);
+            features: groups.flatMap((group) => {
+              const r = group.rows[0];
+              const p = group.geolocation
+                ? fromLonLat(group.geolocation)
+                : interiorPosition(linked(r));
               if (!p) return [];
               const feature = new Feature({
                 geometry: new Point(p),
-                record: r,
+                record: group,
               });
               feature.setStyle(
                 new Style({
                   image: new CircleStyle({
-                    radius: 13,
+                    radius: 17,
                     fill: new Fill({
                       color: types[r.type]?.color || "#d8ae40",
                     }),
                     stroke: new Stroke({ color: "#fff", width: 2 }),
                   }),
                   text: new Text({
-                    text: types[r.type]?.icon || "•",
-                    font: "bold 18px sans-serif",
+                    text: `${types[r.type]?.icon || "•"} ${group.rows.length}`,
+                    font: "bold 12px sans-serif",
                     fill: new Fill({ color: "#153f2b" }),
                   }),
                 })
@@ -318,6 +315,17 @@ export default function MapView({ rows, onRecord, onImport, onOffline }) {
         onRecord(record);
         return;
       }
+      const feature = map.forEachFeatureAtPixel(e.pixel, (f) =>
+        f.get("blockName") ? f : undefined
+      );
+      if (feature)
+        dispatch(
+          patch({
+            selectedBlock: `${feature.get("estateId")}::${feature.get(
+              "blockName"
+            )}`,
+          })
+        );
       if (base !== "topography") return;
       const [lon, lat] = toLonLat(e.coordinate);
       for (const g of grids) {
@@ -496,12 +504,18 @@ export default function MapView({ rows, onRecord, onImport, onOffline }) {
         </div>
       )}
       <div className="map-legend">
-        {Object.entries(types).map(([t, v]) => (
-          <span key={t}>
-            <i style={{ background: v.color }} />
-            {t}
-          </span>
-        ))}
+        {Object.entries(types)
+          .filter(([t]) =>
+            data.activities.some(
+              (r) => selected.includes(r.estateId) && r.type === t
+            )
+          )
+          .map(([t, v]) => (
+            <span key={t}>
+              <i style={{ background: v.color }} />
+              {t}
+            </span>
+          ))}
       </div>
     </div>
   );

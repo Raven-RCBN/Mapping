@@ -31,3 +31,5 @@ coverage/
 apps/mobile/assets/viewer.json
 
 .deploy/
+
+*.xlsx

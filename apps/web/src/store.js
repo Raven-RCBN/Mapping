@@ -6,6 +6,8 @@ const slice = createSlice({
     selected: [],
     activity: "all",
     block: "all",
+    fieldActivity: "all",
+    selectedBlock: null,
     date: "2026-10-03",
     period: "day",
     base: "satellite",
@@ -21,13 +23,23 @@ const slice = createSlice({
   },
   reducers: {
     loaded(s, { payload }) {
+      if (!s.data) {
+        const latest = payload.activities
+          .map((r) => r.date)
+          .filter(Boolean)
+          .sort()
+          .at(-1);
+        if (latest) s.date = latest;
+      }
       s.data = payload;
       const ids = payload.estates.map((e) => e.id);
       s.selected = s.selected.filter((id) => ids.includes(id));
       if (!s.selected.length) {
         try {
           s.selected = JSON.parse(
-            localStorage.getItem("estate-atlas-selected:" + import.meta.env.BASE_URL) || "[]"
+            localStorage.getItem(
+              "estate-atlas-selected:" + import.meta.env.BASE_URL
+            ) || "[]"
           ).filter((id) => ids.includes(id));
         } catch {}
         if (!s.selected.length) s.selected = ids.slice(0, 1);
@@ -39,9 +51,13 @@ const slice = createSlice({
     select(s, { payload }) {
       s.selected = payload;
       s.block = "all";
+      s.selectedBlock = null;
       s.override = null;
       s.compare = null;
-      localStorage.setItem("estate-atlas-selected:" + import.meta.env.BASE_URL, JSON.stringify(payload));
+      localStorage.setItem(
+        "estate-atlas-selected:" + import.meta.env.BASE_URL,
+        JSON.stringify(payload)
+      );
     },
   },
 });

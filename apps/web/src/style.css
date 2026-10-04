@@ -2947,3 +2947,42 @@ button:disabled {
   position: absolute;
   inset: 0;
 }
+
+/* Estate workbook grids and selected block information */
+[hidden] { display: none !important; }
+.data-nav { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.data-nav small { font-size: 10px; }
+.data-nav.active { color: #efc44e; background: #ffffff14; }
+.data-workspace { background: white; border: 1px solid var(--line); border-radius: 14px; padding: 24px; margin: 22px 0; min-width: 0; }
+.table-dialog { width: min(1360px, 96vw); }
+.table-tabs { display: flex; gap: 8px; border-bottom: 1px solid var(--line); overflow-x: auto; }
+.table-tabs button { padding: 14px 16px; white-space: nowrap; border-bottom: 3px solid transparent; color: #647663; }
+.table-tabs button[aria-selected="true"] { color: #174b34; border-color: #bc942f; font-weight: 700; }
+.table-tabs span { background: #f0f3e9; padding: 3px 7px; border-radius: 5px; margin-left: 6px; font-size: 12px; }
+.table-toolbar { display: flex; align-items: end; gap: 18px; justify-content: space-between; padding: 18px 0; }
+.table-toolbar label { display: grid; gap: 6px; font-size: 13px; width: min(370px, 100%); }
+.table-toolbar input { width: 100%; border: 1px solid var(--line); border-radius: 7px; padding: 10px; }
+.table-toolbar > span { font-size: 13px; color: #60765e; padding-bottom: 10px; }
+.data-table-scroll { overflow: auto; max-height: 58vh; border: 1px solid #dbe4d9; border-radius: 8px; }
+.data-table-scroll table { border-collapse: separate; border-spacing: 0; width: 100%; font-size: 13px; }
+.data-table-scroll th { position: sticky; top: 0; z-index: 1; background: #174834; color: #fff; text-align: left; font-weight: 600; white-space: nowrap; padding: 13px 14px; }
+.data-table-scroll td { border-bottom: 1px solid #e2e9df; padding: 12px 14px; min-width: 100px; max-width: 330px; }
+.data-table-scroll tbody tr:nth-child(even) { background: #f4f7ef; }
+.data-table-scroll tbody tr:hover { background: #fbf4dd; }
+.table-pagination { display: flex; justify-content: flex-end; align-items: center; gap: 16px; padding-top: 18px; font-size: 13px; }
+.block-info { background: #fbfcf7; border-top: 1px solid var(--line); padding: 16px 22px; }
+.block-info-heading { display: flex; justify-content: space-between; align-items: center; }
+.block-info-heading small { font-weight: 400; }
+.block-info-heading button { font-size: 24px; }
+.block-facts { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 14px 18px; margin: 15px 0; }
+.block-facts dt { color: #71806b; font-size: 11px; margin-bottom: 4px; }
+.block-facts dd { margin: 0; color: #244d34; font-size: 14px; font-weight: 600; }
+.block-info-hint { font-size: 12px; color: #6c7d66; padding: 12px 22px; border-top: 1px solid var(--line); }
+.field-description-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin: 12px 0; font-size: 13px; }
+.field-description-filter select { border: 1px solid var(--line); border-radius: 7px; padding: 9px; max-width: 100%; min-width: 240px; }
+.activity-date-history #activityDates { max-height: 180px; overflow-y: auto; }
+@media(max-width: 700px) {
+ .data-workspace { padding: 12px; } .table-toolbar { align-items: start; flex-direction: column; gap: 8px; }
+ .table-tabs button { padding: 12px 8px; font-size: 13px; } .block-facts { grid-template-columns: repeat(2,minmax(0,1fr)); }
+ .block-info { padding: 12px; } .table-pagination { gap: 10px; }
+}

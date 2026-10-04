@@ -16,8 +16,23 @@ export default function Timeline() {
     [playing, setPlaying] = useState(false);
   const history = records(s.data, s.selected, {
     activity: s.activity,
+    fieldActivity: s.fieldActivity,
     block: s.block,
   });
+  const activeTypes = Object.entries(types).filter(([t]) =>
+    s.data.activities.some(
+      (r) => s.selected.includes(r.estateId) && r.type === t
+    )
+  );
+  const descriptions = [
+    ...new Set(
+      s.data.activities
+        .filter(
+          (r) => s.selected.includes(r.estateId) && r.recordKind === "field"
+        )
+        .map((r) => r.activityDescription)
+    ),
+  ].sort();
   const images = s.data.assets.filter(
     (a) => s.selected.includes(a.estateId) && a.kind === "imagery"
   );
@@ -57,8 +72,19 @@ export default function Timeline() {
     }, 1800);
     return () => clearInterval(t);
   }, [playing, s.date, anchor, s.period]);
+  useEffect(() => {
+    setAnchor(s.date);
+  }, [s.date]);
   const choose = (date, activity = s.activity, override = null) => {
-    dispatch(patch({ date, activity, override, review: false }));
+    dispatch(
+      patch({
+        date,
+        activity,
+        override,
+        review: false,
+        ...(activity !== s.activity ? { fieldActivity: "all" } : {}),
+      })
+    );
     if (!windows.some((b) => contains(date, b))) setAnchor(date);
   };
   const counts = (t) =>
@@ -85,7 +111,7 @@ export default function Timeline() {
       </div>
       <div className="timeline-filter-bar">
         <div id="timelineFilters">
-          {["all", ...Object.keys(types)].map((t) => (
+          {["all", ...activeTypes.map(([t]) => t)].map((t) => (
             <button
               className={"history-filter " + (s.activity === t ? "active" : "")}
               key={t}
@@ -109,19 +135,24 @@ export default function Timeline() {
           <select
             aria-label="Activity history block"
             value={s.block}
-            onChange={(e) => dispatch(patch({ block: e.target.value }))}
+            onChange={(e) =>
+              dispatch(patch({ block: e.target.value, selectedBlock: null }))
+            }
           >
             <option value="all">All blocks</option>
             {s.data.estates
               .filter((e) => s.selected.includes(e.id))
               .map((e) => (
                 <optgroup key={e.id} label={e.name}>
-                  {e.boundary?.features.map((f, i) => (
-                    <option
-                      key={i}
-                      value={`${e.id}::${f.properties.blockName}`}
-                    >
-                      {f.properties.blockName}
+                  {(s.data.blocks?.some((b) => b.estateId === e.id)
+                    ? s.data.blocks
+                        .filter((b) => b.estateId === e.id)
+                        .map((b) => b.blockCode)
+                    : e.boundary?.features.map((f) => f.properties.blockName) ||
+                      []
+                  ).map((code, i) => (
+                    <option key={i} value={`${e.id}::${code}`}>
+                      {code}
                     </option>
                   ))}
                 </optgroup>
@@ -129,6 +160,42 @@ export default function Timeline() {
           </select>
         </label>
       </div>
+      {descriptions.length > 0 && (
+        <label className="field-description-filter">
+          Field activity details
+          <select
+            aria-label="Field activity description"
+            value={s.fieldActivity}
+            onChange={(e) => {
+              const fieldActivity = e.target.value;
+              const latest = records(s.data, s.selected, {
+                activity:
+                  fieldActivity === "all" ? s.activity : "Field activity",
+                fieldActivity,
+                block: s.block,
+              })
+                .map((r) => r.date)
+                .sort()
+                .at(-1);
+              dispatch(
+                patch({
+                  fieldActivity,
+                  ...(fieldActivity !== "all"
+                    ? { activity: "Field activity" }
+                    : {}),
+                  ...(latest ? { date: latest, override: null } : {}),
+                })
+              );
+              if (latest) setAnchor(latest);
+            }}
+          >
+            <option value="all">All activity descriptions</option>
+            {descriptions.map((d) => (
+              <option key={d}>{d}</option>
+            ))}
+          </select>
+        </label>
+      )}
       {s.period !== "all" && (
         <div className="timeline-window">
           <span>Timeline window</span>
@@ -161,7 +228,7 @@ export default function Timeline() {
           <span>▱ Boundary version</span>
         </div>
         <div className="event-key">
-          {Object.entries(types).map(([t, v]) => (
+          {activeTypes.map(([t, v]) => (
             <span className="activity-key-item" key={t}>
               <span
                 className="activity-key-icon"
@@ -228,7 +295,7 @@ export default function Timeline() {
           </div>
           {windows.map((b) => (
             <div key={b.start} className="event-cell activity-events">
-              {Object.entries(types).map(([t, v]) => {
+              {activeTypes.map(([t, v]) => {
                 const n = history.filter(
                   (r) => r.type === t && contains(r.date, b)
                 ).length;
@@ -275,8 +342,7 @@ export default function Timeline() {
                 aria-pressed={s.date === d}
                 onClick={() => choose(d)}
               >
-                {label(d, false)}{" "}
-                <b>{history.filter((r) => r.date === d).length}</b>
+                {label(d)} <b>{history.filter((r) => r.date === d).length}</b>
               </button>
             ))}
           {!history.length && (
@@ -333,9 +399,7 @@ export default function Timeline() {
       </div>
       <div className="timeline-footer">
         <span>
-          {s.data.offline
-            ? "Saved offline data"
-            : "Stored estate records · AgriNexus sync not configured"}
+          {s.data.offline ? "Saved offline data" : "Stored estate records"}
         </span>
         <span>{label(s.date)}</span>
       </div>

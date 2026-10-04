@@ -10,6 +10,14 @@ import Point from 'ol/geom/Point';
 import { transformExtent, fromLonLat } from 'ol/proj';
 import { Style, Fill, Stroke, Text, Circle } from 'ol/style';
 import 'ol/ol.css';
+import {
+  activityGroups,
+  exactCoordinates,
+} from '../../../packages/shared/activities.js';
+import {
+  linkedFeatures,
+  interiorPosition,
+} from '../../../packages/shared/map-placement.js';
 const pack = window.ESTATE_PACK,
   data = pack.snapshot,
   format = new GeoJSON();
@@ -43,7 +51,13 @@ const dates = [
     ].filter(Boolean),
   ),
 ].sort();
-date.value = dates.at(-1) || new Date().toISOString().slice(0, 10);
+date.value =
+  data.activities
+    .map(r => r.date)
+    .sort()
+    .at(-1) ||
+  dates.at(-1) ||
+  new Date().toISOString().slice(0, 10);
 const map = new Map({
   target: 'map',
   view: new View({ center: fromLonLat([102, 4]), zoom: 6 }),
@@ -57,6 +71,7 @@ function render() {
   const featureList = read(
     e.boundary || { type: 'FeatureCollection', features: [] },
   );
+  featureList.forEach(f => f.set('estateId', e.id));
   vectors = new VectorSource({ features: featureList });
   const candidates = data.assets.filter(
     a =>
@@ -112,25 +127,24 @@ function render() {
       r.date === date.value &&
       (activity.value === 'all' || r.type === activity.value),
   );
-  const markers = rows.flatMap(r => {
-    const f = featureList.find(f => f.get('blockName') === r.block);
-    if (!f) return [];
-    const g = f.getGeometry();
-    const point =
-      g.getType() === 'Polygon'
-        ? g.getInteriorPoint().getCoordinates()
-        : g.getInteriorPoints().getCoordinates()[0];
-    const m = new Feature({ geometry: new Point(point), record: r });
-    return [m];
+  const markers = activityGroups(rows).flatMap(group => {
+    const point = group.geolocation
+      ? fromLonLat(group.geolocation)
+      : interiorPosition(
+          linkedFeatures(group.rows[0], data.blocks || [], featureList),
+        );
+    if (!point) return [];
+    return [new Feature({ geometry: new Point(point), record: group })];
   });
   map.addLayer(
     new VectorLayer({
       source: new VectorSource({ features: markers }),
       style: f => {
-        const t = f.get('record').type;
+        const group = f.get('record'),
+          t = group.rows[0].type;
         return new Style({
           image: new Circle({
-            radius: 13,
+            radius: 17,
             fill: new Fill({
               color:
                 t === 'Harvesting'
@@ -142,7 +156,7 @@ function render() {
             stroke: new Stroke({ color: '#fff', width: 2 }),
           }),
           text: new Text({
-            text: t === 'Harvesting' ? '✦' : t === 'Weeding' ? '⌁' : '↝',
+            text: `${t === 'Harvesting' ? '✦' : '⌁'} ${group.rows.length}`,
             fill: new Fill({ color: '#173e2c' }),
           }),
         });
@@ -203,11 +217,94 @@ function render() {
   }
 }
 for (const control of [estate, date, kind, activity]) control.onchange = render;
+function showRecords(rows) {
+  const dialog = document.getElementById('records');
+  const body = document.getElementById('records-body');
+  body.replaceChildren();
+  for (const [kind, title, columns] of [
+    [
+      'harvesting',
+      'Harvesting',
+      [
+        'workDate',
+        'blockCode',
+        'employeeNo',
+        'employeeName',
+        'gang',
+        'activity',
+        'bunches',
+      ],
+    ],
+    [
+      'field',
+      'Field activity',
+      [
+        'workDate',
+        'blockCode',
+        'gang',
+        'activityCode',
+        'activityDescription',
+        'mandays',
+      ],
+    ],
+  ]) {
+    const selected = rows.filter(r => r.recordKind === kind);
+    if (!selected.length) continue;
+    const heading = document.createElement('h3');
+    heading.textContent = `${title} · ${selected.length} records`;
+    body.appendChild(heading);
+    const table = document.createElement('table');
+    const header = table.insertRow();
+    for (const key of [...columns, 'Geolocation']) {
+      const th = document.createElement('th');
+      th.textContent = key.replace(/([A-Z])/g, ' $1');
+      header.appendChild(th);
+    }
+    for (const row of selected) {
+      const tr = table.insertRow();
+      for (const key of [...columns, 'Geolocation']) {
+        const td = tr.insertCell();
+        td.textContent =
+          key === 'Geolocation'
+            ? exactCoordinates(row)?.join(', ') || 'Not supplied'
+            : String(row[key] ?? '—');
+      }
+    }
+    body.appendChild(table);
+  }
+  dialog.showModal();
+}
 map.on('singleclick', e => {
-  const r = map.forEachFeatureAtPixel(e.pixel, f => f.get('record'));
-  if (r)
-    document.getElementById(
-      'detail',
-    ).textContent = `${r.type} · ${r.block} · ${r.quantity} · ${r.status}`;
+  const group = map.forEachFeatureAtPixel(e.pixel, f => f.get('record'));
+  if (group) {
+    showRecords(group.rows);
+    return;
+  }
+  const f = map.forEachFeatureAtPixel(e.pixel, f =>
+    f.get('blockName') ? f : undefined,
+  );
+  if (!f) return;
+  const block = (data.blocks || []).find(
+    b =>
+      b.estateId === estate.value &&
+      b.mapBlockNames?.includes(f.get('blockName')),
+  );
+  document.getElementById('block-info').textContent = block
+    ? `${block.blockCode} · ${block.blockStatus} · planted ${
+        block.plantedHectares
+      } ha · ${block.plantedDate} · ${
+        block.plantingMaterial || 'Material not supplied'
+      } · ${block.soilType}`
+    : `${f.get('blockName')} · No linked block details`;
 });
+document.getElementById('records-close').onclick = () =>
+  document.getElementById('records').close();
+document.getElementById('data-menu').onclick = () =>
+  showRecords(
+    data.activities.filter(
+      r =>
+        r.estateId === estate.value &&
+        (activity.value === 'all' || r.type === activity.value),
+    ),
+  );
 render();

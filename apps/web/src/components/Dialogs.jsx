@@ -8,7 +8,14 @@ import {
   clearOffline,
 } from "../api";
 import { label } from "../../../../packages/shared/timeline";
-export default function Dialogs({ mode, onClose, onReload, onHistory }) {
+import DataTables from "./DataTables";
+export default function Dialogs({
+  mode,
+  onClose,
+  onReload,
+  onHistory,
+  onSelectBlock,
+}) {
   const ref = useRef(),
     s = useSelector((x) => x),
     [busy, setBusy] = useState(false),
@@ -20,6 +27,8 @@ export default function Dialogs({ mode, onClose, onReload, onHistory }) {
     offlineManifest().then(setSaved);
   }, []);
   const titles = {
+    tables: "Estate data tables",
+    records: `${mode.group?.block || "Block"} · Activity details`,
     import: "Import a map or image",
     estate: "Add estate",
     offline: "Offline maps",
@@ -82,6 +91,9 @@ export default function Dialogs({ mode, onClose, onReload, onHistory }) {
   ));
   return (
     <dialog
+      className={
+        ["tables", "records"].includes(mode.type) ? "table-dialog" : ""
+      }
       ref={ref}
       onCancel={onClose}
       onClick={(e) => e.target === ref.current && onClose()}
@@ -96,6 +108,23 @@ export default function Dialogs({ mode, onClose, onReload, onHistory }) {
         </button>
       </div>
       <div id="modalBody">
+        {["tables", "records"].includes(mode.type) && (
+          <DataTables
+            blocks={(s.data.blocks || []).filter((b) =>
+              s.selected.includes(b.estateId)
+            )}
+            rows={
+              mode.type === "records"
+                ? mode.group.rows
+                : s.data.activities.filter((r) =>
+                    s.selected.includes(r.estateId)
+                  )
+            }
+            popup={mode.type === "records"}
+            onHistory={onHistory}
+            onSelectBlock={onSelectBlock}
+          />
+        )}
         {mode.type === "import" && (
           <form onSubmit={upload}>
             <p>

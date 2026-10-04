@@ -1,5 +1,6 @@
 export const types = {
   Harvesting: { icon: "✦", color: "#e9b741", bg: "#fbf3df" },
+  "Field activity": { icon: "⌁", color: "#78b7a6", bg: "#eaf4ee" },
   Weeding: { icon: "⌁", color: "#78b7a6", bg: "#eaf4ee" },
   "Road maintenance": { icon: "↝", color: "#dc8c69", bg: "#fcf0e7" },
 };
@@ -40,12 +41,19 @@ export const contains = (date, b) => date >= b.start && date < b.end;
 export function records(
   data,
   selected,
-  { activity = "all", block = "all", bucket = null, review = false } = {}
+  {
+    activity = "all",
+    fieldActivity = "all",
+    block = "all",
+    bucket = null,
+    review = false,
+  } = {}
 ) {
   return data.activities.filter(
     (r) =>
       selected.includes(r.estateId) &&
       (activity === "all" || r.type === activity) &&
+      (fieldActivity === "all" || r.activityDescription === fieldActivity) &&
       (block === "all" || `${r.estateId}::${r.block}` === block) &&
       (!bucket || contains(r.date, bucket)) &&
       (!review || r.status !== "verified")
