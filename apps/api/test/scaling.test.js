@@ -523,3 +523,115 @@ test("map selection is shared by map, timeline and popup pages; catalog remains 
     57
   );
 });
+
+test("cards preserve verified denominator in review mode and refresh correctly after verification", async () => {
+  await models.Estate.create({ _id: "cards", name: "Cards" });
+  await models.HarvestingActivity.insertMany([
+    {
+      _id: "cards-h1",
+      estateId: "cards",
+      blockCode: "C1",
+      workDate: "2025-12-12",
+      bunches: 10,
+      status: "verified",
+    },
+    {
+      _id: "cards-h2",
+      estateId: "cards",
+      blockCode: "C2",
+      workDate: "2025-12-13",
+      bunches: 15,
+      status: "recorded",
+    },
+  ]);
+  await models.FieldActivity.insertMany([
+    {
+      _id: "cards-f1",
+      estateId: "cards",
+      blockCode: "C1",
+      workDate: "2025-12-12",
+      activityDescription: "Spraying",
+      mandays: 1.5,
+      status: "verified",
+    },
+    {
+      _id: "cards-f2",
+      estateId: "cards",
+      blockCode: "C1",
+      workDate: "2025-12-12",
+      activityDescription: "Weeding",
+      mandays: 2.25,
+      status: "recorded",
+    },
+  ]);
+  const read = async (extra) =>
+    (
+      await request(app)
+        .post("/api/dashboard")
+        .set("X-Mapping-Client", "1")
+        .send({ estates: "cards", ...extra })
+        .expect(200)
+    ).body;
+  const total = {
+    count: 4,
+    verified: 2,
+    pending: 2,
+    bunches: 25,
+    mandays: 3.75,
+  };
+  assert.deepEqual((await read({})).selectionSummary, total);
+  const review = await read({ review: "true" });
+  assert.deepEqual(review.selectionSummary, total);
+  assert.deepEqual(review.summary, {
+    count: 2,
+    verified: 0,
+    pending: 2,
+    bunches: 15,
+    mandays: 2.25,
+  });
+  assert.deepEqual(
+    (await read({ from: "2025-12-12", to: "2025-12-13" })).selectionSummary,
+    { count: 3, verified: 2, pending: 1, bunches: 10, mandays: 3.75 }
+  );
+  assert.equal((await read({ block: "cards::C2" })).selectionSummary.count, 1);
+  assert.equal(
+    (await read({ from: "2027-01-01", to: "2027-01-02" })).selectionSummary
+      .count,
+    0
+  );
+  assert.equal(
+    (
+      await read({
+        mapVisibility: { mode: "include", fields: [], harvesting: false },
+      })
+    ).selectionSummary.count,
+    0
+  );
+  const field = await read({
+    mapVisibility: { mode: "include", fields: ["Spraying"], harvesting: false },
+  });
+  assert.deepEqual(field.selectionSummary, {
+    count: 1,
+    verified: 1,
+    pending: 0,
+    bunches: 0,
+    mandays: 1.5,
+  });
+  await request(app)
+    .patch("/api/harvesting/cards-h2/verify")
+    .set("X-Mapping-Client", "1")
+    .expect(200);
+  const after = await read({ review: "true" });
+  assert.deepEqual(after.selectionSummary, {
+    ...total,
+    verified: 3,
+    pending: 1,
+  });
+  assert.deepEqual(after.summary, {
+    count: 1,
+    verified: 0,
+    pending: 1,
+    bunches: 0,
+    mandays: 2.25,
+  });
+});

@@ -23,7 +23,10 @@ import {
   buckets,
   types,
   imagesAt,
+  addDays,
 } from "../../../packages/shared/timeline";
+import SummaryCards from "./components/SummaryCards";
+import { dashboardCardState } from "../../../packages/shared/dashboard-summary.js";
 import EstatePicker from "./components/EstatePicker";
 const MapView = lazy(() => import("./components/MapView"));
 import Timeline from "./components/Timeline";
@@ -123,6 +126,7 @@ export default function App() {
     ...(current ? { from: current.start, to: current.end } : {}),
   };
   const mapKey = JSON.stringify(mapParams);
+  const dashboardKey = JSON.stringify([mapKey, s.data?.refresh]);
   useEffect(() => {
     if (!s.data?.paged || s.data.offline) return;
     const controller = new AbortController();
@@ -157,12 +161,21 @@ export default function App() {
   useEffect(() => {
     if (!s.data?.paged || s.data.offline || dataView || storageView) return;
     const controller = new AbortController();
-    dispatch(patch({ mapLoading: true, dashboard: null, mapRows: [] }));
+    dispatch(
+      patch({
+        mapLoading: true,
+        dashboard: null,
+        mapRows: [],
+        dashboardError: "",
+      })
+    );
     queryData("/dashboard", mapParams, { signal: controller.signal })
       .then(({ data }) => {
+        if (controller.signal.aborted) return;
         dispatch(
           patch({
             dashboard: data,
+            dashboardKey,
             mapRows: data.rows,
             mapQuery: mapParams,
             mapLoading: false,
@@ -173,7 +186,13 @@ export default function App() {
       .catch((e) => {
         if (e.code !== "ERR_CANCELED") {
           setError(errorMessage(e));
-          dispatch(patch({ mapLoading: false }));
+          dispatch(
+            patch({
+              mapLoading: false,
+              dashboardError: errorMessage(e),
+              dashboardKey,
+            })
+          );
         }
       });
     return () => controller.abort();
@@ -274,27 +293,46 @@ export default function App() {
         )}
       </main>
     );
-  const estates = s.data.estates.filter((e) => s.selected.includes(e.id)),
-    blocks = estates.reduce(
-      (n, e) => n + (e.boundary?.features?.length || 0),
-      0
-    ),
-    verified = s.data.paged
-      ? s.dashboard?.summary.verified || 0
-      : rows.filter((r) => r.status === "verified").length;
+  const estates = s.data.estates.filter((e) => s.selected.includes(e.id));
+  const all = records(s.data, s.selected, {
+    activity: s.activity,
+    mapVisibility: s.mapVisibility,
+    block: s.block,
+    bucket: current,
+  });
+  const cardState = dashboardCardState({
+    online: s.data.paged && !s.data.offline,
+    expectedKey: dashboardKey,
+    responseKey: s.dashboardKey,
+    loading: s.mapLoading,
+    error: s.dashboardError,
+    summary: s.dashboard?.selectionSummary,
+    offlineRows: all,
+  });
   const recordCount = s.data.paged
     ? s.dashboard?.summary.count || 0
     : rows.length;
+  const pending = cardState.summary?.pending;
   const assets = s.data.paged ? s.mapAssets || [] : s.data.assets;
-  const all = records(s.data, s.selected, {
-      activity: s.activity,
-      mapVisibility: s.mapVisibility,
-      block: s.block,
-      bucket: current,
-    }),
-    pending = s.data.paged
-      ? recordCount - verified
-      : all.filter((r) => r.status !== "verified").length;
+  const scope = [
+    estates.map((e) => e.name).join(", ") || "No estates selected",
+    current
+      ? s.period === "day"
+        ? label(current.start)
+        : `${label(current.start)} – ${label(addDays(current.end, -1))}`
+      : "All recorded dates",
+    s.block === "all" ? "All blocks" : s.block.split("::")[1],
+    s.activity === "all" ? "All activity types" : s.activity,
+    s.mapVisibility.mode === "include"
+      ? `${
+          s.mapVisibility.fields.length + Number(s.mapVisibility.harvesting)
+        } activities selected`
+      : s.mapVisibility.fields.length || !s.mapVisibility.harvesting
+      ? `${
+          s.mapVisibility.fields.length + Number(!s.mapVisibility.harvesting)
+        } activities hidden`
+      : "All activities selected",
+  ].join(" · ");
   const images = imagesAt(assets, s.selected, s.date, s.override),
     near = assets
       .filter((a) => s.selected.includes(a.estateId) && a.kind === "imagery")
@@ -478,70 +516,12 @@ export default function App() {
           )}
           {!dataView && !storageView && (
             <div>
-              <section className="stats">
-                <article>
-                  <div className="stat-icon green">✓</div>
-                  <div>
-                    <span>Activities verified</span>
-                    <strong>
-                      {verified} <small>/ {recordCount}</small>
-                    </strong>
-                    <p>
-                      {recordCount
-                        ? Math.round((verified / recordCount) * 100)
-                        : 0}
-                      % of selected records
-                    </p>
-                  </div>
-                </article>
-                <article>
-                  <div className="stat-icon gold">◈</div>
-                  <div>
-                    <span>Harvest recorded</span>
-                    <strong>
-                      {(s.data.paged
-                        ? s.dashboard?.summary.bunches || 0
-                        : rows
-                            .filter((r) => r.recordKind === "harvesting")
-                            .reduce((n, r) => n + r.value, 0)
-                      ).toLocaleString()}{" "}
-                      <small>bunches</small>
-                    </strong>
-                    <p>Selected harvesting records</p>
-                  </div>
-                </article>
-                <article>
-                  <div className="stat-icon blue">⌖</div>
-                  <div>
-                    <span>Field work</span>
-                    <strong>
-                      {(s.data.paged
-                        ? s.dashboard?.summary.mandays || 0
-                        : rows
-                            .filter((r) => r.recordKind === "field")
-                            .reduce((n, r) => n + r.mandays, 0)
-                      ).toLocaleString()}{" "}
-                      <small>mandays</small>
-                    </strong>
-                    <p>Selected field-activity records</p>
-                  </div>
-                </article>
-                <article className="alert-stat">
-                  <div className="stat-icon amber">!</div>
-                  <div>
-                    <span>Needs your attention</span>
-                    <strong>
-                      {pending} <small>to review</small>
-                    </strong>
-                    <button
-                      className="text-button"
-                      onClick={() => dispatch(patch({ review: true }))}
-                    >
-                      Review field alerts ↗
-                    </button>
-                  </div>
-                </article>
-              </section>
+              <SummaryCards
+                state={cardState}
+                scope={scope}
+                offline={s.data.offline}
+                onReview={() => dispatch(patch({ review: true }))}
+              />
               {s.mapLoading && (
                 <p role="status">Loading selected activity window…</p>
               )}
@@ -692,7 +672,7 @@ export default function App() {
                       className={s.review ? "active" : ""}
                       onClick={() => dispatch(patch({ review: true }))}
                     >
-                      To verify <span>{pending}</span>
+                      To verify <span>{pending ?? "—"}</span>
                     </button>
                   </div>
                   <div id="activityImageContext">

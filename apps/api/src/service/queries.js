@@ -365,11 +365,20 @@ export function installQueries(api, models, expose) {
         const result = await Promise.all(
           kinds.map(async ([kind, model]) => {
             const [data] = await aggregate(model, [
-              { $match: matchRecords(q, kind) },
+              { $match: matchRecords({ ...q, review: "false" }, kind) },
               {
                 $facet: {
                   totals: [{ $group: totalsGroup(kind) }],
+                  visibleTotals: [
+                    ...(q.review === "true"
+                      ? [{ $match: { status: { $ne: "verified" } } }]
+                      : []),
+                    { $group: totalsGroup(kind) },
+                  ],
                   groups: [
+                    ...(q.review === "true"
+                      ? [{ $match: { status: { $ne: "verified" } } }]
+                      : []),
                     {
                       $group: {
                         _id: {
@@ -423,17 +432,22 @@ export function installQueries(api, models, expose) {
             )
           )
         );
-        const summary = { count: 0, verified: 0, bunches: 0, mandays: 0 };
-        for (const r of result) {
-          const t = r.totals[0];
-          if (!t) continue;
-          summary.count += t.count;
-          summary.verified += t.verified;
-          summary[r.kind === "harvesting" ? "bunches" : "mandays"] = t.value;
-        }
+        const summarize = (key) => {
+          const total = { count: 0, verified: 0, bunches: 0, mandays: 0 };
+          for (const r of result) {
+            const t = r[key][0];
+            if (!t) continue;
+            total.count += t.count;
+            total.verified += t.verified;
+            total[r.kind === "harvesting" ? "bunches" : "mandays"] = t.value;
+          }
+          return { ...total, pending: total.count - total.verified };
+        };
         return {
           rows,
-          summary,
+          // Map/list totals respect the review tab; cards retain the selection's denominator.
+          summary: summarize("visibleTotals"),
+          selectionSummary: summarize("totals"),
           limited: result.some((r) => r.groups.length > 500),
           groupLimit: 500,
         };

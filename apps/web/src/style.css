@@ -3027,3 +3027,8 @@ button:disabled {
   .map-activity-pages { width: 100%; }
   .map-activity-pages small { margin-right: auto; }
 }
+
+.summary-scope { margin: 20px 0 10px; color: #677b68; font-size: 12px; line-height: 1.7; overflow-wrap: anywhere; }
+.summary-scope strong { color: #254b35; }
+.summary-note { margin: -12px 0 22px; padding: 12px 16px; background: #faf6e9; border: 1px solid #e9dec0; border-radius: 8px; color: #657459; font-size: 13px; }
+.stats .text-button:disabled { opacity: .5; cursor: default; }

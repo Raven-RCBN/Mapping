@@ -2,7 +2,7 @@
 
 The Estate timeline's All activities list replaces the single field-description dropdown. Each harvesting/field description has a Display in map checkbox. Search is literal and case-insensitive, with 50 field descriptions per page. Select all and Clear all apply across pages/search results. Choices persist locally per signed-in user and selected estate combination.
 
-Selection affects map summaries, their bubble detail pages, the timeline and operation totals. Source Data tables remain unfiltered by these display choices. The activity type, block, date and review filters still intersect with the selection. Changing a checkbox returns the activity type to All types and enables the activity layer. Map and imagery layers are unaffected.
+Selection affects map summaries, their bubble detail pages, the timeline and operation totals. Source Data tables remain unfiltered by these display choices. The activity type, block and date filters still intersect with the selection. The review tab narrows map/list records while the summary cards retain totals for the complete selection. Changing a checkbox returns the activity type to All types and enables the activity layer. Map and imagery layers are unaffected.
 
 The same selection helper filters saved browser offline records. Existing offline packages need no data migration. First use shows all activities, preserving the existing map; Clear all followed by individual checks selects a subset.
 
