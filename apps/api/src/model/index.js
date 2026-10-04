@@ -53,8 +53,20 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     resolution: Number,
     attribution: String,
     sourceUrl: String,
+    storageState: {
+      type: String,
+      enum: ["active", "retired", "purging", "purged"],
+      default: "active",
+    },
+    retiredAt: Date,
+    retiredBy: String,
+    purgedAt: Date,
+    purgedBy: String,
   });
   ensureIndex(Asset, { estateId: 1, acquiredAt: 1 });
+  ensureIndex(Asset, { estateId: 1, kind: 1, acquiredAt: -1, _id: -1 });
+  ensureIndex(Asset, { estateId: 1, storageState: 1, retiredAt: 1, _id: 1 });
+  ensureIndex(Asset, { "file.path": 1 });
   const Activity = model("MappingActivity", {
     _id: String,
     estateId: { type: String, index: true },
@@ -79,6 +91,7 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     schedule: String,
     retention: String,
   });
+  ensureIndex(Activity, { estateId: 1, date: -1, _id: -1 });
   const AccessGrant = model("MappingAccessGrant", {
     _id: String,
     role: { type: String, enum: ["viewer", "manager", "admin"] },
@@ -127,6 +140,7 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     ...provenance,
   });
   ensureIndex(Block, { estateId: 1, blockCode: 1 }, { unique: true });
+  ensureIndex(Block, { estateId: 1, blockCode: -1, _id: -1 });
   const activityFields = {
     _id: String,
     estateId: { type: String, required: true, index: true },
@@ -155,8 +169,18 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     activityDescription: String,
     mandays: { type: Number, required: true, min: 0 },
   });
-  for (const m of [HarvestingActivity, FieldActivity])
+  for (const m of [HarvestingActivity, FieldActivity]) {
     ensureIndex(m, { estateId: 1, blockId: 1, workDate: 1 });
+    ensureIndex(m, { estateId: 1, workDate: -1, _id: -1 });
+    ensureIndex(m, { estateId: 1, blockCode: 1, workDate: -1, _id: -1 });
+    ensureIndex(m, { estateId: 1, status: 1, workDate: -1, _id: -1 });
+  }
+  ensureIndex(FieldActivity, {
+    estateId: 1,
+    activityDescription: 1,
+    workDate: -1,
+    _id: -1,
+  });
   return {
     Estate,
     Asset,

@@ -19,7 +19,10 @@ import "ol/ol.css";
 import { patch } from "../store";
 import { imageBlob, authorisedFile, apiBase } from "../api";
 import { imagesAt, types, label } from "../../../../packages/shared/timeline";
-import { activityGroups } from "../../../../packages/shared/activities.js";
+import {
+  activityGroups,
+  groupCount,
+} from "../../../../packages/shared/activities.js";
 import {
   linkedFeatures,
   interiorPosition,
@@ -45,7 +48,12 @@ export default function MapView({ rows, onRecord, onImport, onOffline }) {
     document.body.classList.toggle("topography-mode", base === "topography");
     return () => document.body.classList.remove("topography-mode");
   }, [base]);
-  const images = imagesAt(data.assets, selected, date, override),
+  const images = imagesAt(
+      state.data.paged ? state.mapAssets || [] : data.assets,
+      selected,
+      date,
+      override
+    ),
     estates = data.estates.filter((e) => selected.includes(e.id));
   useEffect(() => {
     const map = new Map({
@@ -159,7 +167,7 @@ export default function MapView({ rows, onRecord, onImport, onOffline }) {
                     stroke: new Stroke({ color: "#fff", width: 2 }),
                   }),
                   text: new Text({
-                    text: `${types[r.type]?.icon || "•"} ${group.rows.length}`,
+                    text: `${types[r.type]?.icon || "•"} ${groupCount(group)}`,
                     font: "bold 12px sans-serif",
                     fill: new Fill({ color: "#153f2b" }),
                   }),
@@ -212,9 +220,9 @@ export default function MapView({ rows, onRecord, onImport, onOffline }) {
             );
           for (const a of images) await raster(a);
           if (compare) {
-            const other = data.assets.find(
-              (a) => a.id === compare && selected.includes(a.estateId)
-            );
+            const other = (
+              state.data.paged ? state.mapAssets || [] : data.assets
+            ).find((a) => a.id === compare && selected.includes(a.estateId));
             if (other) {
               const layer = await raster(other, 2);
               if (layer) {
@@ -236,9 +244,9 @@ export default function MapView({ rows, onRecord, onImport, onOffline }) {
           }
         } else {
           for (const e of estates) {
-            const a = data.assets.find(
-              (a) => a.estateId === e.id && a.kind === terrain
-            );
+            const a = (
+              state.data.paged ? state.mapAssets || [] : data.assets
+            ).find((a) => a.estateId === e.id && a.kind === terrain);
             if (!a) continue;
             // Offline exports are kept under the live QGIS map as an immediate fallback.
             await raster(a);
@@ -273,13 +281,16 @@ export default function MapView({ rows, onRecord, onImport, onOffline }) {
             }
           }
           if (
-            !data.assets.some(
+            !(state.data.paged ? state.mapAssets || [] : data.assets).some(
               (a) => selected.includes(a.estateId) && a.kind === terrain
             )
           )
             setNotice("No terrain added for the selected estates.");
           if (state.contours)
-            for (const a of data.assets.filter(
+            for (const a of (state.data.paged
+              ? state.mapAssets || []
+              : data.assets
+            ).filter(
               (a) => selected.includes(a.estateId) && a.kind === "contours"
             )) {
               const json = JSON.parse(await (await imageBlob(a)).text());
@@ -294,7 +305,10 @@ export default function MapView({ rows, onRecord, onImport, onOffline }) {
                   10
                 );
             }
-          for (const a of data.assets.filter(
+          for (const a of (state.data.paged
+            ? state.mapAssets || []
+            : data.assets
+          ).filter(
             (a) => selected.includes(a.estateId) && a.kind === "elevation-grid"
           ))
             grids.push(JSON.parse(await (await imageBlob(a)).text()));
@@ -352,6 +366,7 @@ export default function MapView({ rows, onRecord, onImport, onOffline }) {
       urls.forEach(URL.revokeObjectURL);
     };
   }, [
+    state.mapAssets,
     data,
     selected,
     date,
@@ -506,9 +521,7 @@ export default function MapView({ rows, onRecord, onImport, onOffline }) {
       <div className="map-legend">
         {Object.entries(types)
           .filter(([t]) =>
-            data.activities.some(
-              (r) => selected.includes(r.estateId) && r.type === t
-            )
+            rows.some((r) => selected.includes(r.estateId) && r.type === t)
           )
           .map(([t, v]) => (
             <span key={t}>

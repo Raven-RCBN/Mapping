@@ -5,19 +5,24 @@ import helmet from "helmet";
 import multer from "multer";
 import path from "node:path";
 import fs from "node:fs/promises";
-import { randomUUID } from "node:crypto";
+import sharp from "sharp";
+import {
+  installQueries,
+  activeAsset,
+  selection,
+  bounded,
+} from "./service/queries.js";
+import { installStorage } from "./service/storage.js";
+import { compressedJson, QueryError } from "./service/performance.js";
+import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import * as defaultModels from "./model/index.js";
-import {
-  authentication,
-  estateQuery,
-  canAccess,
-  requireWrite,
-} from "./service/auth.js";
+import { authentication, canAccess, requireWrite } from "./service/auth.js";
 import {
   resolveStoredFile,
   ingestImage,
   ImageInputError,
+  secureStoredFile,
 } from "./service/files.js";
 import { ROOT } from "./config/index.js";
 import { activityView } from "../../../packages/shared/activities.js";
@@ -71,6 +76,18 @@ export async function createApp(config) {
   const apiPath = config.apiPath ?? "/api";
   const mount = apiPath || "/";
   const expose = (a) => publicAsset(a, config.publicApiPath || "/api");
+  // Build only declared indexes; never drop or synchronize away existing indexes.
+  await Promise.all(
+    [
+      Estate,
+      Asset,
+      Activity,
+      Source,
+      Block,
+      HarvestingActivity,
+      FieldActivity,
+    ].map((m) => m.createIndexes())
+  );
   const app = express();
   app.disable("x-powered-by");
   app.use(helmet({ contentSecurityPolicy: false }));
@@ -86,10 +103,13 @@ export async function createApp(config) {
   });
   app.use(mount, cors({ origin: config.origins }));
   app.use(express.json({ limit: "8mb" }));
+  app.use(compressedJson);
   app.get(apiPath + "/health", (_req, res) =>
     res.json({
       status: "ok",
       storage: "filesystem",
+      queryMode: "paged",
+      storageRecoveryDays: 30,
       metadata: "mongodb",
       auth: config.authMode,
     })
@@ -105,19 +125,78 @@ export async function createApp(config) {
       return res.status(400).json({ error: "Missing mapping client header" });
     next();
   });
-  const estateIds = (req) =>
-    req.access.estateIds === null ? {} : { _id: { $in: req.access.estateIds } };
+  const models = config.models || defaultModels;
+  installQueries(api, models, expose);
+  installStorage(api, models, config);
   const snapshot = async (req) => {
+    const q = selection(req),
+      scope = q.scope;
+    const range =
+      q.from || q.to
+        ? { ...(q.from && { $gte: q.from }), ...(q.to && { $lt: q.to }) }
+        : null;
+    const tooLarge =
+      "This offline package is too large. Select fewer estates or a shorter date range (maximum 25,000 records, 200 files and 512 MB).";
+    const previous = q.from
+      ? await Asset.aggregate([
+          {
+            $match: {
+              ...scope,
+              ...activeAsset,
+              kind: "imagery",
+              acquiredAt: { $lt: q.from },
+            },
+          },
+          { $sort: { estateId: 1, acquiredAt: -1, _id: -1 } },
+          { $group: { _id: "$estateId", id: { $first: "$_id" } } },
+          { $limit: 100 },
+        ]).option({ maxTimeMS: 10000 })
+      : [];
+    const assetScope = range
+      ? {
+          ...scope,
+          ...activeAsset,
+          $or: [
+            { kind: { $ne: "imagery" } },
+            { acquiredAt: range },
+            { _id: { $in: previous.map((x) => x.id) } },
+          ],
+        }
+      : { ...scope, ...activeAsset };
     const [estates, assets, activities, sources, blocks, harvesting, field] =
       await Promise.all([
-        Estate.find(estateIds(req)).lean(),
-        Asset.find(estateQuery(req)).lean(),
-        Activity.find(estateQuery(req)).lean(),
-        Source.find(estateQuery(req)).lean(),
-        Block.find(estateQuery(req)).lean(),
-        HarvestingActivity.find(estateQuery(req)).lean(),
-        FieldActivity.find(estateQuery(req)).lean(),
+        bounded(
+          Estate.find(scope.estateId ? { _id: scope.estateId } : {}),
+          100,
+          tooLarge
+        ),
+        bounded(Asset.find(assetScope), 200, tooLarge),
+        bounded(
+          Activity.find({ ...scope, ...(range && { date: range }) }),
+          25000,
+          tooLarge
+        ),
+        bounded(Source.find(scope), 1000, tooLarge),
+        bounded(Block.find(scope), 5000, tooLarge),
+        bounded(
+          HarvestingActivity.find({
+            ...scope,
+            ...(range && { workDate: range }),
+          }),
+          25000,
+          tooLarge
+        ),
+        bounded(
+          FieldActivity.find({ ...scope, ...(range && { workDate: range }) }),
+          25000,
+          tooLarge
+        ),
       ]);
+    if (
+      activities.length + harvesting.length + field.length > 25000 ||
+      assets.reduce((n, a) => n + (a.file?.bytes || 0), 0) > 512 * 1024 * 1024
+    )
+      throw new QueryError(tooLarge, 413);
     return {
       version: 2,
       blocks: blocks.map(clean),
@@ -150,9 +229,6 @@ export async function createApp(config) {
     ["harvesting", HarvestingActivity, "harvesting"],
     ["field-activities", FieldActivity, "field"],
   ]) {
-    api.get("/" + route, async (req, res) => {
-      res.json((await model.find(estateQuery(req)).lean()).map(clean));
-    });
     api.post("/" + route, requireWrite, async (req, res) => {
       const common = {
         estateId: id,
@@ -215,9 +291,6 @@ export async function createApp(config) {
       res.json(activityView(record.toObject(), kind));
     });
   }
-  api.get("/blocks", async (req, res) =>
-    res.json((await Block.find(estateQuery(req)).lean()).map(clean))
-  );
   api.patch("/blocks/:id/map-links", requireWrite, async (req, res) => {
     const block = await Block.findById(id.parse(req.params.id));
     if (!block) return res.sendStatus(404);
@@ -274,6 +347,16 @@ export async function createApp(config) {
       FORMAT: "image/png",
       TRANSPARENT: "true",
     });
+    const project = await fs.stat(params.get("MAP")).catch(() => null);
+    const tag = createHash("sha256")
+      .update(params.toString() + ":" + project?.mtimeMs)
+      .digest("hex");
+    res
+      .set("Cache-Control", "private, no-cache")
+      .set("ETag", '"' + tag + '"')
+      .vary("Authorization")
+      .vary("Cookie");
+    if (req.fresh) return res.status(304).end();
     try {
       if (config.qgisCommand)
         return res
@@ -384,7 +467,26 @@ export async function createApp(config) {
     res.json(clean(estate.toObject()));
   });
   const staging = path.join(config.dataDir, ".staging");
-  await fs.mkdir(staging, { recursive: true });
+  await fs.mkdir(staging, { recursive: true, mode: 0o750 });
+  let imageJobs = 0;
+  const imageGate = (req, res, next) => {
+    if (imageJobs >= 2)
+      return res
+        .status(429)
+        .set("Retry-After", "3")
+        .json({ error: "Two image jobs are running. Retry shortly." });
+    imageJobs++;
+    let done = false;
+    const release = () => {
+      if (!done) {
+        done = true;
+        imageJobs--;
+      }
+    };
+    res.once("finish", release);
+    res.once("close", release);
+    next();
+  };
   const upload = multer({
     dest: staging,
     limits: { fileSize: 50 * 1024 * 1024, files: 1, fields: 8 },
@@ -394,8 +496,18 @@ export async function createApp(config) {
     requireWrite,
     (req, res, next) => {
       if (!canAccess(req, req.params.id)) return res.sendStatus(403);
-      next();
+      fs.statfs(config.dataDir)
+        .then((stat) => {
+          if (Number(stat.bavail) * Number(stat.bsize) < 512 * 1024 * 1024)
+            return res.status(507).json({
+              error:
+                "Less than 512 MB of server disk is available. Free space before uploading imagery.",
+            });
+          next();
+        })
+        .catch(next);
     },
+    imageGate,
     upload.single("file"),
     async (req, res, next) => {
       let saved;
@@ -437,14 +549,48 @@ export async function createApp(config) {
       }
     }
   );
-  api.get("/assets/:id/file", async (req, res) => {
-    const asset = await Asset.findById(id.parse(req.params.id)).lean();
-    if (!asset) return res.sendStatus(404);
-    if (!canAccess(req, asset.estateId)) return res.sendStatus(403);
-    res.set("Content-Type", asset.file.mime);
-    res.set("ETag", `"${asset.file.sha256}"`);
-    res.sendFile(resolveStoredFile(config.dataDir, asset.file.path));
-  });
+  for (const variant of ["file", "thumbnail"])
+    api.get(
+      "/assets/:id/" + variant,
+      ...(variant === "thumbnail" ? [imageGate] : []),
+      async (req, res) => {
+        const asset = await Asset.findById(id.parse(req.params.id)).lean();
+        if (!asset) return res.sendStatus(404);
+        if (!canAccess(req, asset.estateId)) return res.sendStatus(403);
+        if (["retired", "purging", "purged"].includes(asset.storageState))
+          return res
+            .status(410)
+            .json({ error: "This image has been retired." });
+        const filename = await secureStoredFile(
+          config.dataDir,
+          asset.file.path
+        );
+        res
+          .set("Cache-Control", "private, no-cache")
+          .set("ETag", '"' + asset.file.sha256 + "-" + variant + '"')
+          .vary("Authorization")
+          .vary("Cookie");
+        if (req.fresh) return res.status(304).end();
+        if (variant === "thumbnail") {
+          if (asset.kind !== "imagery") return res.sendStatus(404);
+          return res.type("webp").send(
+            await sharp(filename, { limitInputPixels: 100000000 })
+              .resize({
+                width: 384,
+                height: 256,
+                fit: "inside",
+                withoutEnlargement: true,
+              })
+              .webp({ quality: 70 })
+              .toBuffer()
+          );
+        }
+        res
+          .set("Content-Type", asset.file.mime)
+          .set("Content-Disposition", "inline");
+        res.sendFile(filename, { cacheControl: false });
+      }
+    );
   api.patch("/activities/:id/verify", requireWrite, async (req, res) => {
     const activity = await Activity.findById(req.params.id);
     if (!activity) return res.sendStatus(404);
@@ -524,12 +670,25 @@ export async function createApp(config) {
       err instanceof z.ZodError ||
       err instanceof SyntaxError ||
       err instanceof multer.MulterError;
-    res.status(bad ? 400 : 500).json({
-      error: bad
-        ? err.issues?.[0]?.message || err.message
-        : "Unable to save or load this resource. Check the API log.",
+    const status =
+      err instanceof QueryError
+        ? err.status
+        : err.code === 50
+        ? 503
+        : bad
+        ? 400
+        : 500;
+    res.status(status).json({
+      error:
+        err.code === 50
+          ? "This query took too long. Select a shorter date range or fewer estates."
+          : err instanceof QueryError
+          ? err.message
+          : bad
+          ? err.issues?.[0]?.message || err.message
+          : "Unable to save or load this resource. Check the API log.",
     });
-    if (!bad) console.error(err.message);
+    if (status >= 500) console.error(err.message);
   });
   return app;
 }

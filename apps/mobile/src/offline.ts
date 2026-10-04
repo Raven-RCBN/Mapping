@@ -32,12 +32,15 @@ export function serverURL(input: string) {
 }
 function connection(host: string) {
   const base = serverURL(host);
-  const hosted = base.endsWith("/EstateAtlas");
-  return { origin: hosted ? base.slice(0, -"/EstateAtlas".length) : base, api: hosted ? "/api/EstateAtlas" : "/api" };
+  const hosted = base.endsWith('/EstateAtlas');
+  return {
+    origin: hosted ? base.slice(0, -'/EstateAtlas'.length) : base,
+    api: hosted ? '/api/EstateAtlas' : '/api',
+  };
 }
 export async function loadEstates(host: string, token: string) {
   const { origin, api } = connection(host);
-  const response = await fetch(origin + api + '/snapshot', {
+  const response = await fetch(origin + api + '/bootstrap', {
     headers: { Authorization: 'Bearer ' + token },
   });
   if (!response.ok)
@@ -49,15 +52,36 @@ export async function downloadPack(
   token: string,
   ids: string[],
   progress: (s: string) => void,
+  range: { from?: string; to?: string } = {},
 ): Promise<SavedPack> {
   const { origin: base, api } = connection(host),
     headers = { Authorization: 'Bearer ' + token };
   const response = await fetch(
-    base + api + '/offline?estates=' + ids.map(encodeURIComponent).join(','),
+    base +
+      api +
+      '/offline?estates=' +
+      ids.map(encodeURIComponent).join(',') +
+      (range.from ? '&from=' + encodeURIComponent(range.from) : '') +
+      (range.to ? '&to=' + encodeURIComponent(range.to) : ''),
     { headers },
   );
-  if (!response.ok) throw Error('Unable to download these estates.');
+  if (!response.ok) {
+    const failure = await response.json().catch(() => ({}));
+    throw Error(failure.error || 'Unable to download these estates.');
+  }
   const pack = await response.json();
+  const previous = await savedPack();
+  let reusable: any = null;
+  if (
+    previous?.subject === pack.snapshot?.access?.subject &&
+    previous?.folder.startsWith(root + '/')
+  ) {
+    try {
+      reusable = JSON.parse(
+        await RNFS.readFile(previous.folder + '/manifest.json', 'utf8'),
+      );
+    } catch {}
+  }
   const folder = root + '/' + Date.now();
   await RNFS.mkdir(folder);
   try {
@@ -75,14 +99,31 @@ export async function downloadPack(
         filename = f.id + ext,
         full = folder + '/' + filename;
       progress(`Saving ${i + 1} of ${pack.files.length} files…`);
-      const result = await RNFS.downloadFile({
-        fromUrl: base + f.url,
-        toFile: full,
-        headers,
-        connectionTimeout: 15000,
-        readTimeout: 60000,
-      }).promise;
-      if (result.statusCode !== 200) throw Error('A map download failed.');
+      let reused = false;
+      if (
+        previous &&
+        reusable?.files?.some(
+          (old: any) => old.id === f.id && old.sha256 === f.sha256,
+        )
+      ) {
+        const oldFile = previous.folder + '/' + filename;
+        try {
+          if ((await RNFS.hash(oldFile, 'sha256')) === f.sha256) {
+            await RNFS.copyFile(oldFile, full);
+            reused = true;
+          }
+        } catch {}
+      }
+      if (!reused) {
+        const result = await RNFS.downloadFile({
+          fromUrl: base + f.url,
+          toFile: full,
+          headers,
+          connectionTimeout: 15000,
+          readTimeout: 60000,
+        }).promise;
+        if (result.statusCode !== 200) throw Error('A map download failed.');
+      }
       if ((await RNFS.hash(full, 'sha256')) !== f.sha256)
         throw Error('Map checksum mismatch.');
       const asset = pack.snapshot.assets.find((a: any) => a.id === f.id);
@@ -104,12 +145,11 @@ export async function downloadPack(
       'utf8',
     );
     const saved = {
-        folder,
-        createdAt: pack.createdAt,
-        subject: pack.snapshot.access.subject,
-        estates: pack.snapshot.estates.map((e: any) => e.name),
-      },
-      previous = await savedPack();
+      folder,
+      createdAt: pack.createdAt,
+      subject: pack.snapshot.access.subject,
+      estates: pack.snapshot.estates.map((e: any) => e.name),
+    };
     await AsyncStorage.setItem(key, JSON.stringify(saved));
     if (previous?.folder.startsWith(root + '/'))
       await RNFS.unlink(previous.folder).catch(() => {});

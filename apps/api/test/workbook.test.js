@@ -188,7 +188,7 @@ test("new table endpoints and GPS writes respect estate and viewer permissions",
     },
   });
   for (const url of ["/blocks", "/harvesting", "/field-activities"])
-    assert.equal((await request(scoped).get("/api" + url)).body.length, 0);
+    assert.equal((await request(scoped).get("/api" + url)).body.items.length, 0);
   assert.equal(
     (
       await request(scoped)

@@ -24,11 +24,13 @@ const slice = createSlice({
   reducers: {
     loaded(s, { payload }) {
       if (!s.data) {
-        const latest = payload.activities
-          .map((r) => r.date)
-          .filter(Boolean)
-          .sort()
-          .at(-1);
+        const latest =
+          payload.latest ||
+          payload.activities
+            .map((r) => r.date)
+            .filter(Boolean)
+            .sort()
+            .at(-1);
         if (latest) s.date = latest;
       }
       s.data = payload;

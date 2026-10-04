@@ -1,8 +1,15 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { useSearchParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { loaded, patch } from "./store";
-import { getSnapshot, setToken, clearOffline, imageBlob } from "./api";
+import { getSnapshot, setToken, clearOffline, thumbnailBlob, api } from "./api";
 import {
   label,
   records,
@@ -11,13 +18,15 @@ import {
   imagesAt,
 } from "../../../packages/shared/timeline";
 import EstatePicker from "./components/EstatePicker";
-import MapView from "./components/MapView";
+const MapView = lazy(() => import("./components/MapView"));
 import Timeline from "./components/Timeline";
 import Dialogs from "./components/Dialogs";
+import Storage from "./components/Storage";
 import DataTables, { BlockInformation } from "./components/DataTables";
 import {
   activityGroups,
   groupSummary,
+  groupCount,
 } from "../../../packages/shared/activities.js";
 function errorMessage(error) {
   const detail = error.response?.data?.error;
@@ -32,7 +41,7 @@ function Thumbnail({ asset }) {
   useEffect(() => {
     let alive = true,
       obj;
-    imageBlob(asset)
+    thumbnailBlob(asset)
       .then((b) => {
         obj = URL.createObjectURL(b);
         if (alive) setUrl(obj);
@@ -53,6 +62,7 @@ function Thumbnail({ asset }) {
 export default function App() {
   const [searchParams, setSearchParams] = useSearchParams();
   const dataView = searchParams.get("view") === "data";
+  const storageView = searchParams.get("view") === "storage";
   const openMap = () => setSearchParams({});
   const openData = () => setSearchParams({ view: "data" });
   const s = useSelector((s) => s),
@@ -74,7 +84,9 @@ export default function App() {
       : buckets(s.date, s.period === "all" ? "month" : s.period, 1)[0];
   const rows = useMemo(
     () =>
-      s.data
+      s.data?.paged
+        ? s.mapRows || []
+        : s.data
         ? records(s.data, s.selected, {
             activity: s.activity,
             fieldActivity: s.fieldActivity,
@@ -85,6 +97,7 @@ export default function App() {
         : [],
     [
       s.data,
+      s.mapRows,
       s.selected,
       s.activity,
       s.fieldActivity,
@@ -94,14 +107,118 @@ export default function App() {
       s.review,
     ]
   );
+  const mapParams = {
+    estates: s.selected.join(","),
+    activity: s.activity,
+    fieldActivity: s.fieldActivity,
+    block: s.block,
+    review: String(s.review),
+    ...(current ? { from: current.start, to: current.end } : {}),
+  };
+  const mapKey = JSON.stringify(mapParams);
+  useEffect(() => {
+    if (!s.data?.paged || s.data.offline) return;
+    const controller = new AbortController();
+    api
+      .get("/workspace", {
+        params: { estates: s.selected.join(",") },
+        signal: controller.signal,
+      })
+      .then(({ data }) => {
+        dispatch(
+          patch({
+            data: {
+              ...s.data,
+              estates: s.data.estates.map(
+                (e) =>
+                  data.estates.find((x) => x.id === e.id) || {
+                    ...e,
+                    boundary: undefined,
+                  }
+              ),
+              blocks: data.blocks,
+              sources: data.sources,
+            },
+          })
+        );
+      })
+      .catch((e) => {
+        if (e.code !== "ERR_CANCELED") setError(errorMessage(e));
+      });
+    return () => controller.abort();
+  }, [s.selected.join(","), s.data?.refresh]);
+  useEffect(() => {
+    if (!s.data?.paged || s.data.offline || dataView || storageView) return;
+    const controller = new AbortController();
+    dispatch(patch({ mapLoading: true, dashboard: null, mapRows: [] }));
+    api
+      .get("/dashboard", { params: mapParams, signal: controller.signal })
+      .then(({ data }) => {
+        dispatch(
+          patch({
+            dashboard: data,
+            mapRows: data.rows,
+            mapQuery: mapParams,
+            mapLoading: false,
+          })
+        );
+        setError("");
+      })
+      .catch((e) => {
+        if (e.code !== "ERR_CANCELED") {
+          setError(errorMessage(e));
+          dispatch(patch({ mapLoading: false }));
+        }
+      });
+    return () => controller.abort();
+  }, [mapKey, s.data?.refresh, dataView, storageView]);
+  useEffect(() => {
+    if (!s.data?.paged || s.data.offline || dataView || storageView) return;
+    const controller = new AbortController();
+    api
+      .get("/map-assets", {
+        params: {
+          estates: s.selected.join(","),
+          at: s.date,
+          ids: [s.override, s.compare].filter(Boolean).join(","),
+        },
+        signal: controller.signal,
+      })
+      .then(({ data }) => dispatch(patch({ mapAssets: data })))
+      .catch((e) => {
+        if (e.code !== "ERR_CANCELED") setError(errorMessage(e));
+      });
+    return () => controller.abort();
+  }, [
+    s.selected.join(","),
+    s.date,
+    s.override,
+    s.compare,
+    s.data?.refresh,
+    dataView,
+    storageView,
+  ]);
   const onRecord = useCallback(
     (record) =>
       setDialog(
         record.rows
-          ? { type: "records", group: record }
+          ? {
+              type: "records",
+              group: record,
+              server: record.rows.some((r) => r.summary)
+                ? {
+                    ...s.mapQuery,
+                    estates: record.estateId,
+                    block: `${record.estateId}::${record.block}`,
+                    gps: record.geolocation
+                      ? record.geolocation.join(",")
+                      : "block",
+                  }
+                : null,
+            }
           : { type: "record", record }
       ),
-    []
+    [s.mapQuery]
   );
   if (!s.data)
     return (
@@ -156,16 +273,24 @@ export default function App() {
       (n, e) => n + (e.boundary?.features?.length || 0),
       0
     ),
-    verified = rows.filter((r) => r.status === "verified").length;
+    verified = s.data.paged
+      ? s.dashboard?.summary.verified || 0
+      : rows.filter((r) => r.status === "verified").length;
+  const recordCount = s.data.paged
+    ? s.dashboard?.summary.count || 0
+    : rows.length;
+  const assets = s.data.paged ? s.mapAssets || [] : s.data.assets;
   const all = records(s.data, s.selected, {
       activity: s.activity,
       fieldActivity: s.fieldActivity,
       block: s.block,
       bucket: current,
     }),
-    pending = all.filter((r) => r.status !== "verified").length;
-  const images = imagesAt(s.data.assets, s.selected, s.date, s.override),
-    near = s.data.assets
+    pending = s.data.paged
+      ? recordCount - verified
+      : all.filter((r) => r.status !== "verified").length;
+  const images = imagesAt(assets, s.selected, s.date, s.override),
+    near = assets
       .filter((a) => s.selected.includes(a.estateId) && a.kind === "imagery")
       .sort((a, b) => a.acquiredAt.localeCompare(b.acquiredAt));
   const goHistory = () => {
@@ -226,6 +351,14 @@ export default function App() {
         >
           ▤<small>Data</small>
         </button>
+        <button
+          className={"nav-icon data-nav " + (storageView ? "active" : "")}
+          title="Image storage"
+          aria-label="Image storage"
+          onClick={() => setSearchParams({ view: "storage" })}
+        >
+          ▣<small>Storage</small>
+        </button>
         <button className="nav-icon" title="Map history" onClick={goHistory}>
           ◷
         </button>
@@ -265,10 +398,16 @@ export default function App() {
             <div>
               <div className="eyebrow">GEOSPATIAL COMMAND CENTER</div>
               <h1>
-                {dataView ? "Your estate data." : "Your estate. Every day."}
+                {storageView
+                  ? "Your image storage."
+                  : dataView
+                  ? "Your estate data."
+                  : "Your estate. Every day."}
               </h1>
               <p>
-                {dataView
+                {storageView
+                  ? "Review image usage and manage retention for your estates."
+                  : dataView
                   ? "Block information, harvesting and field work in separate grids."
                   : "One view of your land, your people, and the work getting done."}
               </p>
@@ -279,7 +418,7 @@ export default function App() {
                   ◈ Back to map
                 </button>
               )}
-              {!dataView && (
+              {!dataView && !storageView && (
                 <>
                   <button
                     className="button"
@@ -304,9 +443,17 @@ export default function App() {
               using the setup command.
             </div>
           )}
+          {error && (
+            <div className="callout" role="alert">
+              {error}
+            </div>
+          )}
+          {storageView && <Storage onReload={reload} />}
           {dataView && (
             <section className="data-workspace">
               <DataTables
+                key={s.selected.join(",")}
+                server={s.data.paged ? { estates: s.selected.join(",") } : null}
                 blocks={(s.data.blocks || []).filter((b) =>
                   s.selected.includes(b.estateId)
                 )}
@@ -318,7 +465,7 @@ export default function App() {
               />
             </section>
           )}
-          {!dataView && (
+          {!dataView && !storageView && (
             <div>
               <section className="stats">
                 <article>
@@ -326,11 +473,11 @@ export default function App() {
                   <div>
                     <span>Activities verified</span>
                     <strong>
-                      {verified} <small>/ {rows.length}</small>
+                      {verified} <small>/ {recordCount}</small>
                     </strong>
                     <p>
-                      {rows.length
-                        ? Math.round((verified / rows.length) * 100)
+                      {recordCount
+                        ? Math.round((verified / recordCount) * 100)
                         : 0}
                       % of selected records
                     </p>
@@ -341,10 +488,12 @@ export default function App() {
                   <div>
                     <span>Harvest recorded</span>
                     <strong>
-                      {rows
-                        .filter((r) => r.recordKind === "harvesting")
-                        .reduce((n, r) => n + r.value, 0)
-                        .toLocaleString()}{" "}
+                      {(s.data.paged
+                        ? s.dashboard?.summary.bunches || 0
+                        : rows
+                            .filter((r) => r.recordKind === "harvesting")
+                            .reduce((n, r) => n + r.value, 0)
+                      ).toLocaleString()}{" "}
                       <small>bunches</small>
                     </strong>
                     <p>Selected harvesting records</p>
@@ -355,10 +504,12 @@ export default function App() {
                   <div>
                     <span>Field work</span>
                     <strong>
-                      {rows
-                        .filter((r) => r.recordKind === "field")
-                        .reduce((n, r) => n + r.mandays, 0)
-                        .toLocaleString()}{" "}
+                      {(s.data.paged
+                        ? s.dashboard?.summary.mandays || 0
+                        : rows
+                            .filter((r) => r.recordKind === "field")
+                            .reduce((n, r) => n + r.mandays, 0)
+                      ).toLocaleString()}{" "}
                       <small>mandays</small>
                     </strong>
                     <p>Selected field-activity records</p>
@@ -380,6 +531,16 @@ export default function App() {
                   </div>
                 </article>
               </section>
+              {s.mapLoading && (
+                <p role="status">Loading selected activity window…</p>
+              )}
+              {s.dashboard?.limited && (
+                <p className="callout">
+                  Showing up to 500 locations per activity type. Totals include
+                  all matching records. Select a shorter period or a block to
+                  see the remaining locations.
+                </p>
+              )}
               <div className="workspace" id="workspace">
                 <section className="map-workspace">
                   <div className="map-topbar">
@@ -422,12 +583,14 @@ export default function App() {
                       dispatch(patch({ selectedBlock: null, block: "all" }))
                     }
                   />
-                  <MapView
-                    rows={rows}
-                    onRecord={onRecord}
-                    onImport={() => setDialog({ type: "import" })}
-                    onOffline={() => setDialog({ type: "offline" })}
-                  />
+                  <Suspense fallback={<p role="status">Loading map viewer…</p>}>
+                    <MapView
+                      rows={rows}
+                      onRecord={onRecord}
+                      onImport={() => setDialog({ type: "import" })}
+                      onOffline={() => setDialog({ type: "offline" })}
+                    />
+                  </Suspense>
                   {s.compare && (
                     <div className="compare-options">
                       <label>
@@ -457,7 +620,7 @@ export default function App() {
                       <div className="eyebrow">FIELD OPERATIONS</div>
                       <h2>
                         {s.activity === "all" ? "On the ground" : s.activity}{" "}
-                        <span>{rows.length}</span>
+                        <span>{recordCount}</span>
                       </h2>
                     </div>
                     <button
@@ -490,13 +653,16 @@ export default function App() {
                       }
                     >
                       <option value="all">All activities</option>
-                      {[
-                        ...new Set(
-                          s.data.activities
-                            .filter((r) => s.selected.includes(r.estateId))
-                            .map((r) => r.type)
-                        ),
-                      ].map((t) => (
+                      {(s.data.paged
+                        ? ["Harvesting", "Field activity"]
+                        : [
+                            ...new Set(
+                              s.data.activities
+                                .filter((r) => s.selected.includes(r.estateId))
+                                .map((r) => r.type)
+                            ),
+                          ]
+                      ).map((t) => (
                         <option key={t}>{t}</option>
                       ))}
                     </select>
@@ -577,7 +743,7 @@ export default function App() {
                           </span>
                           <span className="activity-text">
                             <strong>
-                              {r.block} · {r.rows.length} records
+                              {r.block} · {groupCount(r)} records
                             </strong>
                             <p>
                               {estates.length > 1
@@ -617,7 +783,7 @@ export default function App() {
               {estates.map((e) => e.name).join(" · ")} · DigitalPalm Estate
               Atlas
             </span>
-            {!dataView && (
+            {!dataView && !storageView && (
               <button onClick={() => setDialog({ type: "import" })}>
                 Import a map or image ↗
               </button>

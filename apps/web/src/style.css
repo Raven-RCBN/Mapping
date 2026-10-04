@@ -2986,3 +2986,12 @@ button:disabled {
  .table-tabs button { padding: 12px 8px; font-size: 13px; } .block-facts { grid-template-columns: repeat(2,minmax(0,1fr)); }
  .block-info { padding: 12px; } .table-pagination { gap: 10px; }
 }
+
+.storage-workspace h3 { margin-top: 28px; }
+.storage-workspace .stats { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 24px 0; }
+.storage-workspace .form-grid { margin: 18px 0; }
+.storage-preview { margin: 24px 0; }
+.storage-preview .data-table-scroll { max-height: 280px; }
+.storage-preview > label { display: grid; gap: 8px; margin: 18px 0; max-width: 360px; }
+.storage-preview input { border: 1px solid var(--line); padding: 12px; border-radius: 8px; background: white; }
+@media (max-width: 650px) { .storage-workspace .stats { grid-template-columns: 1fr; } }

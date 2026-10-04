@@ -21,7 +21,9 @@ export default function Dialogs({
     [busy, setBusy] = useState(false),
     [message, setMessage] = useState(""),
     [saved, setSaved] = useState(null),
-    [uploadKind, setUploadKind] = useState("image");
+    [uploadKind, setUploadKind] = useState("image"),
+    [offlineFrom, setOfflineFrom] = useState(""),
+    [offlineTo, setOfflineTo] = useState("");
   useEffect(() => {
     ref.current?.showModal();
     offlineManifest().then(setSaved);
@@ -120,6 +122,7 @@ export default function Dialogs({
                     s.selected.includes(r.estateId)
                   )
             }
+            server={mode.server}
             popup={mode.type === "records"}
             onHistory={onHistory}
             onSelectBlock={onSelectBlock}
@@ -265,6 +268,31 @@ export default function Dialogs({
                   } files`
                 : "No offline package saved on this browser."}
             </div>
+            <div className="form-grid">
+              <label>
+                Activity and imagery from
+                <input
+                  type="date"
+                  value={offlineFrom}
+                  onInput={(e) => setOfflineFrom(e.currentTarget.value)}
+                  onChange={(e) => setOfflineFrom(e.target.value)}
+                />
+              </label>
+              <label>
+                Before
+                <input
+                  type="date"
+                  value={offlineTo}
+                  onInput={(e) => setOfflineTo(e.currentTarget.value)}
+                  onChange={(e) => setOfflineTo(e.target.value)}
+                />
+              </label>
+            </div>
+            <p>
+              Leave dates empty for all available history. Packages are limited
+              to 25,000 records, 200 files and 512 MB; choose a smaller window
+              if needed. The nearest earlier image is included for context.
+            </p>
             <div className="modal-actions">
               <button
                 className="button"
@@ -286,8 +314,14 @@ export default function Dialogs({
                 disabled={busy || s.data.offline}
                 onClick={() =>
                   run(async () => {
-                    const pack = await saveOffline(s.selected, (done, total) =>
-                      setMessage(`Downloading ${done} of ${total} files…`)
+                    const pack = await saveOffline(
+                      s.selected,
+                      (done, total) =>
+                        setMessage(`Downloading ${done} of ${total} files…`),
+                      {
+                        ...(offlineFrom ? { from: offlineFrom } : {}),
+                        ...(offlineTo ? { to: offlineTo } : {}),
+                      }
                     );
                     setSaved(pack);
                     setMessage(
@@ -303,7 +337,7 @@ export default function Dialogs({
               Online road tiles are not included. For native fieldwork, use the
               React Native app or a QField project.
             </p>
-            {s.data.assets
+            {(s.data.paged ? s.mapAssets || [] : s.data.assets)
               .filter(
                 (a) => s.selected.includes(a.estateId) && a.kind === "qgis"
               )

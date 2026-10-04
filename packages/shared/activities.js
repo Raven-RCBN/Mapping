@@ -69,3 +69,6 @@ export function groupSummary(group) {
       .join(" · ") || `${group.rows.length} records`
   );
 }
+
+export const groupCount = (group) =>
+  group.rows.reduce((n, r) => n + (r.count ?? 1), 0);

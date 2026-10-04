@@ -8,6 +8,8 @@ jest.mock('react-native-fs', () => ({
     promise: Promise.resolve({ statusCode: 200 }),
   })),
   hash: jest.fn(),
+  readFile: jest.fn(),
+  copyFile: jest.fn().mockResolvedValue(undefined),
   writeFile: jest.fn().mockResolvedValue(undefined),
   unlink: jest.fn().mockResolvedValue(undefined),
 }));
@@ -25,27 +27,25 @@ const old = {
 beforeEach(() => {
   jest.clearAllMocks();
   (AsyncStorage.getItem as jest.Mock).mockResolvedValue(JSON.stringify(old));
-  (globalThis as any).fetch = jest
-    .fn()
-    .mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        createdAt: '2026-10-04',
-        files: [
-          {
-            id: 'image-a',
-            url: '/api/assets/image-a/file',
-            mime: 'image/png',
-            sha256: 'a'.repeat(64),
-          },
-        ],
-        snapshot: {
-          access: { subject: 'manager' },
-          estates: [{ name: 'Estate A' }],
-          assets: [{ id: 'image-a', kind: 'imagery' }],
+  (globalThis as any).fetch = jest.fn().mockResolvedValue({
+    ok: true,
+    json: async () => ({
+      createdAt: '2026-10-04',
+      files: [
+        {
+          id: 'image-a',
+          url: '/api/assets/image-a/file',
+          mime: 'image/png',
+          sha256: 'a'.repeat(64),
         },
-      }),
-    });
+      ],
+      snapshot: {
+        access: { subject: 'manager' },
+        estates: [{ name: 'Estate A' }],
+        assets: [{ id: 'image-a', kind: 'imagery' }],
+      },
+    }),
+  });
 });
 test('failed checksum preserves the previous offline package', async () => {
   (RNFS.hash as jest.Mock).mockResolvedValue('b'.repeat(64));
@@ -74,7 +74,48 @@ test('complete download writes local HTML then replaces the active manifest', as
 });
 test('hosting address permits HTTPS and local development only', () => {
   expect(serverURL('https://mapping.example/')).toBe('https://mapping.example');
-  expect(serverURL('https://agrinexus.digitalpalm.ai/EstateAtlas/')).toBe('https://agrinexus.digitalpalm.ai/EstateAtlas');
+  expect(serverURL('https://agrinexus.digitalpalm.ai/EstateAtlas/')).toBe(
+    'https://agrinexus.digitalpalm.ai/EstateAtlas',
+  );
   expect(() => serverURL('http://other-host.example')).toThrow('HTTPS');
   expect(() => serverURL('https://host.example/path')).toThrow('HTTPS');
+});
+
+test('oversize download shows server guidance and preserves the existing offline copy', async () => {
+  (globalThis.fetch as jest.Mock).mockResolvedValue({
+    ok: false,
+    json: async () => ({ error: 'Select a shorter date range' }),
+  });
+  await expect(
+    downloadPack('https://mapping.example', 'token', ['estate-a'], () => {}, {
+      from: '2025-01-01',
+      to: '2026-01-01',
+    }),
+  ).rejects.toThrow('shorter date range');
+  expect(globalThis.fetch).toHaveBeenCalledWith(
+    expect.stringContaining('&from=2025-01-01&to=2026-01-01'),
+    expect.anything(),
+  );
+  expect(RNFS.mkdir).not.toHaveBeenCalled();
+  expect(AsyncStorage.setItem).not.toHaveBeenCalled();
+  expect(RNFS.unlink).not.toHaveBeenCalled();
+});
+
+test('unchanged authorised imagery is copied from the previous verified package', async () => {
+  (RNFS.hash as jest.Mock).mockResolvedValue('a'.repeat(64));
+  (RNFS.readFile as jest.Mock).mockResolvedValue(
+    JSON.stringify({ files: [{ id: 'image-a', sha256: 'a'.repeat(64) }] }),
+  );
+  await downloadPack(
+    'https://mapping.example',
+    'token',
+    ['estate-a'],
+    () => {},
+  );
+  expect(RNFS.downloadFile).not.toHaveBeenCalled();
+  expect(RNFS.copyFile).toHaveBeenCalledWith(
+    old.folder + '/image-a.png',
+    expect.stringContaining('/image-a.png'),
+  );
+  expect(AsyncStorage.setItem).toHaveBeenCalled();
 });

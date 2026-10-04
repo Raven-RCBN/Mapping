@@ -30,6 +30,23 @@ self.addEventListener("fetch", (event) => {
     url.pathname.startsWith("/api/")
   )
     return;
+  // Build-hashed public assets are immutable for this shell version.
+  if (
+    url.pathname.startsWith(BASE + "assets/") &&
+    FILES.includes(url.pathname)
+  ) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(SHELL);
+        const saved = await cache.match(url.pathname, { ignoreVary: true });
+        if (saved) return saved;
+        const response = await fetch(event.request);
+        if (response.ok) await cache.put(url.pathname, response.clone());
+        return response;
+      })()
+    );
+    return;
+  }
   event.respondWith(
     fetch(event.request).catch(async () => {
       const cache = await caches.open(SHELL);

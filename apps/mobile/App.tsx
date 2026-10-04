@@ -28,6 +28,8 @@ export default function App() {
     [busy, setBusy] = useState(false),
     [status, setStatus] = useState(''),
     [online, setOnline] = useState(true);
+  const [from, setFrom] = useState(''),
+    [to, setTo] = useState('');
   useEffect(() => {
     savedPack().then(setPack);
     return NetInfo.addEventListener(s => setOnline(s.isConnected !== false));
@@ -163,6 +165,31 @@ export default function App() {
                   </Text>
                 </Pressable>
               ))}
+              {estates.length > 0 && (
+                <View>
+                  <Text style={styles.caption}>
+                    Optional offline window (YYYY-MM-DD). Leave blank for all
+                    history. Maximum 25,000 records, 200 files and 512 MB per
+                    package.
+                  </Text>
+                  <TextInput
+                    accessibilityLabel="Offline from date"
+                    placeholder="From YYYY-MM-DD"
+                    value={from}
+                    onChangeText={setFrom}
+                    style={styles.input}
+                    autoCapitalize="none"
+                  />
+                  <TextInput
+                    accessibilityLabel="Offline before date"
+                    placeholder="Before YYYY-MM-DD"
+                    value={to}
+                    onChangeText={setTo}
+                    style={styles.input}
+                    autoCapitalize="none"
+                  />
+                </View>
+              )}
               {estates.length > 0 &&
                 button(
                   'Download selected estates',
@@ -173,6 +200,7 @@ export default function App() {
                         token,
                         selected,
                         setStatus,
+                        { from: from || undefined, to: to || undefined },
                       );
                       setPack(saved);
                       setStatus(

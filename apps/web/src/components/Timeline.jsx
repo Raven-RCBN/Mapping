@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import RemoteTimeline from "./RemoteTimeline";
 import { patch } from "../store";
 import {
   types,
@@ -9,7 +10,7 @@ import {
   addDays,
   records,
 } from "../../../../packages/shared/timeline";
-export default function Timeline() {
+function LocalTimeline() {
   const s = useSelector((s) => s),
     dispatch = useDispatch(),
     [anchor, setAnchor] = useState(s.date),
@@ -405,4 +406,9 @@ export default function Timeline() {
       </div>
     </section>
   );
+}
+
+export default function Timeline() {
+  const data = useSelector((s) => s.data);
+  return data.paged && !data.offline ? <RemoteTimeline /> : <LocalTimeline />;
 }
