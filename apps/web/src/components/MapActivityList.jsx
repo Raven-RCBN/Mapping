@@ -253,19 +253,19 @@ export default function MapActivityList() {
     const place = () => {
       const button = trigger.current.getBoundingClientRect();
       const popup = panel.current.getBoundingClientRect();
-      const below = button.bottom + 8;
-      const above = button.top - popup.height - 8;
+      const below = window.innerHeight - button.bottom - 16;
+      const above = button.top - 16;
+      const openBelow = below >= 480 || below >= above;
       setPosition({
         left: Math.max(
           8,
           Math.min(button.left, window.innerWidth - popup.width - 8)
         ),
-        top:
-          below + popup.height <= window.innerHeight - 8
-            ? below
-            : above >= 8
-            ? above
-            : Math.max(8, window.innerHeight - popup.height - 8),
+        top: openBelow ? Math.max(8, button.bottom + 8) : undefined,
+        bottom: openBelow
+          ? undefined
+          : Math.max(8, window.innerHeight - button.top + 8),
+        maxHeight: Math.max(120, Math.min(520, openBelow ? below : above)),
       });
     };
     place();
