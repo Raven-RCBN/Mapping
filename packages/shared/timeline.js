@@ -1,3 +1,4 @@
+import { mappedRecords } from "./mapped-records.js";
 import { activityVisible } from "./map-visibility.js";
 export const types = {
   Harvesting: { icon: "✦", color: "#e9b741", bg: "#fbf3df" },
@@ -46,12 +47,16 @@ export function records(
     activity = "all",
     fieldActivity = "all",
     mapVisibility,
+    mappedOnly = false,
     block = "all",
     bucket = null,
     review = false,
   } = {}
 ) {
-  return data.activities.filter(
+  const candidates = mappedOnly
+    ? mappedRecords(data.activities, data.blocks || [], data.estates)
+    : data.activities;
+  return candidates.filter(
     (r) =>
       selected.includes(r.estateId) &&
       activityVisible(mapVisibility, r) &&

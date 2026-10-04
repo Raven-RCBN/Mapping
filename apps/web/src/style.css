@@ -3051,3 +3051,9 @@ button:disabled {
 
 /* Keep the anchored popup above the floating map controls. */
 .map-stage #estateMap .ol-overlaycontainer-stopevent { z-index: 850 !important; }
+
+.map-record-pages { padding: 14px 18px; border-top: 1px solid #dce5d8; display: grid; gap: 8px; color: #64735c; font-size: 12px; }
+.map-record-pages small { font-size: 11px; }
+.map-record-pages > div { display: flex; justify-content: space-between; gap: 8px; }
+.map-record-pages button { padding: 8px; border: 1px solid #dce5d8; border-radius: 6px; color: #244a36; background: #f3f6ee; font-size: 12px; }
+.activity-item .activity-text strong { line-height: 1.5; }

@@ -3,6 +3,10 @@ import { z } from "zod";
 import { canAccess, estateQuery } from "./auth.js";
 import { QueryError, SummaryCache } from "./performance.js";
 import { activityView } from "../../../../packages/shared/activities.js";
+import {
+  mappedBlocks,
+  compareMapRecords,
+} from "../../../../packages/shared/mapped-records.js";
 import { buckets } from "../../../../packages/shared/timeline.js";
 
 export const activeAsset = {
@@ -25,6 +29,8 @@ const visibility = z
   .strict();
 const parameters = z.object({
   mapVisibility: visibility.optional(),
+  mappedOnly: z.enum(["true", "false"]).default("false"),
+  mapMode: z.enum(["groups", "records"]).default("groups"),
   estates: z.string().max(8100).optional(),
   from: day.optional(),
   to: day.optional(),
@@ -79,6 +85,7 @@ export function matchRecords(q, kind, dates = true) {
   const match = { ...q.scope };
   if (q.blockCode) match.blockCode = q.blockCode;
   if (kind !== "blocks") {
+    if (q.matchedBlockIds) match.blockId = { $in: q.matchedBlockIds };
     if (dates && (q.from || q.to))
       match.workDate = {
         ...(q.from && { $gte: q.from }),
@@ -221,6 +228,100 @@ export function installQueries(api, models, expose) {
     ["harvesting", HarvestingActivity],
     ["field", FieldActivity],
   ];
+  async function mapSelection(req) {
+    const q = selection(req);
+    if (q.mappedOnly !== "true" && q.mapMode !== "records") return q;
+    q.matchedBlockIds = await cached(
+      req,
+      ["mapped-blocks", q.scope],
+      async () => {
+        const [blocks, estates] = await Promise.all([
+          bounded(
+            Block.find(q.scope).select("estateId mapBlockNames"),
+            5000,
+            "Select fewer estates."
+          ),
+          bounded(
+            Estate.find(
+              q.scope.estateId ? { _id: q.scope.estateId } : {}
+            ).select("boundary"),
+            100,
+            "Select fewer estates."
+          ),
+        ]);
+        return mappedBlocks(blocks, estates).map((b) => b._id);
+      }
+    );
+    return q;
+  }
+  async function individualMapPage(q) {
+    const matches = kinds.map(([kind]) => matchRecords(q, kind));
+    const fingerprint = createHash("sha256")
+      .update(JSON.stringify([matches, q.limit]))
+      .digest("hex");
+    let after;
+    if (q.cursor) {
+      try {
+        after = JSON.parse(Buffer.from(q.cursor, "base64url").toString());
+        if (
+          after.f !== fingerprint ||
+          !["field", "harvesting"].includes(after.kind) ||
+          typeof after.id !== "string" ||
+          after.id.length > 100 ||
+          !day.safeParse(after.date).success
+        )
+          throw Error();
+      } catch {
+        throw new QueryError(
+          "This page does not match the selected map activities."
+        );
+      }
+    }
+    const lists = await Promise.all(
+      kinds.map(async ([kind, model], i) => {
+        const cursorMatch = after
+          ? {
+              $or: [
+                { workDate: { $lt: after.date } },
+                { workDate: after.date, _id: { $lt: after.id } },
+                ...(kind < after.kind
+                  ? [{ workDate: after.date, _id: after.id }]
+                  : []),
+              ],
+            }
+          : {};
+        const rows = await model
+          .find({ $and: [matches[i], cursorMatch] })
+          .select(
+            "estateId blockId blockCode workDate status geolocation activity activityDescription mandays bunches"
+          )
+          .sort({ workDate: -1, _id: -1 })
+          .limit(q.limit + 1)
+          .maxTimeMS(10000)
+          .lean();
+        return rows.map((r) => activityView(r, kind));
+      })
+    );
+    const ordered = lists.flat().sort(compareMapRecords),
+      rows = ordered.slice(0, q.limit),
+      last = rows.at(-1);
+    return {
+      rows,
+      mapMode: "records",
+      limit: q.limit,
+      nextCursor:
+        ordered.length > q.limit
+          ? Buffer.from(
+              JSON.stringify({
+                f: fingerprint,
+                date: last.date,
+                id: last.id,
+                kind: last.recordKind,
+              })
+            ).toString("base64url")
+          : null,
+    };
+  }
   api.get("/bootstrap", async (req, res) => {
     const scoped = estateQuery(req);
     const estates = await bounded(
@@ -360,7 +461,54 @@ export function installQueries(api, models, expose) {
     api.get("/" + route, (req, res) => page(req, res, kind));
 
   readRoute("/dashboard", async (req, res) => {
-    const q = selection(req);
+    const q = await mapSelection(req);
+    if (q.mapMode === "records") {
+      const [page, totals] = await Promise.all([
+        individualMapPage(q),
+        cached(
+          req,
+          ["map-totals", { ...q, cursor: undefined, limit: undefined }],
+          async () => {
+            const result = await Promise.all(
+              kinds.map(async ([kind, model]) => {
+                const [data] = await aggregate(model, [
+                  { $match: matchRecords({ ...q, review: "false" }, kind) },
+                  {
+                    $facet: {
+                      all: [{ $group: totalsGroup(kind) }],
+                      visible: [
+                        ...(q.review === "true"
+                          ? [{ $match: { status: { $ne: "verified" } } }]
+                          : []),
+                        { $group: totalsGroup(kind) },
+                      ],
+                    },
+                  },
+                ]);
+                return { kind, ...data };
+              })
+            );
+            const summarize = (key) => {
+              const total = { count: 0, verified: 0, bunches: 0, mandays: 0 };
+              for (const r of result) {
+                const t = r[key][0];
+                if (!t) continue;
+                total.count += t.count;
+                total.verified += t.verified;
+                total[r.kind === "harvesting" ? "bunches" : "mandays"] =
+                  t.value;
+              }
+              return { ...total, pending: total.count - total.verified };
+            };
+            return {
+              summary: summarize("visible"),
+              selectionSummary: summarize("all"),
+            };
+          }
+        ),
+      ]);
+      return res.json({ ...page, ...totals });
+    }
     res.json(
       await cached(req, ["dashboard", q], async () => {
         const result = await Promise.all(
@@ -552,12 +700,15 @@ export function installQueries(api, models, expose) {
   });
 
   api.get("/activity-options", async (req, res) => {
-    const q = selection(req);
+    const q = await mapSelection(req);
     const after = z.string().max(500).optional().parse(req.query.after);
-    const where = { ...q.scope };
+    const where = {
+      ...q.scope,
+      ...(q.matchedBlockIds ? { blockId: { $in: q.matchedBlockIds } } : {}),
+    };
     if (q.q) where.activityDescription = { $regex: escape(q.q), $options: "i" };
     res.json(
-      await cached(req, ["activity-options", q.scope, q.q, after], async () => {
+      await cached(req, ["activity-options", where, q.q, after], async () => {
         const [result] = await aggregate(FieldActivity, [
           { $match: where },
           { $group: { _id: { $ifNull: ["$activityDescription", ""] } } },
@@ -585,7 +736,7 @@ export function installQueries(api, models, expose) {
   });
 
   readRoute("/timeline", async (req, res) => {
-    const q = selection(req),
+    const q = await mapSelection(req),
       anchor = day.parse(input(req).anchor),
       period = z
         .enum(["day", "week", "month", "year", "all"])

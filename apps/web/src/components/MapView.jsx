@@ -22,13 +22,11 @@ import "ol/ol.css";
 import { patch } from "../store";
 import { imageBlob, authorisedFile, apiBase } from "../api";
 import { imagesAt, types, label } from "../../../../packages/shared/timeline";
-import {
-  activityGroups,
-  groupCount,
-} from "../../../../packages/shared/activities.js";
+import { exactCoordinates } from "../../../../packages/shared/activities.js";
+import { recordKey } from "../../../../packages/shared/mapped-records.js";
 import {
   linkedFeatures,
-  interiorPosition,
+  spreadPositions,
 } from "../../../../packages/shared/map-placement.js";
 const geo = new GeoJSON();
 const featuresOf = (json) =>
@@ -38,6 +36,7 @@ const featuresOf = (json) =>
   });
 export default function MapView({
   rows,
+  pageOffset = 0,
   requestedRecord,
   onImport,
   onOffline,
@@ -102,7 +101,7 @@ export default function MapView({
   useEffect(() => {
     if (!requestedRecord || !state.showActivities) return;
     const point = pointsRef.current.find(
-      (p) => p.group.id === requestedRecord.groupId
+      (p) => recordKey(p.record) === requestedRecord.recordKey
     );
     // Unmatched records stay in Data; do not invent a location on the map.
     if (point) setPopup(point);
@@ -140,7 +139,6 @@ export default function MapView({
       })
     );
     const source = new VectorSource({ features: fs });
-    const groups = activityGroups(rows);
     const linked = (r) => linkedFeatures(r, data.blocks || [], fs);
     if (state.showBoundaries || state.showLabels)
       add(
@@ -182,40 +180,73 @@ export default function MapView({
         }),
         20
       );
-    const key = selected.join(",") + fs.length;
-    if (key !== fitRef.current && !isEmpty(source.getExtent())) {
+    const focusFeatures =
+      state.block !== "all"
+        ? linked({
+            estateId: state.block.split("::")[0],
+            blockId: data.blocks.find(
+              (b) => `${b.estateId}::${b.blockCode}` === state.block
+            )?.id,
+            recordKind: "field",
+          })
+        : fs;
+    const focusSource = new VectorSource({ features: focusFeatures });
+    const key = selected.join(",") + fs.length + state.block;
+    if (key !== fitRef.current && !isEmpty(focusSource.getExtent())) {
       fitRef.current = key;
       map
         .getView()
-        .fit(source.getExtent(), { padding: [60, 60, 60, 60], maxZoom: 16 });
+        .fit(focusSource.getExtent(), {
+          padding: [60, 60, 60, 60],
+          maxZoom: state.block === "all" ? 16 : 19,
+        });
     }
-    if (state.showActivities)
+    if (state.showActivities) {
+      const byBlock = new globalThis.Map();
+      for (const r of rows) {
+        const features = linked(r);
+        // A GPS coordinate alone does not bypass the confirmed block requirement.
+        if (!features.length) continue;
+        const key = `${r.estateId}::${r.blockId}`;
+        if (!byBlock.has(key)) byBlock.set(key, { features, rows: [] });
+        byBlock.get(key).rows.push(r);
+      }
+      const positions = new globalThis.Map();
+      for (const { features, rows: blockRows } of byBlock.values()) {
+        const approximate = blockRows
+          .filter((r) => !exactCoordinates(r))
+          .sort((a, b) => recordKey(a).localeCompare(recordKey(b)));
+        const points = spreadPositions(features, approximate.length);
+        approximate.forEach((r, i) => positions.set(recordKey(r), points[i]));
+        blockRows
+          .filter(exactCoordinates)
+          .forEach((r) =>
+            positions.set(recordKey(r), fromLonLat(exactCoordinates(r)))
+          );
+      }
       add(
         new VectorLayer({
           source: new VectorSource({
-            features: groups.flatMap((group) => {
-              const r = group.rows[0];
-              const p = group.geolocation
-                ? fromLonLat(group.geolocation)
-                : interiorPosition(linked(r));
+            features: rows.flatMap((r, i) => {
+              const p = positions.get(recordKey(r));
               if (!p) return [];
-              pointsRef.current.push({ group, coordinate: p });
+              pointsRef.current.push({ record: r, coordinate: p });
               const feature = new Feature({
                 geometry: new Point(p),
-                record: group,
+                record: r,
               });
               feature.setStyle(
                 new Style({
                   image: new CircleStyle({
-                    radius: 17,
+                    radius: 12,
                     fill: new Fill({
                       color: types[r.type]?.color || "#d8ae40",
                     }),
-                    stroke: new Stroke({ color: "#fff", width: 2 }),
+                    stroke: new Stroke({ color: "#fff", width: 1.5 }),
                   }),
                   text: new Text({
-                    text: `${types[r.type]?.icon || "•"} ${groupCount(group)}`,
-                    font: "bold 12px sans-serif",
+                    text: String(pageOffset + i + 1),
+                    font: "bold 10px sans-serif",
                     fill: new Fill({ color: "#153f2b" }),
                   }),
                 })
@@ -226,6 +257,7 @@ export default function MapView({
         }),
         30
       );
+    }
     async function raster(asset, z = 1) {
       const blob = await imageBlob(asset);
       if (cancelled) return;
@@ -372,7 +404,7 @@ export default function MapView({
         (f) =>
           f.get("record")
             ? {
-                group: f.get("record"),
+                record: f.get("record"),
                 coordinate: f.getGeometry().getCoordinates(),
               }
             : undefined,
@@ -436,6 +468,8 @@ export default function MapView({
     state.showBoundaries,
     state.showLabels,
     state.opacity,
+    state.block,
+    pageOffset,
   ]);
   return (
     <div className="map-stage">
@@ -443,9 +477,8 @@ export default function MapView({
       {popup &&
         createPortal(
           <MapActivityPopup
-            key={popup.group.id + JSON.stringify(state.mapQuery)}
-            group={popup.group}
-            query={state.mapQuery}
+            key={recordKey(popup.record)}
+            record={popup.record}
             onClose={() => setPopup(null)}
           />,
           popupElement

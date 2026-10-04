@@ -1,3 +1,4 @@
+import { mappedBlocks } from "../../../../packages/shared/mapped-records.js";
 import { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
 import MapActivityList from "./MapActivityList";
@@ -23,6 +24,7 @@ export default function RemoteTimeline() {
   const windows = buckets(anchor, s.period, s.period === "all" ? 12 : 7);
   const params = {
     estates: s.selected.join(","),
+    mappedOnly: "true",
     activity: s.activity,
     mapVisibility: s.mapVisibility,
     block: s.block,
@@ -148,7 +150,7 @@ export default function RemoteTimeline() {
             }
           >
             <option value="all">All blocks</option>
-            {s.data.blocks.map((b) => (
+            {mappedBlocks(s.data.blocks, s.data.estates).map((b) => (
               <option key={b.id} value={`${b.estateId}::${b.blockCode}`}>
                 {b.blockCode}
               </option>

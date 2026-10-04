@@ -681,3 +681,182 @@ test("compact map popups return only activity and mandays, with filtered totals 
     { activity: "Weeding", mandays: 2.25 },
   ]);
 });
+
+test("individual map pages retain 20 separate activities and exclude unlinked or stale blocks", async () => {
+  const boundary = {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: { blockName: "OP_2023B" },
+        geometry: {
+          type: "Polygon",
+          coordinates: [
+            [
+              [101, 3],
+              [102, 3],
+              [102, 4],
+              [101, 4],
+              [101, 3],
+            ],
+          ],
+        },
+      },
+    ],
+  };
+  await models.Estate.create({
+    _id: "individual",
+    name: "Individual",
+    boundary,
+  });
+  await models.Block.create([
+    {
+      _id: "individual-match",
+      estateId: "individual",
+      blockCode: "OP2023 B",
+      mapBlockNames: ["OP_2023B"],
+    },
+    {
+      _id: "individual-missing",
+      estateId: "individual",
+      blockCode: "OP2016",
+      mapBlockNames: [],
+    },
+    {
+      _id: "individual-stale",
+      estateId: "individual",
+      blockCode: "STALE",
+      mapBlockNames: ["NO_LONGER_ON_MAP"],
+    },
+  ]);
+  await models.FieldActivity.insertMany(
+    Array.from({ length: 20 }, (_, i) => ({
+      _id: `individual-${String(i).padStart(2, "0")}`,
+      estateId: "individual",
+      blockId: "individual-match",
+      blockCode: "OP2023 B",
+      workDate: "2026-07-01",
+      activityDescription: "Circle Spraying - Manual",
+      mandays: i + 1,
+      gang: "Private crew",
+      status: i === 0 ? "verified" : "recorded",
+    }))
+  );
+  await models.FieldActivity.insertMany(
+    ["missing", "stale"].map((name) => ({
+      _id: `individual-${name}`,
+      estateId: "individual",
+      blockId: `individual-${name}`,
+      blockCode: name,
+      workDate: "2026-07-01",
+      activityDescription: "Unmatched activity",
+      mandays: 999,
+      geolocation: { type: "Point", coordinates: [101.5, 3.5] },
+    }))
+  );
+  // The same identifier in a separate collection is still its own activity.
+  await models.HarvestingActivity.create({
+    _id: "individual-19",
+    estateId: "individual",
+    blockId: "individual-match",
+    blockCode: "OP2023 B",
+    workDate: "2026-07-01",
+    activity: "FFB collection",
+    bunches: 8,
+    employeeName: "Private name",
+  });
+  const base = {
+    estates: "individual",
+    mapMode: "records",
+    mappedOnly: "true",
+    from: "2026-07-01",
+    to: "2026-08-01",
+    limit: 100,
+  };
+  const read = (params = {}, target = app) =>
+    request(target)
+      .post("/api/dashboard")
+      .set("X-Mapping-Client", "1")
+      .send({ ...base, ...params });
+  const field = await read({ activity: "Field activity" });
+  assert.equal(field.status, 200, JSON.stringify(field.body));
+  assert.equal(field.body.rows.length, 20);
+  assert.equal(field.body.summary.count, 20);
+  assert.equal(field.body.summary.mandays, 210);
+  assert.equal(new Set(field.body.rows.map((r) => r.id)).size, 20);
+  assert.ok(
+    field.body.rows.every(
+      (r) =>
+        r.activityDescription === "Circle Spraying - Manual" &&
+        !r.summary &&
+        !r.gang
+    )
+  );
+  assert.deepEqual(
+    field.body.rows.map((r) => r.mandays),
+    Array.from({ length: 20 }, (_, i) => 20 - i)
+  );
+  let cursor,
+    keys = [];
+  do {
+    const page = await read({ limit: 7, cursor });
+    assert.equal(page.status, 200, JSON.stringify(page.body));
+    assert.ok(page.body.rows.length <= 7);
+    assert.equal(page.body.selectionSummary.count, 21);
+    assert.ok(
+      page.body.rows.every(
+        (r) => r.blockId === "individual-match" && !r.employeeName
+      )
+    );
+    keys.push(...page.body.rows.map((r) => r.recordKind + ":" + r.id));
+    cursor = page.body.nextCursor;
+  } while (cursor);
+  assert.equal(keys.length, 21);
+  assert.equal(new Set(keys).size, 21);
+  const first = await read({ limit: 7 });
+  assert.equal(
+    (
+      await read({
+        limit: 7,
+        cursor: first.body.nextCursor,
+        activity: "Field activity",
+      })
+    ).status,
+    400
+  );
+  assert.equal((await read({}, scoped)).status, 403);
+  assert.equal((await read({ limit: 101 })).status, 400);
+  assert.equal(
+    (await read({ review: "true", activity: "Field activity" })).body.summary
+      .count,
+    19
+  );
+  assert.equal(
+    (
+      await read({
+        mapVisibility: { mode: "include", fields: [], harvesting: false },
+      })
+    ).body.rows.length,
+    0
+  );
+  const timeline = await request(app)
+    .post("/api/timeline")
+    .set("X-Mapping-Client", "1")
+    .send({ ...base, anchor: "2026-07-01", period: "month" });
+  assert.equal(
+    timeline.body.series.reduce((n, s) => n + s.totals.count, 0),
+    21
+  );
+  const catalog = await request(app)
+    .get("/api/activity-options")
+    .query({ estates: "individual", mappedOnly: "true" });
+  assert.deepEqual(catalog.body.items, ["Circle Spraying - Manual"]);
+  const table = await request(app)
+    .get("/api/records/field")
+    .query({ estates: "individual" });
+  assert.equal(
+    table.body.summary.count,
+    22,
+    "unmatched rows remain in the data table"
+  );
+});

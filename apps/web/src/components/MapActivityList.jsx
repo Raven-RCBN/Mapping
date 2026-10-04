@@ -1,3 +1,4 @@
+import { mappedRecords } from "../../../../packages/shared/mapped-records.js";
 import { useEffect, useMemo, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { api } from "../api";
@@ -29,7 +30,7 @@ export default function MapActivityList() {
     const timer = setTimeout(() => {
       api
         .get("/activity-options", {
-          params: { estates: scope, q: search, after },
+          params: { estates: scope, q: search, after, mappedOnly: "true" },
           signal: controller.signal,
         })
         .then(({ data }) => setCatalog({ ...data, key }))
@@ -47,7 +48,7 @@ export default function MapActivityList() {
     if (online) return null;
     const names = [
       ...new Set(
-        s.data.activities
+        mappedRecords(s.data.activities, s.data.blocks || [], s.data.estates)
           .filter(
             (r) => s.selected.includes(r.estateId) && r.type !== "Harvesting"
           )

@@ -34,10 +34,10 @@ import Dialogs from "./components/Dialogs";
 import Storage from "./components/Storage";
 import DataTables, { BlockInformation } from "./components/DataTables";
 import {
-  activityGroups,
-  groupSummary,
-  groupCount,
-} from "../../../packages/shared/activities.js";
+  activityName,
+  recordKey,
+  compareMapRecords,
+} from "../../../packages/shared/mapped-records.js";
 function errorMessage(error) {
   const detail = error.response?.data?.error;
   return (
@@ -80,6 +80,7 @@ export default function App() {
     [error, setError] = useState(""),
     [dialog, setDialog] = useState(null),
     [mapRecord, setMapRecord] = useState(null),
+    [mapPaging, setMapPaging] = useState({ key: "", cursors: [undefined] }),
     [token, setInputToken] = useState("");
   const reload = useCallback(async () => {
     const data = await getSnapshot();
@@ -95,12 +96,13 @@ export default function App() {
       : buckets(s.date, s.period === "all" ? "month" : s.period, 1)[0];
   const rows = useMemo(
     () =>
-      s.data?.paged
+      s.data?.paged && !s.data.offline
         ? s.mapRows || []
         : s.data
         ? records(s.data, s.selected, {
             activity: s.activity,
             mapVisibility: s.mapVisibility,
+            mappedOnly: true,
             block: s.block,
             bucket: current,
             review: s.review,
@@ -120,6 +122,9 @@ export default function App() {
   );
   const mapParams = {
     estates: s.selected.join(","),
+    mappedOnly: "true",
+    mapMode: "records",
+    limit: 100,
     activity: s.activity,
     mapVisibility: s.mapVisibility,
     block: s.block,
@@ -127,7 +132,11 @@ export default function App() {
     ...(current ? { from: current.start, to: current.end } : {}),
   };
   const mapKey = JSON.stringify(mapParams);
-  const dashboardKey = JSON.stringify([mapKey, s.data?.refresh]);
+  const pageKey = JSON.stringify([mapKey, s.data?.refresh]);
+  const pageCursors =
+    mapPaging.key === pageKey ? mapPaging.cursors : [undefined];
+  const mapCursor = pageCursors.at(-1);
+  const dashboardKey = JSON.stringify([pageKey, mapCursor]);
   useEffect(() => {
     if (!s.data?.paged || s.data.offline) return;
     const controller = new AbortController();
@@ -170,7 +179,11 @@ export default function App() {
         dashboardError: "",
       })
     );
-    queryData("/dashboard", mapParams, { signal: controller.signal })
+    queryData(
+      "/dashboard",
+      { ...mapParams, cursor: mapCursor },
+      { signal: controller.signal }
+    )
       .then(({ data }) => {
         if (controller.signal.aborted) return;
         dispatch(
@@ -197,7 +210,7 @@ export default function App() {
         }
       });
     return () => controller.abort();
-  }, [mapKey, s.data?.refresh, dataView, storageView]);
+  }, [mapKey, mapCursor, s.data?.refresh, dataView, storageView]);
   useEffect(() => {
     if (!s.data?.paged || s.data.offline || dataView || storageView) return;
     const controller = new AbortController();
@@ -225,13 +238,17 @@ export default function App() {
     storageView,
   ]);
   const onRecord = useCallback((record) => {
-    if (record.rows) {
-      setMapRecord({ groupId: record.id, requestedAt: Date.now() });
-      document
-        .getElementById("estateMap")
-        ?.scrollIntoView({ behavior: "smooth", block: "center" });
-    } else setDialog({ type: "record", record });
+    setMapRecord({ recordKey: recordKey(record), requestedAt: Date.now() });
+    document
+      .getElementById("estateMap")
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, []);
+  const displayRows = useMemo(() => {
+    if (s.data?.paged && !s.data.offline) return rows;
+    const ordered = [...rows].sort(compareMapRecords);
+    const offset = (pageCursors.length - 1) * 100;
+    return ordered.slice(offset, offset + 100);
+  }, [rows, mapCursor, s.data?.paged, s.data?.offline]);
   if (!s.data)
     return (
       <main className="startup">
@@ -284,6 +301,7 @@ export default function App() {
   const all = records(s.data, s.selected, {
     activity: s.activity,
     mapVisibility: s.mapVisibility,
+    mappedOnly: true,
     block: s.block,
     bucket: current,
   });
@@ -296,9 +314,10 @@ export default function App() {
     summary: s.dashboard?.selectionSummary,
     offlineRows: all,
   });
-  const recordCount = s.data.paged
-    ? s.dashboard?.summary.count || 0
-    : rows.length;
+  const recordCount =
+    s.data.paged && !s.data.offline
+      ? s.dashboard?.summary.count || 0
+      : rows.length;
   const pending = cardState.summary?.pending;
   const assets = s.data.paged ? s.mapAssets || [] : s.data.assets;
   const scope = [
@@ -308,7 +327,7 @@ export default function App() {
         ? label(current.start)
         : `${label(current.start)} – ${label(addDays(current.end, -1))}`
       : "All recorded dates",
-    s.block === "all" ? "All blocks" : s.block.split("::")[1],
+    s.block === "all" ? "Mapped blocks" : s.block.split("::")[1],
     s.activity === "all" ? "All activity types" : s.activity,
     s.mapVisibility.mode === "include"
       ? `${
@@ -512,13 +531,6 @@ export default function App() {
               {s.mapLoading && (
                 <p role="status">Loading selected activity window…</p>
               )}
-              {s.dashboard?.limited && (
-                <p className="callout">
-                  Showing up to 500 locations per activity type. Totals include
-                  all matching records. Select a shorter period or a block to
-                  see the remaining locations.
-                </p>
-              )}
               <div className="workspace" id="workspace">
                 <section className="map-workspace">
                   <div className="map-topbar">
@@ -563,7 +575,8 @@ export default function App() {
                   />
                   <Suspense fallback={<p role="status">Loading map viewer…</p>}>
                     <MapView
-                      rows={rows}
+                      rows={displayRows}
+                      pageOffset={(pageCursors.length - 1) * 100}
                       requestedRecord={mapRecord}
                       onImport={() => setDialog({ type: "import" })}
                       onOffline={() => setDialog({ type: "offline" })}
@@ -702,57 +715,94 @@ export default function App() {
                     )}
                   </div>
                   <div id="activityList">
-                    {activityGroups(rows)
-                      .slice()
-                      .sort((a, b) =>
-                        b.rows.at(-1).date.localeCompare(a.rows.at(-1).date)
-                      )
-                      .map((r) => (
-                        <button
-                          className="activity-item"
-                          key={r.id}
-                          onClick={() => onRecord(r)}
+                    {displayRows.map((r, i) => (
+                      <button
+                        className="activity-item"
+                        key={recordKey(r)}
+                        aria-label={`${activityName(r)} · ${r.block} · ${label(
+                          r.date
+                        )} · ${r.quantity}`}
+                        onClick={() => onRecord(r)}
+                      >
+                        <span
+                          className="activity-badge"
+                          style={{
+                            background: types[r.type]?.bg,
+                            color: types[r.type]?.color,
+                          }}
                         >
-                          <span
-                            className="activity-badge"
-                            style={{
-                              background: types[r.rows[0].type]?.bg,
-                              color: types[r.rows[0].type]?.color,
-                            }}
-                          >
-                            {types[r.rows[0].type]?.icon}
-                          </span>
-                          <span className="activity-text">
-                            <strong>
-                              {r.block} · {groupCount(r)} records
-                            </strong>
-                            <p>
-                              {estates.length > 1
-                                ? estates.find((e) => e.id === r.estateId)
-                                    ?.name + " · "
-                                : ""}
-                              {groupSummary(r)}
-                            </p>
-                            <small className="record-date">
-                              {[...new Set(r.rows.map((x) => x.type))].join(
-                                " · "
-                              )}
-                            </small>
+                          {(pageCursors.length - 1) * 100 + i + 1}
+                        </span>
+                        <span className="activity-text">
+                          <strong>{activityName(r)}</strong>
+                          <p>
+                            {r.block} · {label(r.date)}
+                          </p>
+                          <small className="record-date">{r.quantity}</small>
+                          {estates.length > 1 && (
                             <small>
-                              {r.geolocation
-                                ? "Exact GPS"
-                                : s.data.blocks?.find((b) => b.id === r.blockId)
-                                    ?.mapBlockNames?.length
-                                ? "Inside matched block"
-                                : "Map match pending"}
+                              {estates.find((e) => e.id === r.estateId)?.name}
                             </small>
-                          </span>
-                        </button>
-                      ))}
-                    {!rows.length && (
+                          )}
+                        </span>
+                      </button>
+                    ))}
+                    {!displayRows.length && (
                       <div className="empty">
                         No activity for this selection.
                       </div>
+                    )}
+                  </div>
+                  <div
+                    className="map-record-pages"
+                    aria-label="Map activity pages"
+                  >
+                    <span>
+                      {displayRows.length
+                        ? `${(pageCursors.length - 1) * 100 + 1}–${
+                            (pageCursors.length - 1) * 100 + displayRows.length
+                          }`
+                        : "0"}{" "}
+                      of {recordCount.toLocaleString()} activities
+                    </span>
+                    {(recordCount > 100 || pageCursors.length > 1) && (
+                      <>
+                        <small>Up to 100 individual bubbles per page</small>
+                        <div>
+                          <button
+                            disabled={s.mapLoading || pageCursors.length === 1}
+                            onClick={() =>
+                              setMapPaging({
+                                key: pageKey,
+                                cursors: pageCursors.slice(0, -1),
+                              })
+                            }
+                          >
+                            Previous activities
+                          </button>
+                          <button
+                            disabled={
+                              s.mapLoading ||
+                              (s.data.paged && !s.data.offline
+                                ? !s.dashboard?.nextCursor
+                                : rows.length <= pageCursors.length * 100)
+                            }
+                            onClick={() =>
+                              setMapPaging({
+                                key: pageKey,
+                                cursors: [
+                                  ...pageCursors,
+                                  s.data.paged && !s.data.offline
+                                    ? s.dashboard.nextCursor
+                                    : String(pageCursors.length),
+                                ],
+                              })
+                            }
+                          >
+                            Next activities
+                          </button>
+                        </div>
+                      </>
                     )}
                   </div>
                 </aside>

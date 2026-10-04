@@ -1,3 +1,4 @@
+import { mappedBlocks } from "../../../../packages/shared/mapped-records.js";
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import MapActivityList from "./MapActivityList";
@@ -19,6 +20,7 @@ function LocalTimeline() {
   const history = records(s.data, s.selected, {
     activity: s.activity,
     mapVisibility: s.mapVisibility,
+    mappedOnly: true,
     block: s.block,
   });
   const activeTypes = Object.entries(types).filter(([t]) =>
@@ -84,6 +86,7 @@ function LocalTimeline() {
       activity: t,
       block: s.block,
       mapVisibility: s.mapVisibility,
+      mappedOnly: true,
     }).length;
   return (
     <section className="timeline" id="timeline">
@@ -117,6 +120,7 @@ function LocalTimeline() {
                     activity: t,
                     block: s.block,
                     mapVisibility: s.mapVisibility,
+                    mappedOnly: true,
                   })
                     .map((r) => r.date)
                     .sort()
@@ -145,7 +149,7 @@ function LocalTimeline() {
               .map((e) => (
                 <optgroup key={e.id} label={e.name}>
                   {(s.data.blocks?.some((b) => b.estateId === e.id)
-                    ? s.data.blocks
+                    ? mappedBlocks(s.data.blocks, s.data.estates)
                         .filter((b) => b.estateId === e.id)
                         .map((b) => b.blockCode)
                     : e.boundary?.features.map((f) => f.properties.blockName) ||

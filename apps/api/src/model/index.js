@@ -172,6 +172,7 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
   for (const m of [HarvestingActivity, FieldActivity]) {
     ensureIndex(m, { estateId: 1, blockId: 1, workDate: 1 });
     ensureIndex(m, { estateId: 1, workDate: -1, _id: -1 });
+    ensureIndex(m, { estateId: 1, blockId: 1, workDate: -1, _id: -1 });
     ensureIndex(m, { estateId: 1, blockCode: 1, workDate: -1, _id: -1 });
     ensureIndex(m, { estateId: 1, status: 1, workDate: -1, _id: -1 });
   }
