@@ -129,7 +129,7 @@ export async function downloadPack(
       const asset = pack.snapshot.assets.find((a: any) => a.id === f.id);
       if (asset) {
         asset.localFile = filename;
-        if (asset.kind === 'contours')
+        if (['contours', 'vector'].includes(asset.kind))
           asset.json = JSON.parse(await RNFS.readFile(full, 'utf8'));
       }
     }

@@ -1,6 +1,7 @@
 import fs from "node:fs/promises";
 import { mountEstateAtlas } from "../../apps/api/src/integrations/agrinexus.js";
 import { createModels } from "../../apps/api/src/model/index.js";
+import { importEstateGIS } from "../../apps/api/src/service/gis-import.js";
 import { importWorkbook } from "../../apps/api/src/service/workbook.js";
 import { seedEstateAtlas } from "./agrinexus-seed.mjs";
 
@@ -55,6 +56,35 @@ export async function registerEstateAtlas(app, connection, AuthHandler) {
         })
       );
       console.log("EstateAtlas workbook import:", counts);
+    }
+  }
+  const gisFile = root + "/current/gis-import.json";
+  const gis = await fs.readFile(gisFile, "utf8").catch((e) => {
+    if (e.code !== "ENOENT") throw e;
+    return null;
+  });
+  if (gis) {
+    const payload = JSON.parse(gis);
+    if (!/^[a-f0-9]{64}$/.test(payload.importId))
+      throw Error("Invalid GIS import identity");
+    const gisMarker = root + "/data/.gis-" + payload.importId;
+    if (
+      !(await fs.access(gisMarker).then(
+        () => true,
+        () => false
+      ))
+    ) {
+      const counts = await importEstateGIS(
+        createModels(connection, "EstateAtlas"),
+        payload,
+        root + "/data"
+      );
+      await fs.writeFile(
+        gisMarker,
+        JSON.stringify({ at: new Date().toISOString(), counts }),
+        { mode: 0o600 }
+      );
+      console.log("EstateAtlas GIS import:", counts);
     }
   }
   await mountEstateAtlas(app, {

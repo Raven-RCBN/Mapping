@@ -3107,3 +3107,10 @@ button:disabled {
 .map-record-pages > div { display: flex; justify-content: space-between; gap: 8px; }
 .map-record-pages button { padding: 8px; border: 1px solid #dce5d8; border-radius: 6px; color: #244a36; background: #f3f6ee; font-size: 12px; }
 .activity-item .activity-text strong { line-height: 1.5; }
+
+.gis-layer-options { border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
+.gis-layer-options > small { display: block; margin-bottom: 8px; }
+.gis-layer-options label { display: flex; gap: 6px; align-items: center; }
+.gis-layer-options label i { flex: 0 0 9px; height: 9px; border-radius: 2px; }
+.gis-layer-options label small { margin-left: auto; font-variant-numeric: tabular-nums; }
+.map-layer-panel { max-height: calc(100% - 125px); overflow-y: auto; overscroll-behavior: contain; }

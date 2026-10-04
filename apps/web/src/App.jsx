@@ -91,6 +91,10 @@ export default function App() {
   useEffect(() => {
     reload().catch((e) => setError(errorMessage(e)));
   }, [reload]);
+  useEffect(() => {
+    setMapRecord(null);
+    setError("");
+  }, [s.selected[0]]);
   const current =
     s.period === "all"
       ? null
@@ -147,6 +151,7 @@ export default function App() {
         signal: controller.signal,
       })
       .then(({ data }) => {
+        if (controller.signal.aborted) return;
         dispatch(
           patch({
             data: {
@@ -213,7 +218,7 @@ export default function App() {
     return () => controller.abort();
   }, [mapKey, mapCursor, s.data?.refresh, dataView, storageView]);
   useEffect(() => {
-    if (!s.data?.paged || s.data.offline || dataView || storageView) return;
+    if (!s.data?.paged || s.data.offline) return;
     const controller = new AbortController();
     api
       .get("/map-assets", {
@@ -224,7 +229,9 @@ export default function App() {
         },
         signal: controller.signal,
       })
-      .then(({ data }) => dispatch(patch({ mapAssets: data })))
+      .then(({ data }) => {
+        if (!controller.signal.aborted) dispatch(patch({ mapAssets: data }));
+      })
       .catch((e) => {
         if (e.code !== "ERR_CANCELED") setError(errorMessage(e));
       });
@@ -505,7 +512,7 @@ export default function App() {
               {error}
             </div>
           )}
-          {storageView && <Storage onReload={reload} />}
+          {storageView && <Storage key={s.selected[0]} onReload={reload} />}
           {dataView && (
             <section className="data-workspace">
               <DataTables
@@ -577,6 +584,7 @@ export default function App() {
                   />
                   <Suspense fallback={<p role="status">Loading map viewer…</p>}>
                     <MapView
+                      key={s.selected[0]}
                       rows={displayRows}
                       pageOffset={(pageCursors.length - 1) * 100}
                       requestedRecord={mapRecord}
@@ -605,7 +613,7 @@ export default function App() {
                       <span>Activities remain on {label(s.date)}</span>
                     </div>
                   )}
-                  <Timeline />
+                  <Timeline key={s.selected[0]} />
                 </section>
                 <aside className="activity-panel">
                   <div className="activity-header">
@@ -826,6 +834,7 @@ export default function App() {
       </div>
       {dialog && (
         <Dialogs
+          key={s.selected[0]}
           mode={dialog}
           onClose={() => setDialog(null)}
           onReload={reload}

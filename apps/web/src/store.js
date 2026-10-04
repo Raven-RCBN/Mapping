@@ -1,3 +1,4 @@
+import { oneEstate } from "../../../packages/shared/estate-selection.js";
 import { validMapVisibility } from "../../../packages/shared/map-visibility.js";
 import { configureStore, createSlice } from "@reduxjs/toolkit";
 const defaultMapActivities = () => ({
@@ -39,6 +40,7 @@ const slice = createSlice({
     showActivities: true,
     showBoundaries: true,
     showLabels: true,
+    hiddenGisLayers: [],
     opacity: 18,
     review: false,
     override: null,
@@ -71,6 +73,7 @@ const slice = createSlice({
         } catch {}
         if (!s.selected.length) s.selected = ids.slice(0, 1);
       }
+      s.selected = oneEstate(s.selected, ids);
       if (restore) restoreVisibility(s);
     },
     patch(s, { payload }) {
@@ -85,7 +88,19 @@ const slice = createSlice({
       }
     },
     select(s, { payload }) {
-      s.selected = payload;
+      s.selected = oneEstate(payload, s.data.estates);
+      s.mapRows = [];
+      s.mapAssets = [];
+      s.dashboard = null;
+      s.dashboardKey = null;
+      s.mapLoading = true;
+      s.activity = "all";
+      s.review = false;
+      s.hiddenGisLayers = [];
+      if (s.data.paged) {
+        s.data.blocks = [];
+        s.data.sources = [];
+      }
       restoreVisibility(s);
       s.block = "all";
       s.selectedBlock = null;
@@ -93,7 +108,7 @@ const slice = createSlice({
       s.compare = null;
       localStorage.setItem(
         "estate-atlas-selected:" + import.meta.env.BASE_URL,
-        JSON.stringify(payload)
+        JSON.stringify(s.selected)
       );
     },
   },

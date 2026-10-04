@@ -13,6 +13,16 @@ export const blockColumns = [
   ["plantingMaterial", "Planting material"],
   ["soilType", "Soil type"],
 ];
+const gisBlockColumns = [
+  ["totalPalms", "Total palms"],
+  ["palmsPerHectare", "Palms / ha"],
+  ["surveyDate", "Survey date"],
+  ["division", "Division"],
+];
+const extraBlockColumns = (rows) =>
+  gisBlockColumns.filter(([key]) =>
+    rows.some((r) => r[key] != null && r[key] !== "")
+  );
 const format = (value, key) =>
   value == null || value === ""
     ? "—"
@@ -46,12 +56,14 @@ export function BlockInformation({ blocks, selection, estates, onClose }) {
       {matches.map((b) => (
         <div key={b.id}>
           <dl className="block-facts">
-            {blockColumns.map(([key, title]) => (
-              <div key={key}>
-                <dt>{title}</dt>
-                <dd>{format(b[key], key)}</dd>
-              </div>
-            ))}
+            {[...blockColumns, ...extraBlockColumns(matches)].map(
+              ([key, title]) => (
+                <div key={key}>
+                  <dt>{title}</dt>
+                  <dd>{format(b[key], key)}</dd>
+                </div>
+              )
+            )}
           </dl>
           <small>
             {b.mapBlockNames?.length
@@ -176,7 +188,11 @@ export default function DataTables({
     : filtered.slice(active * 25, active * 25 + 25);
   const columns =
     tab === "blocks"
-      ? [...blockColumns, ["mapBlockNames", "Map match"]]
+      ? [
+          ...blockColumns,
+          ...extraBlockColumns(visible),
+          ["mapBlockNames", "Map match"],
+        ]
       : [
           ["workDate", "Work date"],
           ["blockCode", "Block"],

@@ -333,6 +333,17 @@ export function installQueries(api, models, expose) {
       100,
       "Limit access to 100 estates per workspace."
     );
+    const counts = await Estate.aggregate([
+      { $match: { _id: { $in: estates.map((e) => e._id) } } },
+      {
+        $project: {
+          blockCount: { $size: { $ifNull: ["$boundary.features", []] } },
+        },
+      },
+    ]).option({ maxTimeMS: 10000 });
+    for (const estate of estates)
+      estate.blockCount =
+        counts.find((c) => c._id === estate._id)?.blockCount || 0;
     const latest = await Promise.all(
       kinds.map(([, m]) =>
         m

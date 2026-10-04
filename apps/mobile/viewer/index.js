@@ -18,6 +18,8 @@ import {
   linkedFeatures,
   interiorPosition,
 } from '../../../packages/shared/map-placement.js';
+import { gisLayerTypes, gisStyle } from '../../web/src/map/gisLayers.js';
+const hiddenGisLayers = new Set();
 const pack = window.ESTATE_PACK,
   data = pack.snapshot,
   format = new GeoJSON();
@@ -100,8 +102,41 @@ function render() {
       }),
     );
   }
+  const controls = document.getElementById('gis-layers');
+  controls.replaceChildren();
+  for (const [type, info] of Object.entries(gisLayerTypes)) {
+    const assets = data.assets.filter(
+      a =>
+        a.estateId === e.id &&
+        a.kind === 'vector' &&
+        a.layerType === type &&
+        a.json,
+    );
+    if (!assets.length) continue;
+    const label = document.createElement('label'),
+      check = document.createElement('input');
+    check.type = 'checkbox';
+    check.checked = !hiddenGisLayers.has(type);
+    check.addEventListener('change', () => {
+      check.checked ? hiddenGisLayers.delete(type) : hiddenGisLayers.add(type);
+      render();
+    });
+    label.append(check, document.createTextNode(info.label));
+    controls.append(label);
+    if (!check.checked) continue;
+    for (const asset of assets)
+      map.addLayer(
+        new VectorLayer({
+          zIndex: info.z,
+          declutter: type === 'poi',
+          source: new VectorSource({ features: read(asset.json) }),
+          style: gisStyle(type),
+        }),
+      );
+  }
   map.addLayer(
     new VectorLayer({
+      zIndex: 20,
       source: vectors,
       style: f =>
         new Style({
@@ -139,6 +174,7 @@ function render() {
   map.addLayer(
     new VectorLayer({
       source: new VectorSource({ features: markers }),
+      zIndex: 30,
       style: f => {
         const group = f.get('record'),
           t = group.rows[0].type;

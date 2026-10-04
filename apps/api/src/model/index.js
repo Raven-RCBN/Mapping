@@ -27,6 +27,7 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     source: String,
     qgis: Boolean,
     workbookImportId: String,
+    gisImportId: String,
   });
   const Asset = model("MappingAsset", {
     _id: String,
@@ -42,6 +43,7 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
         "contours",
         "elevation-grid",
         "qgis",
+        "vector",
       ],
       required: true,
     },
@@ -53,6 +55,19 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     resolution: Number,
     attribution: String,
     sourceUrl: String,
+    layerType: {
+      type: String,
+      enum: [
+        "land-use",
+        "rivers",
+        "river-lines",
+        "roads",
+        "road-lines",
+        "buildings",
+        "poi",
+      ],
+    },
+    featureCount: Number,
     storageState: {
       type: String,
       enum: ["active", "retired", "purging", "purged"],
@@ -135,6 +150,11 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     plantedDate: String,
     plantingMaterial: String,
     soilType: String,
+    gisAreaHa: Number,
+    totalPalms: Number,
+    palmsPerHectare: Number,
+    surveyDate: String,
+    division: String,
     mapBlockNames: [String],
     mapLinkMethod: String,
     ...provenance,

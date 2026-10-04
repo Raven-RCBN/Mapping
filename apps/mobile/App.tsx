@@ -142,26 +142,20 @@ export default function App() {
                       setPack(null);
                     }
                     setEstates(data.estates);
-                    setSelected(data.estates.map((e: any) => e.id));
+                    setSelected(data.estates.slice(0, 1).map((e: any) => e.id));
                   }),
                 !online || !host,
               )}
               {estates.map(e => (
                 <Pressable
-                  accessibilityRole="checkbox"
+                  accessibilityRole="radio"
                   accessibilityState={{ checked: selected.includes(e.id) }}
                   key={e.id}
-                  onPress={() =>
-                    setSelected(s =>
-                      s.includes(e.id)
-                        ? s.filter(id => id !== e.id)
-                        : [...s, e.id],
-                    )
-                  }
+                  onPress={() => setSelected([e.id])}
                   style={styles.estate}
                 >
                   <Text style={styles.body}>
-                    {selected.includes(e.id) ? '☑' : '☐'} {e.name}
+                    {selected.includes(e.id) ? '◉' : '○'} {e.name}
                   </Text>
                 </Pressable>
               ))}
@@ -192,7 +186,7 @@ export default function App() {
               )}
               {estates.length > 0 &&
                 button(
-                  'Download selected estates',
+                  'Download selected estate',
                   () =>
                     run(async () => {
                       const saved = await downloadPack(

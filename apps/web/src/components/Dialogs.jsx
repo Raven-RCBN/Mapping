@@ -26,7 +26,11 @@ export default function Dialogs({
     [offlineTo, setOfflineTo] = useState("");
   useEffect(() => {
     ref.current?.showModal();
-    offlineManifest().then(setSaved);
+    offlineManifest().then((pack) =>
+      setSaved(
+        pack?.snapshot.estates.some((e) => e.id === s.selected[0]) ? pack : null
+      )
+    );
   }, []);
   const titles = {
     tables: "Estate data tables",
@@ -86,11 +90,13 @@ export default function Dialogs({
   }
   const writable =
     !s.data.offline && ["manager", "admin"].includes(s.data.access.role);
-  const estateOptions = s.data.estates.map((e) => (
-    <option value={e.id} key={e.id}>
-      {e.name}
-    </option>
-  ));
+  const estateOptions = s.data.estates
+    .filter((e) => s.selected.includes(e.id))
+    .map((e) => (
+      <option value={e.id} key={e.id}>
+        {e.name}
+      </option>
+    ));
   return (
     <dialog
       className={
@@ -250,7 +256,7 @@ export default function Dialogs({
         {mode.type === "offline" && (
           <>
             <p>
-              Download selected estates for offline viewing: boundaries, dated
+              Download selected estate for offline viewing: boundaries, dated
               images, activity history, elevation, slope and contours when
               available.
             </p>
@@ -325,12 +331,12 @@ export default function Dialogs({
                     );
                     setSaved(pack);
                     setMessage(
-                      "Download complete. These estates can now be opened without a connection."
+                      "Download complete. This estate can now be opened without a connection."
                     );
                   })
                 }
               >
-                {busy ? "Downloading…" : "Download selected estates"}
+                {busy ? "Downloading…" : "Download selected estate"}
               </button>
             </div>
             <p>

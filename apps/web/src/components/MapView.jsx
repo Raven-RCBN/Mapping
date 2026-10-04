@@ -28,6 +28,7 @@ import {
   linkedFeatures,
   spreadPositions,
 } from "../../../../packages/shared/map-placement.js";
+import { gisLayerTypes, gisStyle } from "../map/gisLayers.js";
 const geo = new GeoJSON();
 const featuresOf = (json) =>
   geo.readFeatures(json, {
@@ -66,6 +67,13 @@ export default function MapView({
       override
     ),
     estates = data.estates.filter((e) => selected.includes(e.id));
+  const gisAssets = (data.paged ? state.mapAssets || [] : data.assets).filter(
+    (a) => selected.includes(a.estateId) && a.kind === "vector"
+  );
+  const availableGisTypes = Object.entries(gisLayerTypes).filter(([type]) =>
+    gisAssets.some((a) => a.layerType === type)
+  );
+  const gisCache = useRef(new globalThis.Map());
   useEffect(() => {
     const map = new Map({
       target: host.current,
@@ -194,12 +202,10 @@ export default function MapView({
     const key = selected.join(",") + fs.length + state.block;
     if (key !== fitRef.current && !isEmpty(focusSource.getExtent())) {
       fitRef.current = key;
-      map
-        .getView()
-        .fit(focusSource.getExtent(), {
-          padding: [60, 60, 60, 60],
-          maxZoom: state.block === "all" ? 16 : 19,
-        });
+      map.getView().fit(focusSource.getExtent(), {
+        padding: [60, 60, 60, 60],
+        maxZoom: state.block === "all" ? 16 : 19,
+      });
     }
     if (state.showActivities) {
       const byBlock = new globalThis.Map();
@@ -280,6 +286,41 @@ export default function MapView({
         z
       );
     }
+    async function loadGis() {
+      await Promise.all(
+        gisAssets
+          .filter((a) => !(state.hiddenGisLayers || []).includes(a.layerType))
+          .map(async (asset) => {
+            try {
+              const cacheKey = asset.id + asset.sha256;
+              let json = gisCache.current.get(cacheKey);
+              if (!json) {
+                json = JSON.parse(await (await imageBlob(asset)).text());
+                if (gisCache.current.size >= 32) gisCache.current.clear();
+                gisCache.current.set(cacheKey, json);
+              }
+              if (cancelled) return;
+              add(
+                new VectorLayer({
+                  source: new VectorSource({
+                    features: featuresOf(json),
+                    attributions: asset.attribution,
+                  }),
+                  declutter: asset.layerType === "poi",
+                  style: gisStyle(asset.layerType, state.showLabels),
+                }),
+                gisLayerTypes[asset.layerType]?.z || 15
+              );
+            } catch {
+              if (!cancelled)
+                setNotice(
+                  "A GIS layer could not load. Reconnect or save this estate for offline use."
+                );
+            }
+          })
+      );
+    }
+    loadGis();
     async function load() {
       try {
         if (base === "road") {
@@ -467,6 +508,7 @@ export default function MapView({
     state.showActivities,
     state.showBoundaries,
     state.showLabels,
+    state.hiddenGisLayers,
     state.opacity,
     state.block,
     pageOffset,
@@ -544,6 +586,38 @@ export default function MapView({
                 {title}
               </label>
             ))}
+            {availableGisTypes.length > 0 && (
+              <div className="gis-layer-options" aria-label="Estate GIS layers">
+                <small>Estate layers</small>
+                {availableGisTypes.map(([type, info]) => (
+                  <label key={type}>
+                    <input
+                      type="checkbox"
+                      aria-label={info.label}
+                      checked={!(state.hiddenGisLayers || []).includes(type)}
+                      onChange={(event) =>
+                        dispatch(
+                          patch({
+                            hiddenGisLayers: event.target.checked
+                              ? (state.hiddenGisLayers || []).filter(
+                                  (t) => t !== type
+                                )
+                              : [...(state.hiddenGisLayers || []), type],
+                          })
+                        )
+                      }
+                    />
+                    <i style={{ background: info.color }} aria-hidden="true" />
+                    <span>{info.label}</span>
+                    <small>
+                      {gisAssets
+                        .filter((a) => a.layerType === type)
+                        .reduce((n, a) => n + (a.featureCount || 0), 0)}
+                    </small>
+                  </label>
+                ))}
+              </div>
+            )}
             <div className="opacity">
               <span>Overlay opacity</span>
               <b>{state.opacity}%</b>
