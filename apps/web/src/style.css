@@ -2912,12 +2912,12 @@ button:disabled {
     max-width: calc(100% - 20px);
   }
 }
-.ol-zoom {
+.map-stage .ol-zoom {
   left: auto;
   right: 14px;
   top: 82px;
 }
-.ol-control button {
+.map-stage .ol-control button {
   background: #fff;
   color: #16452f;
   font-size: 24px;
