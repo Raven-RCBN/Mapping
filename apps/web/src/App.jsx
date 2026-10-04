@@ -1,3 +1,4 @@
+import { mergeEstateWorkspace } from "../../../packages/shared/estate-selection.js";
 import {
   lazy,
   Suspense,
@@ -156,13 +157,7 @@ export default function App() {
           patch({
             data: {
               ...s.data,
-              estates: s.data.estates.map(
-                (e) =>
-                  data.estates.find((x) => x.id === e.id) || {
-                    ...e,
-                    boundary: undefined,
-                  }
-              ),
+              estates: mergeEstateWorkspace(s.data.estates, data.estates),
               blocks: data.blocks,
               sources: data.sources,
             },

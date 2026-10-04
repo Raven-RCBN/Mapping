@@ -6,3 +6,16 @@ export function oneEstate(selection, estates) {
   );
   return valid ? [valid] : ids.slice(0, 1);
 }
+
+export function mergeEstateWorkspace(estates, workspace) {
+  return estates.map((estate) => {
+    const loaded = workspace.find((e) => e.id === estate.id);
+    return loaded
+      ? {
+          ...estate,
+          ...loaded,
+          blockCount: loaded.boundary?.features?.length ?? estate.blockCount,
+        }
+      : { ...estate, boundary: undefined };
+  });
+}
