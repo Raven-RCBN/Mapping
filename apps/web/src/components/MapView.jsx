@@ -36,6 +36,10 @@ export default function MapView({ rows, onRecord, onImport, onOffline }) {
     [collapsed, setCollapsed] = useState(innerWidth < 600),
     [sample, setSample] = useState(null);
   const { data, selected, date, base, terrain, override, compare } = state;
+  useEffect(() => {
+    document.body.classList.toggle("topography-mode", base === "topography");
+    return () => document.body.classList.remove("topography-mode");
+  }, [base]);
   const images = imagesAt(data.assets, selected, date, override),
     estates = data.estates.filter((e) => selected.includes(e.id));
   useEffect(() => {
