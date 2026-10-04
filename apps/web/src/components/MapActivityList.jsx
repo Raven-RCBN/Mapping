@@ -128,7 +128,6 @@ function ActivityChoices() {
         </div>
       </div>
       <input
-        autoFocus
         type="search"
         aria-label="Search activities to display"
         placeholder="Search activities…"
@@ -270,6 +269,9 @@ export default function MapActivityList() {
       });
     };
     place();
+    panel.current
+      .querySelector('input[type="search"]')
+      ?.focus({ preventScroll: true });
     const observer = new ResizeObserver(place);
     observer.observe(panel.current);
     window.addEventListener("resize", place);
