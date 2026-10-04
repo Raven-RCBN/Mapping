@@ -1,3 +1,4 @@
+import { activityVisible } from "./map-visibility.js";
 export const types = {
   Harvesting: { icon: "✦", color: "#e9b741", bg: "#fbf3df" },
   "Field activity": { icon: "⌁", color: "#78b7a6", bg: "#eaf4ee" },
@@ -44,6 +45,7 @@ export function records(
   {
     activity = "all",
     fieldActivity = "all",
+    mapVisibility,
     block = "all",
     bucket = null,
     review = false,
@@ -52,6 +54,7 @@ export function records(
   return data.activities.filter(
     (r) =>
       selected.includes(r.estateId) &&
+      activityVisible(mapVisibility, r) &&
       (activity === "all" || r.type === activity) &&
       (fieldActivity === "all" || r.activityDescription === fieldActivity) &&
       (block === "all" || `${r.estateId}::${r.block}` === block) &&

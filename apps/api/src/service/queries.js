@@ -15,7 +15,16 @@ const day = z
     (s) => !isNaN(Date.parse(s)) && new Date(s).toISOString().startsWith(s)
   );
 const identifier = z.string().regex(/^[a-zA-Z0-9-]{1,80}$/);
+const input = (req) => (req.method === "POST" ? req.body : req.query);
+const visibility = z
+  .object({
+    mode: z.enum(["include", "exclude"]),
+    fields: z.array(z.string().max(500)).max(500),
+    harvesting: z.boolean(),
+  })
+  .strict();
 const parameters = z.object({
+  mapVisibility: visibility.optional(),
   estates: z.string().max(8100).optional(),
   from: day.optional(),
   to: day.optional(),
@@ -29,7 +38,7 @@ const parameters = z.object({
   cursor: z.string().max(1500).optional(),
 });
 export function selection(req) {
-  const q = parameters.parse(req.query);
+  const q = parameters.parse(input(req));
   const ids = q.estates
     ?.split(",")
     .filter(Boolean)
@@ -75,6 +84,22 @@ export function matchRecords(q, kind, dates = true) {
         ...(q.from && { $gte: q.from }),
         ...(q.to && { $lt: q.to }),
       };
+    if (q.mapVisibility) {
+      if (kind === "harvesting" && !q.mapVisibility.harvesting)
+        match._id = { $in: [] };
+      if (kind === "field") {
+        const descriptions = {
+          activityDescription: {
+            [q.mapVisibility.mode === "include" ? "$in" : "$nin"]:
+              q.mapVisibility.fields.includes("")
+                ? [...q.mapVisibility.fields, null]
+                : q.mapVisibility.fields,
+          },
+        };
+        // Keep the older single-description API filter as an intersection.
+        match.$and = [descriptions];
+      }
+    }
     if (q.review === "true") match.status = { $ne: "verified" };
     if (q.gps === "block") match.geolocation = null;
     else if (q.point) match["geolocation.coordinates"] = q.point;
@@ -131,11 +156,21 @@ export function installQueries(api, models, expose) {
   const { Estate, Asset, Source, Block, HarvestingActivity, FieldActivity } =
     models;
   const cache = new SummaryCache();
+  const readPost = (req) =>
+    req.method === "POST" &&
+    (["/dashboard", "/timeline"].includes(req.path) ||
+      /^\/records\/(blocks|harvesting|field)$/.test(req.path));
+  // POST read queries keep large multi-selections out of proxy URL limits.
+  const readRoute = (path, handler) => {
+    api.get(path, handler);
+    api.post(path, handler);
+  };
   let readers = 0;
   api.use((req, res, next) => {
     if (
-      req.method !== "GET" ||
+      (req.method !== "GET" && !readPost(req)) ||
       (![
+        "/activity-options",
         "/dashboard",
         "/timeline",
         "/snapshot",
@@ -166,7 +201,7 @@ export function installQueries(api, models, expose) {
     next();
   });
   api.use((req, res, next) => {
-    if (!["GET", "HEAD"].includes(req.method))
+    if (!["GET", "HEAD"].includes(req.method) && !readPost(req))
       res.on("finish", () => {
         if (res.statusCode < 400) cache.clear();
       });
@@ -309,7 +344,7 @@ export function installQueries(api, models, expose) {
       limit: q.limit,
     });
   }
-  api.get("/records/:kind", async (req, res) =>
+  readRoute("/records/:kind", async (req, res) =>
     page(
       req,
       res,
@@ -323,7 +358,7 @@ export function installQueries(api, models, expose) {
   ])
     api.get("/" + route, (req, res) => page(req, res, kind));
 
-  api.get("/dashboard", async (req, res) => {
+  readRoute("/dashboard", async (req, res) => {
     const q = selection(req);
     res.json(
       await cached(req, ["dashboard", q], async () => {
@@ -406,106 +441,151 @@ export function installQueries(api, models, expose) {
     );
   });
 
-  api.get("/timeline", async (req, res) => {
-    const q = selection(req),
-      anchor = day.parse(req.query.anchor),
-      period = z
-        .enum(["day", "week", "month", "year", "all"])
-        .parse(req.query.period || "day");
-    const before = req.query.before ? day.parse(req.query.before) : null;
-    const windows = buckets(anchor, period, period === "all" ? 12 : 7);
+  api.get("/activity-options", async (req, res) => {
+    const q = selection(req);
+    const after = z.string().max(500).optional().parse(req.query.after);
+    const where = { ...q.scope };
+    if (q.q) where.activityDescription = { $regex: escape(q.q), $options: "i" };
     res.json(
-      await cached(req, ["timeline", q, anchor, period, before], async () => {
-        const result = await Promise.all(
-          kinds.map(async ([kind, model]) => {
-            const [data] = await aggregate(model, [
-              { $match: matchRecords(q, kind, false) },
-              {
-                $facet: {
-                  totals: [{ $group: totalsGroup(kind) }],
-                  windows: [
-                    {
-                      $match: {
-                        workDate: {
-                          $gte: windows[0].start,
-                          $lt: windows.at(-1).end,
-                        },
-                      },
-                    },
-                    {
-                      $group: {
-                        _id: {
-                          $switch: {
-                            branches: windows.map((w, i) => ({
-                              case: {
-                                $and: [
-                                  { $gte: ["$workDate", w.start] },
-                                  { $lt: ["$workDate", w.end] },
-                                ],
-                              },
-                              then: i,
-                            })),
-                            default: -1,
-                          },
-                        },
-                        count: { $sum: 1 },
-                      },
-                    },
-                  ],
-                  days: [
-                    ...(before
-                      ? [{ $match: { workDate: { $lt: before } } }]
-                      : []),
-                    { $group: { _id: "$workDate", count: { $sum: 1 } } },
-                    { $sort: { _id: -1 } },
-                    { $limit: 41 },
-                  ],
-                },
-              },
-            ]);
-            return { kind, ...data };
-          })
-        );
-        const desc = await aggregate(FieldActivity, [
-          { $match: q.scope },
-          { $group: { _id: "$activityDescription" } },
-          { $sort: { _id: 1 } },
-          { $limit: 201 },
+      await cached(req, ["activity-options", q.scope, q.q, after], async () => {
+        const [result] = await aggregate(FieldActivity, [
+          { $match: where },
+          { $group: { _id: { $ifNull: ["$activityDescription", ""] } } },
+          {
+            $facet: {
+              total: [{ $count: "count" }],
+              names: [
+                ...(after !== undefined
+                  ? [{ $match: { _id: { $gt: after } } }]
+                  : []),
+                { $sort: { _id: 1 } },
+                { $limit: 51 },
+              ],
+            },
+          },
         ]);
-        const days = new Map();
-        for (const r of result)
-          for (const d of r.days)
-            days.set(d._id, (days.get(d._id) || 0) + d.count);
-        const sorted = [...days].sort((a, b) => b[0].localeCompare(a[0]));
-        const assets = await Asset.find({
-          ...q.scope,
-          ...activeAsset,
-          kind: "imagery",
-          acquiredAt: { $gte: windows[0].start, $lt: windows.at(-1).end },
-        })
-          .select("-file")
-          .sort({ acquiredAt: -1, _id: -1 })
-          .limit(201)
-          .maxTimeMS(10000)
-          .lean();
+        const items = result.names.slice(0, 50).map((x) => x._id);
         return {
-          windows,
-          series: result.map(({ kind, totals, windows }) => ({
-            kind,
-            totals: totals[0] || { count: 0 },
-            windows,
-          })),
-          days: sorted.slice(0, 40).map(([date, count]) => ({ date, count })),
-          nextBefore: sorted.length > 40 ? sorted[39][0] : null,
-          descriptions: desc
-            .slice(0, 200)
-            .map((x) => x._id)
-            .filter(Boolean),
-          descriptionsLimited: desc.length > 200,
-          assets: assets.slice(0, 200).map(clean),
-          assetsLimited: assets.length > 200,
+          items,
+          total: result.total[0]?.count || 0,
+          next: result.names.length > 50 ? items.at(-1) : null,
         };
       })
+    );
+  });
+
+  readRoute("/timeline", async (req, res) => {
+    const q = selection(req),
+      anchor = day.parse(input(req).anchor),
+      period = z
+        .enum(["day", "week", "month", "year", "all"])
+        .parse(input(req).period || "day");
+    const before = input(req).before ? day.parse(input(req).before) : null;
+    const windows = buckets(anchor, period, period === "all" ? 12 : 7);
+    res.json(
+      await cached(
+        req,
+        ["timeline", req.method, q, anchor, period, before],
+        async () => {
+          const result = await Promise.all(
+            kinds.map(async ([kind, model]) => {
+              const [data] = await aggregate(model, [
+                { $match: matchRecords(q, kind, false) },
+                {
+                  $facet: {
+                    totals: [{ $group: totalsGroup(kind) }],
+                    windows: [
+                      {
+                        $match: {
+                          workDate: {
+                            $gte: windows[0].start,
+                            $lt: windows.at(-1).end,
+                          },
+                        },
+                      },
+                      {
+                        $group: {
+                          _id: {
+                            $switch: {
+                              branches: windows.map((w, i) => ({
+                                case: {
+                                  $and: [
+                                    { $gte: ["$workDate", w.start] },
+                                    { $lt: ["$workDate", w.end] },
+                                  ],
+                                },
+                                then: i,
+                              })),
+                              default: -1,
+                            },
+                          },
+                          count: { $sum: 1 },
+                        },
+                      },
+                    ],
+                    days: [
+                      ...(before
+                        ? [{ $match: { workDate: { $lt: before } } }]
+                        : []),
+                      { $group: { _id: "$workDate", count: { $sum: 1 } } },
+                      { $sort: { _id: -1 } },
+                      { $limit: 41 },
+                    ],
+                  },
+                },
+              ]);
+              return { kind, ...data };
+            })
+          );
+          // Retain the old GET response for clients still running the previous shell.
+          const descriptions =
+            req.method === "GET"
+              ? await aggregate(FieldActivity, [
+                  { $match: q.scope },
+                  { $group: { _id: "$activityDescription" } },
+                  { $sort: { _id: 1 } },
+                  { $limit: 201 },
+                ])
+              : null;
+          const days = new Map();
+          for (const r of result)
+            for (const d of r.days)
+              days.set(d._id, (days.get(d._id) || 0) + d.count);
+          const sorted = [...days].sort((a, b) => b[0].localeCompare(a[0]));
+          const assets = await Asset.find({
+            ...q.scope,
+            ...activeAsset,
+            kind: "imagery",
+            acquiredAt: { $gte: windows[0].start, $lt: windows.at(-1).end },
+          })
+            .select("-file")
+            .sort({ acquiredAt: -1, _id: -1 })
+            .limit(201)
+            .maxTimeMS(10000)
+            .lean();
+          return {
+            windows,
+            series: result.map(({ kind, totals, windows }) => ({
+              kind,
+              totals: totals[0] || { count: 0 },
+              windows,
+            })),
+            days: sorted.slice(0, 40).map(([date, count]) => ({ date, count })),
+            nextBefore: sorted.length > 40 ? sorted[39][0] : null,
+            ...(descriptions
+              ? {
+                  descriptions: descriptions
+                    .slice(0, 200)
+                    .map((x) => x._id)
+                    .filter(Boolean),
+                  descriptionsLimited: descriptions.length > 200,
+                }
+              : {}),
+            assets: assets.slice(0, 200).map(clean),
+            assetsLimited: assets.length > 200,
+          };
+        }
+      )
     );
   });
   api.get("/map-assets", async (req, res) => {

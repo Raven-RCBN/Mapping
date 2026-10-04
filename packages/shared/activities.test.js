@@ -97,3 +97,55 @@ test("exact field descriptions stay separate from harvesting and use workbook da
   );
   assert.equal(records(data, ["a"], { fieldActivity: "Spraying" }).length, 0);
 });
+
+test("multiple map choices filter offline records without mutating the source tables", () => {
+  const data = {
+    activities: [
+      {
+        estateId: "a",
+        type: "Harvesting",
+        recordKind: "harvesting",
+        date: "2026-01-01",
+      },
+      ...["Spraying", "Weeding", "Drainage"].map((activityDescription) => ({
+        estateId: "a",
+        type: "Field activity",
+        recordKind: "field",
+        activityDescription,
+        date: "2026-01-01",
+      })),
+      {
+        estateId: "b",
+        type: "Field activity",
+        activityDescription: "Spraying",
+        date: "2026-01-01",
+      },
+    ],
+  };
+  const filter = (mapVisibility) => records(data, ["a"], { mapVisibility });
+  assert.equal(
+    filter({ mode: "include", fields: [], harvesting: false }).length,
+    0
+  );
+  assert.deepEqual(
+    filter({
+      mode: "include",
+      fields: ["Spraying", "Drainage"],
+      harvesting: false,
+    }).map((x) => x.activityDescription),
+    ["Spraying", "Drainage"]
+  );
+  assert.equal(
+    filter({ mode: "exclude", fields: ["Weeding"], harvesting: true }).length,
+    3
+  );
+  assert.equal(
+    filter({ mode: "include", fields: [], harvesting: true }).length,
+    1
+  );
+  assert.equal(
+    filter({ mode: "exclude", fields: [], harvesting: true }).length,
+    4
+  );
+  assert.equal(data.activities.length, 5);
+});

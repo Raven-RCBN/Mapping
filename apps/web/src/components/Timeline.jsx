@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import MapActivityList from "./MapActivityList";
 import RemoteTimeline from "./RemoteTimeline";
 import { patch } from "../store";
 import {
@@ -17,7 +18,7 @@ function LocalTimeline() {
     [playing, setPlaying] = useState(false);
   const history = records(s.data, s.selected, {
     activity: s.activity,
-    fieldActivity: s.fieldActivity,
+    mapVisibility: s.mapVisibility,
     block: s.block,
   });
   const activeTypes = Object.entries(types).filter(([t]) =>
@@ -25,15 +26,6 @@ function LocalTimeline() {
       (r) => s.selected.includes(r.estateId) && r.type === t
     )
   );
-  const descriptions = [
-    ...new Set(
-      s.data.activities
-        .filter(
-          (r) => s.selected.includes(r.estateId) && r.recordKind === "field"
-        )
-        .map((r) => r.activityDescription)
-    ),
-  ].sort();
   const images = s.data.assets.filter(
     (a) => s.selected.includes(a.estateId) && a.kind === "imagery"
   );
@@ -83,13 +75,16 @@ function LocalTimeline() {
         activity,
         override,
         review: false,
-        ...(activity !== s.activity ? { fieldActivity: "all" } : {}),
       })
     );
     if (!windows.some((b) => contains(date, b))) setAnchor(date);
   };
   const counts = (t) =>
-    records(s.data, s.selected, { activity: t, block: s.block }).length;
+    records(s.data, s.selected, {
+      activity: t,
+      block: s.block,
+      mapVisibility: s.mapVisibility,
+    }).length;
   return (
     <section className="timeline" id="timeline">
       <div className="timeline-heading">
@@ -118,7 +113,11 @@ function LocalTimeline() {
               key={t}
               onClick={() =>
                 choose(
-                  records(s.data, s.selected, { activity: t, block: s.block })
+                  records(s.data, s.selected, {
+                    activity: t,
+                    block: s.block,
+                    mapVisibility: s.mapVisibility,
+                  })
                     .map((r) => r.date)
                     .sort()
                     .at(-1) || s.date,
@@ -126,7 +125,7 @@ function LocalTimeline() {
                 )
               }
             >
-              {types[t]?.icon || "◷"} {t === "all" ? "All activities" : t}{" "}
+              {types[t]?.icon || "◷"} {t === "all" ? "All types" : t}{" "}
               <small>{counts(t)}</small>
             </button>
           ))}
@@ -161,42 +160,7 @@ function LocalTimeline() {
           </select>
         </label>
       </div>
-      {descriptions.length > 0 && (
-        <label className="field-description-filter">
-          Field activity details
-          <select
-            aria-label="Field activity description"
-            value={s.fieldActivity}
-            onChange={(e) => {
-              const fieldActivity = e.target.value;
-              const latest = records(s.data, s.selected, {
-                activity:
-                  fieldActivity === "all" ? s.activity : "Field activity",
-                fieldActivity,
-                block: s.block,
-              })
-                .map((r) => r.date)
-                .sort()
-                .at(-1);
-              dispatch(
-                patch({
-                  fieldActivity,
-                  ...(fieldActivity !== "all"
-                    ? { activity: "Field activity" }
-                    : {}),
-                  ...(latest ? { date: latest, override: null } : {}),
-                })
-              );
-              if (latest) setAnchor(latest);
-            }}
-          >
-            <option value="all">All activity descriptions</option>
-            {descriptions.map((d) => (
-              <option key={d}>{d}</option>
-            ))}
-          </select>
-        </label>
-      )}
+      <MapActivityList />
       {s.period !== "all" && (
         <div className="timeline-window">
           <span>Timeline window</span>

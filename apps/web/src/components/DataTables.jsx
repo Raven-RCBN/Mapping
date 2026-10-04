@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { api } from "../api";
+import { queryData } from "../api";
 import { exactCoordinates } from "../../../../packages/shared/activities.js";
 import { label } from "../../../../packages/shared/timeline.js";
 
@@ -110,8 +110,7 @@ export default function DataTables({
     setFailure("");
     const timer = setTimeout(
       () =>
-        api
-          .get("/records/" + tab, { params, signal: controller.signal })
+        queryData("/records/" + tab, params, { signal: controller.signal })
           .then(({ data }) => {
             setRemote(data);
             setBusy(false);

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
-import { api } from "../api";
+import MapActivityList from "./MapActivityList";
+import { queryData } from "../api";
 import { patch } from "../store";
 import {
   types,
@@ -23,7 +24,7 @@ export default function RemoteTimeline() {
   const params = {
     estates: s.selected.join(","),
     activity: s.activity,
-    fieldActivity: s.fieldActivity,
+    mapVisibility: s.mapVisibility,
     block: s.block,
     anchor,
     period: s.period,
@@ -35,13 +36,12 @@ export default function RemoteTimeline() {
   }, [s.date]);
   useEffect(() => {
     setBefore(null);
-  }, [s.selected.join(","), s.activity, s.fieldActivity, s.block]);
+  }, [s.selected.join(","), s.activity, s.mapVisibility, s.block]);
   useEffect(() => {
     const controller = new AbortController();
     setData(null);
     setError("");
-    api
-      .get("/timeline", { params, signal: controller.signal })
+    queryData("/timeline", params, { signal: controller.signal })
       .then(({ data }) => setData({ ...data, requestKey: key }))
       .catch((e) => {
         if (e.code !== "ERR_CANCELED")
@@ -131,12 +131,10 @@ export default function RemoteTimeline() {
               className={"history-filter " + (s.activity === t ? "active" : "")}
               onClick={() => {
                 setJumpToLatest(true);
-                dispatch(
-                  patch({ activity: t, fieldActivity: "all", override: null })
-                );
+                dispatch(patch({ activity: t, override: null }));
               }}
             >
-              {types[t]?.icon || "◷"} {t === "all" ? "All activities" : t}
+              {types[t]?.icon || "◷"} {t === "all" ? "All types" : t}
             </button>
           ))}
         </div>
@@ -158,31 +156,7 @@ export default function RemoteTimeline() {
           </select>
         </label>
       </div>
-      <label className="field-description-filter">
-        Field activity details
-        <select
-          aria-label="Field activity description"
-          value={s.fieldActivity}
-          onChange={(e) => {
-            setJumpToLatest(true);
-            dispatch(
-              patch({
-                fieldActivity: e.target.value,
-                activity:
-                  e.target.value === "all" ? s.activity : "Field activity",
-              })
-            );
-          }}
-        >
-          <option value="all">All activity descriptions</option>
-          {(
-            data?.descriptions ||
-            (s.fieldActivity !== "all" ? [s.fieldActivity] : [])
-          ).map((d) => (
-            <option key={d}>{d}</option>
-          ))}
-        </select>
-      </label>
+      <MapActivityList />
       <div className="timeline-window">
         <span>
           {s.period === "all" ? "12-month history window" : "Timeline window"}
@@ -312,12 +286,7 @@ export default function RemoteTimeline() {
               timeline to see the others.
             </p>
           )}
-          {data.descriptionsLimited && (
-            <p className="callout">
-              Showing 200 activity descriptions. Use Data tables search for
-              additional descriptions.
-            </p>
-          )}
+
           <div className="event-notes">
             <span>Images use their acquisition dates.</span>
             <span>— No event recorded</span>

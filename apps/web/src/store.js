@@ -1,4 +1,23 @@
+import {
+  allMapActivities,
+  validMapVisibility,
+} from "../../../packages/shared/map-visibility.js";
 import { configureStore, createSlice } from "@reduxjs/toolkit";
+const visibilityKey = (s) =>
+  "estate-atlas-map-activities:" +
+  JSON.stringify([
+    import.meta.env.BASE_URL,
+    s.data?.access?.subject,
+    [...s.selected].sort(),
+  ]);
+function restoreVisibility(s) {
+  try {
+    const saved = JSON.parse(localStorage.getItem(visibilityKey(s)) || "null");
+    s.mapVisibility = validMapVisibility(saved) ? saved : allMapActivities();
+  } catch {
+    s.mapVisibility = allMapActivities();
+  }
+}
 const slice = createSlice({
   name: "atlas",
   initialState: {
@@ -6,7 +25,7 @@ const slice = createSlice({
     selected: [],
     activity: "all",
     block: "all",
-    fieldActivity: "all",
+    mapVisibility: allMapActivities(),
     selectedBlock: null,
     date: "2026-10-03",
     period: "day",
@@ -23,6 +42,8 @@ const slice = createSlice({
   },
   reducers: {
     loaded(s, { payload }) {
+      const restore =
+        !s.data || s.data.access?.subject !== payload.access?.subject;
       if (!s.data) {
         const latest =
           payload.latest ||
@@ -46,12 +67,22 @@ const slice = createSlice({
         } catch {}
         if (!s.selected.length) s.selected = ids.slice(0, 1);
       }
+      if (restore) restoreVisibility(s);
     },
     patch(s, { payload }) {
       Object.assign(s, payload);
+      if (payload.mapVisibility) {
+        try {
+          localStorage.setItem(
+            visibilityKey(s),
+            JSON.stringify(s.mapVisibility)
+          );
+        } catch {}
+      }
     },
     select(s, { payload }) {
       s.selected = payload;
+      restoreVisibility(s);
       s.block = "all";
       s.selectedBlock = null;
       s.override = null;

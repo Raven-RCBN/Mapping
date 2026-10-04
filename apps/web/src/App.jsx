@@ -9,7 +9,14 @@ import {
 import { useSearchParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { loaded, patch } from "./store";
-import { getSnapshot, setToken, clearOffline, thumbnailBlob, api } from "./api";
+import {
+  getSnapshot,
+  setToken,
+  clearOffline,
+  thumbnailBlob,
+  api,
+  queryData,
+} from "./api";
 import {
   label,
   records,
@@ -89,7 +96,7 @@ export default function App() {
         : s.data
         ? records(s.data, s.selected, {
             activity: s.activity,
-            fieldActivity: s.fieldActivity,
+            mapVisibility: s.mapVisibility,
             block: s.block,
             bucket: current,
             review: s.review,
@@ -100,7 +107,7 @@ export default function App() {
       s.mapRows,
       s.selected,
       s.activity,
-      s.fieldActivity,
+      s.mapVisibility,
       s.block,
       s.date,
       s.period,
@@ -110,7 +117,7 @@ export default function App() {
   const mapParams = {
     estates: s.selected.join(","),
     activity: s.activity,
-    fieldActivity: s.fieldActivity,
+    mapVisibility: s.mapVisibility,
     block: s.block,
     review: String(s.review),
     ...(current ? { from: current.start, to: current.end } : {}),
@@ -151,8 +158,7 @@ export default function App() {
     if (!s.data?.paged || s.data.offline || dataView || storageView) return;
     const controller = new AbortController();
     dispatch(patch({ mapLoading: true, dashboard: null, mapRows: [] }));
-    api
-      .get("/dashboard", { params: mapParams, signal: controller.signal })
+    queryData("/dashboard", mapParams, { signal: controller.signal })
       .then(({ data }) => {
         dispatch(
           patch({
@@ -282,7 +288,7 @@ export default function App() {
   const assets = s.data.paged ? s.mapAssets || [] : s.data.assets;
   const all = records(s.data, s.selected, {
       activity: s.activity,
-      fieldActivity: s.fieldActivity,
+      mapVisibility: s.mapVisibility,
       block: s.block,
       bucket: current,
     }),
@@ -310,7 +316,12 @@ export default function App() {
     dispatch(
       patch({
         activity: r.type,
-        fieldActivity: r.activityDescription || "all",
+        mapVisibility: {
+          mode: "include",
+          fields:
+            r.type === "Harvesting" ? [] : [r.activityDescription || r.type],
+          harvesting: r.type === "Harvesting",
+        },
         selectedBlock: null,
         block: `${r.estateId}::${r.block}`,
         date: r.date,
@@ -629,7 +640,11 @@ export default function App() {
                         dispatch(
                           patch({
                             activity: "all",
-                            fieldActivity: "all",
+                            mapVisibility: {
+                              mode: "exclude",
+                              fields: [],
+                              harvesting: true,
+                            },
                             block: "all",
                             review: false,
                           })
@@ -647,7 +662,6 @@ export default function App() {
                         dispatch(
                           patch({
                             activity: e.target.value,
-                            fieldActivity: "all",
                           })
                         )
                       }

@@ -8,6 +8,11 @@ export const api = axios.create({
   headers: { "X-Mapping-Client": "1" },
   timeout: 60000,
 });
+// Read-only POST for potentially long activity selections; ordinary reads stay GET.
+export const queryData = (path, params, options = {}) =>
+  params.mapVisibility
+    ? api.post(path, params, options)
+    : api.get(path, { ...options, params });
 let token = "";
 api.interceptors.request.use((config) => {
   const sessionToken =

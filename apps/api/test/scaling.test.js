@@ -372,3 +372,154 @@ test("retired-image recovery list uses stable bounded pages", async () => {
     400
   );
 });
+
+test("map selection is shared by map, timeline and popup pages; catalog remains scoped and paged", async () => {
+  // An isolated selection estate keeps the existing scale fixtures untouched.
+  await models.Estate.create({ _id: "selection", name: "Selection" });
+  const selectionApp = await createApp({
+    models,
+    dataDir: root,
+    origins: [],
+    serveWeb: false,
+    authenticate: (req, res, next) => {
+      req.access = {
+        subject: "selection-viewer",
+        role: "viewer",
+        estateIds: ["selection"],
+      };
+      next();
+    },
+  });
+  await models.FieldActivity.insertMany(
+    Array.from({ length: 57 }, (_, i) => ({
+      _id: "selection-" + i,
+      estateId: "selection",
+      blockCode: "S",
+      workDate: "2026-01-01",
+      activityDescription:
+        i === 0
+          ? "Spraying"
+          : i === 1
+          ? "Weeding"
+          : "Other " + String(i).padStart(2, "0"),
+      mandays: 2,
+    }))
+  );
+  await models.HarvestingActivity.create({
+    _id: "selection-h",
+    estateId: "selection",
+    blockCode: "S",
+    workDate: "2026-01-01",
+    bunches: 5,
+  });
+  const read = (path, mapVisibility, extra = {}) =>
+    request(selectionApp)
+      .post("/api" + path)
+      .set("X-Mapping-Client", "1")
+      .send({ estates: "selection", mapVisibility, ...extra });
+  const selected = {
+    mode: "include",
+    fields: ["Spraying", "Weeding"],
+    harvesting: false,
+  };
+  const dashboard = await read("/dashboard", selected);
+  assert.equal(dashboard.status, 200, JSON.stringify(dashboard.body));
+  assert.equal(dashboard.body.summary.count, 2);
+  assert.equal(dashboard.body.summary.mandays, 4);
+  assert.ok(dashboard.body.rows.every((x) => x.recordKind === "field"));
+  const timeline = await read("/timeline", selected, {
+    anchor: "2026-01-01",
+    period: "day",
+  });
+  assert.equal(timeline.status, 200, JSON.stringify(timeline.body));
+  assert.equal(timeline.body.days[0].count, 2);
+  const popup = await read("/records/field", selected, {
+    block: "selection::S",
+    limit: 1,
+  });
+  assert.equal(popup.body.summary.count, 2);
+  assert.equal(popup.body.items.length, 1);
+  const next = await read("/records/field", selected, {
+    block: "selection::S",
+    limit: 1,
+    cursor: popup.body.nextCursor,
+  });
+  assert.deepEqual(
+    new Set(
+      [...popup.body.items, ...next.body.items].map(
+        (x) => x.activityDescription
+      )
+    ),
+    new Set(selected.fields)
+  );
+  assert.equal(
+    (
+      await read("/dashboard", {
+        mode: "include",
+        fields: [],
+        harvesting: false,
+      })
+    ).body.summary.count,
+    0
+  );
+  assert.equal(
+    (
+      await read("/dashboard", {
+        mode: "exclude",
+        fields: [],
+        harvesting: true,
+      })
+    ).body.summary.count,
+    58
+  );
+  assert.equal(
+    (
+      await read("/dashboard", {
+        mode: "exclude",
+        fields: ["Spraying", "Weeding"],
+        harvesting: true,
+      })
+    ).body.summary.count,
+    56
+  );
+  assert.equal(
+    (await read("/dashboard", selected, { estates: "a" })).status,
+    403
+  );
+  assert.equal(
+    (await read("/dashboard", { ...selected, fields: [{ $ne: null }] })).status,
+    400
+  );
+  assert.equal(
+    (
+      await read("/dashboard", {
+        ...selected,
+        fields: Array(501).fill("Spraying"),
+      })
+    ).status,
+    400
+  );
+  const first = (await request(selectionApp).get("/api/activity-options")).body;
+  assert.equal(first.items.length, 50);
+  assert.equal(first.total, 57);
+  const last = (
+    await request(selectionApp)
+      .get("/api/activity-options")
+      .query({ after: first.next })
+  ).body;
+  assert.equal(new Set([...first.items, ...last.items]).size, 57);
+  assert.equal(last.next, null);
+  const search = (
+    await request(selectionApp).get("/api/activity-options?q=pray")
+  ).body;
+  assert.deepEqual(search.items, ["Spraying"]);
+  assert.equal(
+    (await request(selectionApp).get("/api/activity-options?estates=a")).status,
+    403
+  );
+  // Data menu requests have no map selection and still see all records.
+  assert.equal(
+    (await request(selectionApp).get("/api/records/field")).body.summary.count,
+    57
+  );
+});
