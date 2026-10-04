@@ -764,6 +764,7 @@ test("individual map pages retain 20 separate activities and exclude unlinked or
     activity: "FFB collection",
     bunches: 8,
     employeeName: "Private name",
+    employeeNo: "H001",
   });
   const base = {
     estates: "individual",
@@ -805,7 +806,11 @@ test("individual map pages retain 20 separate activities and exclude unlinked or
     assert.equal(page.body.selectionSummary.count, 21);
     assert.ok(
       page.body.rows.every(
-        (r) => r.blockId === "individual-match" && !r.employeeName
+        (r) =>
+          r.blockId === "individual-match" &&
+          (r.recordKind === "harvesting"
+            ? r.employeeName === "Private name" && r.employeeNo === "H001"
+            : !r.employeeName)
       )
     );
     keys.push(...page.body.rows.map((r) => r.recordKind + ":" + r.id));
@@ -858,5 +863,55 @@ test("individual map pages retain 20 separate activities and exclude unlinked or
     table.body.summary.count,
     22,
     "unmatched rows remain in the data table"
+  );
+});
+
+test("harvester popup totals are exact, estate/date scoped and independent of page size", async () => {
+  const row = {
+    estateId: "popup-harvest",
+    blockCode: "A",
+    workDate: "2026-07-01",
+    employeeNo: "H1",
+    employeeName: "Same name",
+    bunches: 15,
+  };
+  await models.HarvestingActivity.insertMany([
+    { ...row, _id: "harvester-1" },
+    { ...row, _id: "harvester-2", blockCode: "B", bunches: 25 },
+    { ...row, _id: "harvester-3", employeeNo: "H2", bunches: 999 },
+    { ...row, _id: "harvester-4", estateId: "elsewhere", bunches: 999 },
+    { ...row, _id: "harvester-5", workDate: "2026-08-01", bunches: 999 },
+    { ...row, _id: "harvester-6", workDate: "2026-06-30", bunches: 999 },
+    { ...row, _id: "harvester-7", employeeNo: null, bunches: 9 },
+  ]);
+  const params = {
+    estates: "popup-harvest",
+    harvesterNo: "H1",
+    from: "2026-07-01",
+    to: "2026-08-01",
+    limit: 1,
+  };
+  const first = await request(app).get("/api/records/harvesting").query(params);
+  assert.equal(first.status, 200);
+  assert.equal(first.body.items.length, 1);
+  assert.equal(first.body.summary.value, 40);
+  assert.equal(first.body.summary.count, 2);
+  const next = await request(app)
+    .get("/api/records/harvesting")
+    .query({ ...params, cursor: first.body.nextCursor });
+  assert.equal(next.body.summary.value, 40);
+  assert.equal(next.body.items.length, 1);
+  const other = await request(app)
+    .get("/api/records/harvesting")
+    .query({ ...params, harvesterNo: "H2" });
+  assert.equal(other.body.summary.value, 999);
+  const { harvesterNo, ...nameParams } = params;
+  const fallback = await request(app)
+    .get("/api/records/harvesting")
+    .query({ ...nameParams, harvesterName: "Same name" });
+  assert.equal(fallback.body.summary.value, 9);
+  assert.equal(
+    (await request(scoped).get("/api/records/harvesting").query(params)).status,
+    403
   );
 });

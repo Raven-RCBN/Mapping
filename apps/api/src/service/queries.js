@@ -40,6 +40,8 @@ const parameters = z.object({
   review: z.enum(["true", "false"]).default("false"),
   gps: z.string().max(100).optional(),
   q: z.string().trim().max(100).default(""),
+  harvesterNo: z.string().trim().min(1).max(100).optional(),
+  harvesterName: z.string().trim().min(1).max(250).optional(),
   limit: z.coerce.number().int().min(1).max(100).default(25),
   cursor: z.string().max(1500).optional(),
 });
@@ -85,6 +87,13 @@ export function matchRecords(q, kind, dates = true) {
   const match = { ...q.scope };
   if (q.blockCode) match.blockCode = q.blockCode;
   if (kind !== "blocks") {
+    if (kind === "harvesting") {
+      if (q.harvesterNo) match.employeeNo = q.harvesterNo;
+      else if (q.harvesterName) {
+        match.employeeName = q.harvesterName;
+        match.employeeNo = { $in: [null, ""] };
+      }
+    }
     if (q.matchedBlockIds) match.blockId = { $in: q.matchedBlockIds };
     if (dates && (q.from || q.to))
       match.workDate = {
@@ -293,7 +302,8 @@ export function installQueries(api, models, expose) {
         const rows = await model
           .find({ $and: [matches[i], cursorMatch] })
           .select(
-            "estateId blockId blockCode workDate status geolocation activity activityDescription mandays bunches"
+            "estateId blockId blockCode workDate status geolocation activity activityDescription mandays bunches" +
+              (kind === "harvesting" ? " employeeNo employeeName" : "")
           )
           .sort({ workDate: -1, _id: -1 })
           .limit(q.limit + 1)

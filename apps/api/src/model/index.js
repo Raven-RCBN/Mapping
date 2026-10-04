@@ -202,6 +202,19 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     workDate: -1,
     _id: -1,
   });
+  ensureIndex(HarvestingActivity, {
+    estateId: 1,
+    employeeNo: 1,
+    workDate: -1,
+    _id: -1,
+  });
+  ensureIndex(HarvestingActivity, {
+    estateId: 1,
+    employeeName: 1,
+    employeeNo: 1,
+    workDate: -1,
+    _id: -1,
+  });
   return {
     Estate,
     Asset,

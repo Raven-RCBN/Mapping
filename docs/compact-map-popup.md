@@ -2,7 +2,9 @@
 
 Each displayed source record has one numbered bubble and one sidebar entry. Twenty records in a matched block therefore produce twenty bubbles. The sidebar shows the actual activity description, block, work date and quantity, with the imagery context above the list. The bubble and sidebar entry share the same number.
 
-Clicking either opens an anchored popup showing only that record's Activity and Mandays. Values are not summed across records. Harvesting uses its source activity name when present; its mandays are not supplied, so the popup shows a dash. Full record details remain in Data.
+Clicking either opens an anchored popup. Field activities show only that record's Activity and Mandays. Harvesting shows the Harvester and that record's Bunches, followed by Total bunches for the same harvester across all blocks in the current estate and selected dates. This total is independent of the current map page and verification filter. Employee number identifies the harvester; exact name is a fallback only for records without an employee number. Missing identities have no total. Full record details remain in Data.
+
+Online harvesting totals use the authenticated, cached `/records/harvesting` summary with exact `harvesterNo` or `harvesterName` filters, the estate and date range, and a one-row page limit. Compound indexes cover employee identity and dates. Offline totals use the complete saved activity set for the same scope.
 
 The map, sidebar, timeline and summary cards are restricted to confirmed block links that still resolve to polygons in the estate boundary. Unmatched records remain in Data and offline packages; they are not displayed on the map. A GPS coordinate does not bypass this block requirement. No ambiguous block matches are inferred.
 

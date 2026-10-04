@@ -3094,6 +3094,8 @@ button:disabled {
 .map-activity-popup td { padding: 10px 5px; border-bottom: 1px solid #edf1e9; overflow-wrap: anywhere; line-height: 1.5; }
 .map-activity-popup th:last-child, .map-activity-popup td:last-child { width: 64px; text-align: right; font-variant-numeric: tabular-nums; }
 .map-activity-popup tr:last-child td { border-bottom: 0; }
+.map-activity-popup tfoot th, .map-activity-popup tfoot td { position: static; background: #f3f6ee; border-top: 1px solid #d3dfd0; padding: 8px 5px; font-weight: 600; }
+.map-activity-popup tfoot small { display: block; margin-top: 3px; font-size: 10px; font-weight: 400; }
 .map-activity-popup p { font-size: 12px; margin: 6px 0; }
 .map-popup-pages { display: flex; justify-content: space-between; gap: 8px; margin-top: 10px; }
 .map-popup-pages button { padding: 6px 8px; border: 1px solid #d3dfd0; border-radius: 5px; background: #f3f6ee; color: #244a36; font-size: 11px; }
