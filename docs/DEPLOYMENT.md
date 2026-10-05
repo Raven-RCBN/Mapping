@@ -1,69 +1,64 @@
-# Current domain
+# Mapping production deployment
 
-Estate Atlas now publishes its frontend at `https://mapping.digitalpalm.ai/`. See [the cutover status and remaining administrator work](MAPPING-CUTOVER.md). The backend, identity, database, files and QGIS are still shared with AgriNexus; do not delete them.
+Mapping is independent at **https://mapping.digitalpalm.ai/**. Read [the final server report](SERVER-SEPARATION-20261006.md) and [current architecture](INDEPENDENT-MAPPING.md) before changing production.
 
-The following section describes the retained legacy integration and rollback procedure.
-
-# Legacy AgriNexus deployment
-
-The existing AgriNexus frontend stays intact. Nginx's existing directory handling serves a separate `dist/EstateAtlas` symlink and redirects `/EstateAtlas` to `/EstateAtlas/`. No Nginx configuration changes are needed for this single-page app.
-
-Build with:
+## SSH and API restart
 
 ```sh
-VITE_BASE_PATH=/EstateAtlas/ VITE_API_BASE=/api/EstateAtlas VITE_AGRINEXUS_SESSION=true pnpm build
-node scripts/deploy/check-subpath.mjs
+ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o IdentitiesOnly=yes \
+  -i /Users/admin/.ssh/digitalpalm_deploy_ed25519 deploy_mapping@187.127.167.149
+sudo -n /usr/local/sbin/mapping-service status
+sudo -n /usr/local/sbin/mapping-service restart
+sudo -n /usr/local/sbin/mapping-service logs
 ```
 
-Vite assets, React Router basename, icons, manifest and service-worker scope use `/EstateAtlas/`. The worker and offline caches are namespaced and never control `/mapping`. The native app accepts `https://agrinexus.digitalpalm.ai/EstateAtlas` as its server address.
+The helper manages only `digitalpalm-mapping.service`. Nginx and database administration require administrator access. Preserve the shared SSH key and unrelated deployment accounts.
 
-## Current host integration
+## Runtime and persistence
 
-- Persistent files: `/opt/digitalpalm/agrinexus/estate-atlas/data/estates/<id>/`.
-- Versioned releases and `current` link: `/opt/digitalpalm/agrinexus/estate-atlas/`.
-- API: `/api/EstateAtlas`, mounted before existing routes through `scripts/deploy/agrinexus-entry.mjs`.
-- Uses the existing AgriNexus MongoDB connection with dedicated `EstateAtlas*` models/collections. No existing application records or schemas are modified. Images remain ordinary files.
-- Reuses the host's `AuthHandler` to verify its existing signed session cookie or bearer token. Existing root administrators can manage EstateAtlas. Other users need an active `EstateAtlasAccessGrant` with a role and explicit estate IDs. Never use the browser's user/role JSON as proof of authorization.
-- Initial estate import checks all file SHA-256 values and uses `$setOnInsert`; a persistent marker prevents repeated initial imports. It does not overwrite uploads or activities on later deploys.
-- QGIS 3.44.14 is installed in an isolated conda-forge runtime under `tools/qgis`. On this host, the private CGI adapter invokes the QGIS Python rendering engine against `published.qgz`. It supports only the validated elevation/hillshade/slope requests, at most two simultaneous renders with a 25-second limit. No QGIS network port is exposed. A dedicated QGIS Server WMS deployment remains supported for larger installations.
-- AgriNexus API remains managed by its existing service wrapper. The host Node runtime, its dependency tree, environment and credentials are unchanged; EstateAtlas has its own locked dependencies.
+- API: own Node runtime and `apps/api/src/independent-server.js`, bound to `127.0.0.1:8031`.
+- MongoDB: dedicated `mongod-mapping.service` on `127.0.0.1:27031`, restricted user for `DigitalPalmMapping` only.
+- API source: `/home/deploy_mapping/app/current`.
+- Private environment: `/home/deploy_mapping/app/mapping.env`, mode 0600. Never copy its values into source or logs.
+- Estate files: `/home/deploy_mapping/app/data`. Images remain files; MongoDB holds metadata, records and sessions.
+- Node/QGIS: `/home/deploy_mapping/app/tools`. QGIS uses private CGI rendering with validated layers, two-render concurrency and a 25-second timeout. It has no public port.
+- Frontend: `/var/www/mapping.digitalpalm.ai/public`; Nginx proxies `/api/` to 8031.
 
-## Publish and rollback
+Keep private files, backups and source outside the public directory. Back up database metadata and files together. Both services start at boot. The API service cannot access the old AgriNexus path and may write only its data directory plus private temporary storage.
 
-Stage source, install production API dependencies with the repository lockfile and validate QGIS rendering before publishing. Re-resolve the AgriNexus `current` link, back up the API entry file and checksum the existing frontend. Mount the integration in the backend and restart only with the documented `agrinexus-service` wrapper. Publish only the new `EstateAtlas` symlink; never replace the parent frontend or `/mapping`.
+## Frontend publication
 
-The first deployment's backup is `/home/deploy_agrinexus/releases/EstateAtlas-before-20261004`, containing the previous API entry file and frontend checksums. To roll back, restore that entry file, restart the API, and remove only the new frontend symlink. Keep the persistent data directory. Subsequent releases can switch the EstateAtlas links after verification; retain older releases for rollback.
+Build from the repository with:
 
-## Independent deployment
-
-See [INDEPENDENT-MAPPING.md](INDEPENDENT-MAPPING.md) for Mapping-owned files, independent authentication/database provisioning, service activation and final old-site cleanup.
-
-## Services and storage
-
-- React build served by Express, or by a reverse proxy forwarding `/api` to Express.
-- A dedicated MongoDB database for estate, activity, asset and access-grant metadata.
-- A persistent `DATA_DIR` mounted by the API read/write and QGIS read-only. Back up files and metadata together. Never store the upload folder only inside an ephemeral container.
-- QGIS Server LTR on a private network. The API chooses a fixed authorised project under `QGIS_PROJECT_ROOT/<estate-id>/qgis/published.qgz`; clients cannot pass arbitrary MAP paths or server URLs.
-- Public HTTPS reverse proxy to the API only. QGIS and MongoDB must not be publicly exposed.
-
-The supplied `compose.yaml` starts local MongoDB and QGIS. `compose.production.yaml` adds the app image and requires environment variables. Configure the JWT public key and persistent volume before starting it; it fails closed without JWT settings. Pin/update image versions under your operational release process. Production topology should use a supported 64-bit host; the pinned QGIS image is amd64.
-
-## DigitalPalm identity
-
-The API verifies RS256 JWT signatures, issuer and audience. Configure `JWT_PUBLIC_KEY_PATH`, `JWT_ISSUER`, and `JWT_AUDIENCE` using DigitalPalm's identity environment. An active `MappingAccessGrant` for the subject (`Id` or `sub`) is also required, specifying `viewer`, `manager` or `admin` and estate IDs. Issuer/audience configuration must agree with tokens issued by DigitalPalm; the neighbouring code's signing keys have not been copied. Integrate the existing login/token renewal flow when the production app location is provided.
-
-Example metadata provisioned by an administrator in the mapping database:
-
-```json
-{"_id":"digitalpalm-user-id","role":"manager","estateIds":["sg-gumut"],"active":true}
+```sh
+VITE_BASE_PATH=/ VITE_API_BASE=/api/EstateAtlas \
+VITE_AGRINEXUS_SESSION=true VITE_LOCAL_SIGN_IN=true \
+VITE_STATIC_BRANDING_LOGO=/branding/minor-logo.png pnpm build
+node scripts/deploy/check-root.mjs
 ```
 
-Viewers cannot import, configure sources or verify activity. Managers are limited to their granted estates. Administrators can add estates. File downloads and offline packages use the same checks. Downloads on an already disconnected device cannot be revoked remotely.
+Publish only `apps/web/dist`. Preserve a recoverable backup outside the public directory. Copy new hashed assets and branding before the HTML entry point, retaining older hashed assets for existing tabs. Verify root/deep-link refresh, asset 404 behavior, login/logout and estate navigation. Static publication requires no API restart.
 
-## Next production connections
+The minor logo is a Mapping-owned branding snapshot. Publish updates directly to Mapping when the brand changes.
 
-For standalone hosting, configure the persistent disk/object-storage arrangement and DigitalPalm issuer/public key. AgriNexus hosting already reuses its existing identity flow. Add activity synchronization, the acquisition scheduler and reviewed QField synchronisation using their authorised API contracts. The current source settings persist configuration only; no background acquisition jobs are claimed to run.
+## Backend publication
 
-## QGIS updates
+Stage a new release under `/home/deploy_mapping/app/releases`, install dependencies from the lockfile using its Node runtime, run applicable tests, and validate QGIS/file access. Change only Mapping's `current` link, then restart using the scoped helper. Preserve the external environment and data directories.
 
-For a new estate publish `data/estates/<id>/qgis/published.qgz` with layer short names `terrain`, `hillshade`, `slope` and relative local paths. Mark the estate metadata `qgis: true` after validating all project layers. Upload georeferenced image exports with capture dates for browser/mobile history. Native QGIS projects and GeoTIFFs remain files, outside MongoDB and source control.
+The service entry point is `independent-server.js`, not the legacy AgriNexus registration module or the generic JWT server. The repository's original Docker/JWT examples are development or alternative-deployment references, not the current production configuration.
+
+Never rerun `prepare-independent-db.mjs` against production. It was a one-time import into an empty database. Native clients require independent authentication integration and rebuilding before deployment.
+
+## Validation and rollback
+
+Production cutover passed 198 API/storage/auth checks and browser acceptance. Tooling `scripts/deploy/accept-independent.mjs` creates UUID-scoped synthetic fixtures, removes only them, and verifies original metadata digests. Coordinate a write-free window and pass its secrets privately when rerunning it.
+
+Use the final export to validate copied assets and QGIS:
+
+```sh
+cd /home/deploy_mapping/app/current
+sh scripts/deploy/check-independent-files.sh \
+  /home/deploy_mapping/backups/metadata-final-20261006
+```
+
+Current-data backups must precede rollback. Do not restore the old snapshot over post-cutover writes. The old EstateAtlas files are archived and its routes return 410; AgriNexus `/mapping` is separate and must not be modified by a Mapping deployment.
