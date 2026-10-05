@@ -1,9 +1,9 @@
 """Verify copied assets and render every QGIS project from Mapping-owned files."""
-import hashlib, json, pathlib, subprocess, urllib.parse
+import hashlib, json, pathlib, subprocess, urllib.parse, sys
 from qgis.core import QgsApplication, QgsProject, QgsCoordinateReferenceSystem, QgsCoordinateTransform
 root = pathlib.Path('/home/deploy_mapping/app')
 data = root / 'data'
-archive = pathlib.Path('/home/deploy_mapping/backups/metadata-20261006')
+archive = pathlib.Path(sys.argv[1] if len(sys.argv) > 1 else '/home/deploy_mapping/backups/metadata-20261006')
 assets = json.loads((archive / 'estateatlasassets.json').read_text())
 checked = 0
 for asset in assets:
