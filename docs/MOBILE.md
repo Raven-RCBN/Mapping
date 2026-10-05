@@ -13,4 +13,4 @@ Saved maps are private app documents, with Android backup disabled. Removing dow
 
 The API's development mode accepts localhost only. Android emulator testing can use `adb reverse tcp:4180 tcp:4180` and `http://127.0.0.1:4180`; for physical devices configure JWT mode and HTTPS. Never expose development mode to the LAN.
 
-For AgriNexus, enter `https://agrinexus.digitalpalm.ai/EstateAtlas` as the server address. The client uses `/api/EstateAtlas` and validates downloaded file URLs against that exact namespace. Older preview APKs built before this change need rebuilding to use this hosted path.
+Enter `https://mapping.digitalpalm.ai` as the server address. The old `https://agrinexus.digitalpalm.ai/EstateAtlas` address remains supported only during migration. The client uses `/api/EstateAtlas` and validates downloaded file URLs against that exact namespace. Older preview APKs built before this change need rebuilding to use this hosted path.

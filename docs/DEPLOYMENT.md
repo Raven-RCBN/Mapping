@@ -1,3 +1,9 @@
+# Current domain
+
+Estate Atlas now publishes its frontend at `https://mapping.digitalpalm.ai/`. See [the cutover status and remaining administrator work](MAPPING-CUTOVER.md). The backend, identity, database, files and QGIS are still shared with AgriNexus; do not delete them.
+
+The following section describes the retained legacy integration and rollback procedure.
+
 # AgriNexus deployment
 
 The existing AgriNexus frontend stays intact. Nginx's existing directory handling serves a separate `dist/EstateAtlas` symlink and redirects `/EstateAtlas` to `/EstateAtlas/`. No Nginx configuration changes are needed for this single-page app.

@@ -59,6 +59,9 @@ const slice = createSlice({
     compare: null,
   },
   reducers: {
+    signedOut() {
+      return slice.getInitialState();
+    },
     loaded(s, { payload }) {
       const restore =
         !s.data || s.data.access?.subject !== payload.access?.subject;
@@ -166,6 +169,7 @@ const slice = createSlice({
   },
 });
 export const {
+  signedOut,
   loaded,
   patch,
   select,

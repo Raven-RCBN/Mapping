@@ -3127,3 +3127,9 @@ button:disabled {
 .estate-export-status { position: absolute; right: 0; top: calc(100% + 10px); z-index: 1100; width: min(330px, 80vw); padding: 14px 16px; border: 1px solid #d6dfd3; border-radius: 10px; background: #fff; box-shadow: 0 8px 25px #10392322; font-size: 13px; line-height: 1.5; color: #26432e; }
 .estate-export-status p { margin: 0 0 8px; }
 .estate-export-status button { font-weight: 600; color: #174d38; }
+
+.mapping-signin { max-width: 460px; margin: 8vh auto; padding: 30px; background: white; border: 1px solid #d6dfd3; border-radius: 14px; }
+.mapping-signin form { display: grid; gap: 16px; margin: 24px 0 14px; text-align: left; }
+.mapping-signin label { display: grid; gap: 6px; }
+.mapping-signin input { width: 100%; padding: 12px; border: 1px solid #d6dfd3; border-radius: 8px; font: inherit; }
+.mapping-signin h1 { font-size: 28px; }

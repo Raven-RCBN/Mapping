@@ -9,6 +9,7 @@ import {
 import { useSearchParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
+  signedOut,
   loaded,
   patch,
   workspaceLoaded,
@@ -18,6 +19,8 @@ import {
   estateMapReady,
 } from "./store";
 import {
+  localSignIn,
+  signOut,
   getSnapshot,
   setToken,
   clearOffline,
@@ -35,6 +38,7 @@ import {
 } from "../../../packages/shared/timeline";
 import SummaryCards from "./components/SummaryCards";
 import { dashboardCardState } from "../../../packages/shared/dashboard-summary.js";
+import SignIn from "./components/SignIn";
 import EstatePicker from "./components/EstatePicker";
 import GlobalBrandLogo from "./components/GlobalBrandLogo";
 const MapView = lazy(() => import("./components/MapView"));
@@ -97,6 +101,19 @@ export default function App() {
     setError("");
   }, [dispatch]);
   useEffect(() => {
+    const expire = () => {
+      dispatch(signedOut());
+      setDialog(null);
+      setError("Your session has ended. Sign in to continue.");
+    };
+    window.addEventListener("mapping-session-expired", expire);
+    window.addEventListener("mapping-signed-out", expire);
+    return () => {
+      window.removeEventListener("mapping-session-expired", expire);
+      window.removeEventListener("mapping-signed-out", expire);
+    };
+  }, [dispatch]);
+  useEffect(() => {
     reload().catch((e) => setError(errorMessage(e)));
   }, [reload]);
   useEffect(() => {
@@ -105,7 +122,7 @@ export default function App() {
   }, [s.base]);
   useEffect(() => {
     setMapRecord(null);
-    setError("");
+    if (s.selected[0]) setError("");
   }, [s.selected[0]]);
   const current =
     s.period === "all"
@@ -272,6 +289,14 @@ export default function App() {
     const offset = (pageCursors.length - 1) * 100;
     return ordered.slice(offset, offset + 100);
   }, [rows, mapCursor, s.data?.paged, s.data?.offline]);
+  if (!s.data && localSignIn && error)
+    return (
+      <SignIn
+        message={error}
+        onSignedIn={reload}
+        onRetry={() => reload().catch((e) => setError(errorMessage(e)))}
+      />
+    );
   if (!s.data)
     return (
       <main className="startup">
@@ -470,6 +495,16 @@ export default function App() {
               {s.data.offline ? "OFFLINE" : "CONNECTED"} ·{" "}
               {s.data.access.role.toUpperCase()}
             </span>
+            {localSignIn && (
+              <button
+                className="button"
+                onClick={() =>
+                  signOut().catch((e) => setError(errorMessage(e)))
+                }
+              >
+                Sign out
+              </button>
+            )}
           </div>
         </header>
         <main>

@@ -120,3 +120,27 @@ test("switching back must load that estate again; offline maps need no online re
   );
   assert.equal(estateMapReady(offline), true);
 });
+
+test("sign out clears all estate and activity data, rejecting outstanding responses", () => {
+  const existing = atlasReducer(undefined, {
+    type: "atlas/patch",
+    payload: {
+      data: { refresh: 10, estates: [] },
+      selected: ["oban"],
+      mapRows: [{ id: "private-row" }],
+    },
+  });
+  const signedOut = atlasReducer(existing, { type: "atlas/signedOut" });
+  assert.equal(signedOut.data, null);
+  assert.deepEqual(signedOut.selected, []);
+  assert.equal(signedOut.mapRows, undefined);
+  const stale = atlasReducer(signedOut, {
+    type: "atlas/rowsLoaded",
+    payload: {
+      estateId: "oban",
+      refresh: 10,
+      patch: { mapRows: [{ id: "private-row" }] },
+    },
+  });
+  assert.equal(stale, signedOut);
+});

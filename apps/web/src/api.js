@@ -1,4 +1,5 @@
 import axios from "axios";
+export const localSignIn = import.meta.env.VITE_LOCAL_SIGN_IN === "true";
 export const apiBase = import.meta.env.VITE_API_BASE || "/api";
 const namespace =
   "estate-atlas-" + encodeURIComponent(import.meta.env.BASE_URL);
@@ -17,7 +18,7 @@ let token = "";
 api.interceptors.request.use((config) => {
   const sessionToken =
     token ||
-    (import.meta.env.VITE_AGRINEXUS_SESSION === "true"
+    (!localSignIn && import.meta.env.VITE_AGRINEXUS_SESSION === "true"
       ? localStorage.getItem("token")
       : "");
   if (sessionToken && !["null", "undefined"].includes(sessionToken))
@@ -30,6 +31,42 @@ export function setToken(value) {
     ? "Bearer " + value
     : undefined;
 }
+const identity = axios.create({
+  baseURL: "/api/v1/users",
+  withCredentials: true,
+  timeout: 30000,
+});
+let sessionEpoch = 0;
+export async function signIn(login, password) {
+  const { data } = await identity.post("/login", { login, password });
+  if (data?.response === "FAILED" || data?.error || !data?.data?.token)
+    throw Error(
+      data?.error?.desc ||
+        data?.error?.Desc ||
+        "Sign-in failed. Check your username and password."
+    );
+  // The HTTP-only host cookie is the web session. Do not persist the returned token.
+  sessionEpoch += 1;
+  setToken("");
+}
+export async function signOut() {
+  await identity.post("/logout");
+  sessionEpoch += 1;
+  setToken("");
+  await clearOffline();
+  window.dispatchEvent(new Event("mapping-signed-out"));
+}
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (localSignIn && error.response?.status === 401) {
+      sessionEpoch += 1;
+      setToken("");
+      window.dispatchEvent(new Event("mapping-session-expired"));
+    }
+    return Promise.reject(error);
+  }
+);
 export async function authorisedFile(url) {
   const path = new URL(url, location.origin);
   if (
@@ -51,15 +88,20 @@ export async function offlineManifest() {
   return r ? await r.json() : null;
 }
 export async function getSnapshot() {
+  const epoch = sessionEpoch;
   try {
     const { data } = await api.get("/bootstrap", { timeout: 15000 });
+    if (epoch !== sessionEpoch)
+      throw Object.assign(Error("Session changed. Please sign in again."), {
+        sessionChanged: true,
+      });
     offlineIndex = null;
     const oldPack = await offlineManifest();
     if (oldPack && oldPack.snapshot.access.subject !== data.access.subject)
       await clearOffline();
     return { ...data, offline: false, refresh: Date.now() };
   } catch (e) {
-    if (e.response) throw e;
+    if (e.response || e.sessionChanged) throw e;
     const pack = await offlineManifest();
     if (!pack) throw e;
     offlineIndex = pack;

@@ -35,7 +35,7 @@ function connection(host: string) {
   const hosted = base.endsWith('/EstateAtlas');
   return {
     origin: hosted ? base.slice(0, -'/EstateAtlas'.length) : base,
-    api: hosted ? '/api/EstateAtlas' : '/api',
+    api: hosted || base === 'https://mapping.digitalpalm.ai' ? '/api/EstateAtlas' : '/api',
   };
 }
 export async function loadEstates(host: string, token: string) {

@@ -19,7 +19,7 @@ import {
   SavedPack,
 } from './src/offline';
 export default function App() {
-  const [host, setHost] = useState(''),
+  const [host, setHost] = useState('https://mapping.digitalpalm.ai'),
     [token, setToken] = useState(''),
     [estates, setEstates] = useState<any[]>([]),
     [selected, setSelected] = useState<string[]>([]),

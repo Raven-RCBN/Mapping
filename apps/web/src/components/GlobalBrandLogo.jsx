@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 
 const hostOrigin =
-  import.meta.env.VITE_AGRINEXUS_SESSION === "true"
+  import.meta.env.VITE_BRANDING_ORIGIN ||
+  (import.meta.env.VITE_AGRINEXUS_SESSION === "true"
     ? location.origin
-    : "https://agrinexus.digitalpalm.ai";
+    : "https://agrinexus.digitalpalm.ai");
 const brandingUrl = hostOrigin + "/api/public/settings/global-branding";
 const cacheKey = "estate-atlas-minor-logo:" + hostOrigin;
 

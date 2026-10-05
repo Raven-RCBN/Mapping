@@ -31,7 +31,7 @@ export async function mountEstateAtlas(app, { connection, AuthHandler, dataDir, 
   const mapping = await createApp({
     models, dataDir, authMode: "agrinexus", production: true,
     authenticate: agrinexusAccess(AuthHandler, models.AccessGrant),
-    origins: ["https://agrinexus.digitalpalm.ai"],
+    origins: ["https://agrinexus.digitalpalm.ai", "https://mapping.digitalpalm.ai"],
     apiPath: "", publicApiPath: "/api/EstateAtlas", serveWeb: false,
     qgisUrl, qgisCommand, qgisRoot: path.join(dataDir, "estates"),
   });
