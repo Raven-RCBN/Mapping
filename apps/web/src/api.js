@@ -33,13 +33,14 @@ export function setToken(value) {
 }
 const identity = axios.create({
   baseURL: "/api/v1/users",
+  headers: { "X-Mapping-Client": "1" },
   withCredentials: true,
   timeout: 30000,
 });
 let sessionEpoch = 0;
 export async function signIn(login, password) {
   const { data } = await identity.post("/login", { login, password });
-  if (data?.response === "FAILED" || data?.error || !data?.data?.token)
+  if (data?.response === "FAILED" || data?.error || (!data?.data?.token && !data?.data?.authenticated))
     throw Error(
       data?.error?.desc ||
         data?.error?.Desc ||

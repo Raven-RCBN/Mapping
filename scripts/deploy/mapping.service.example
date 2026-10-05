@@ -1,0 +1,25 @@
+[Unit]
+Description=DigitalPalm Mapping API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=deploy_mapping
+Group=deploy_mapping
+WorkingDirectory=/home/deploy_mapping/app/current
+EnvironmentFile=/home/deploy_mapping/app/mapping.env
+ExecStart=/home/deploy_mapping/app/tools/node-v24.19.0-linux-x64/bin/node apps/api/src/independent-server.js
+Restart=on-failure
+RestartSec=5
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/deploy_mapping/app/data
+# Prove the replacement has no file dependency on the old Mapping tree.
+InaccessiblePaths=/opt/digitalpalm/agrinexus
+
+[Install]
+WantedBy=multi-user.target

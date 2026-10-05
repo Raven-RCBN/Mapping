@@ -4,9 +4,9 @@
 
 - New URL: https://mapping.digitalpalm.ai/
 - Public files: `/var/www/mapping.digitalpalm.ai/public`.
-- Release: `/home/deploy_mapping/releases/20261006T-root-login-v3`.
+- Release: `/home/deploy_mapping/releases/20261006T-independent-ready`.
 - Previous public contents: `/home/deploy_mapping/backups/20261006T-before-root`.
-- Build: `VITE_BASE_PATH=/ VITE_API_BASE=/api/EstateAtlas VITE_AGRINEXUS_SESSION=true VITE_LOCAL_SIGN_IN=true VITE_BRANDING_ORIGIN=https://agrinexus.digitalpalm.ai pnpm build`.
+- Build: `VITE_BASE_PATH=/ VITE_API_BASE=/api/EstateAtlas VITE_AGRINEXUS_SESSION=true VITE_LOCAL_SIGN_IN=true VITE_STATIC_BRANDING_LOGO=/branding/minor-logo.png pnpm build`.
 - Run `node scripts/deploy/check-root.mjs` after building.
 - Login: same-origin `/api/v1/users/login`, using the existing verified identity service and host-only signed HTTP-only secure cookie. No credential or token is embedded in browser builds. There is no automatic refresh endpoint in the current identity service: expired sessions prompt a fresh sign-in.
 - Logout: same-origin `/api/v1/users/logout`; clear private offline package and Redux data after successful logout.
@@ -26,6 +26,8 @@ The login reuses the existing identity; no new account, password reset, or hard-
 The new domain still proxies `/api/` to the shared API on port 8021. Identity and EstateAtlas MongoDB collections remain in AgriNexus. Persistent imagery/files (237 MB at inspection) and QGIS (4.4 GB) remain under `/opt/digitalpalm/agrinexus/estate-atlas`. The current API release is `releases/20261005T-harvester-popup`.
 
 The exact new origin was added to host CORS and EstateAtlas origin checks. Backups of the two affected files are in `/home/deploy_agrinexus/releases/Mapping-origin-before-20261006`. No cookie domain broadening or database migration was performed.
+
+See [the independent service activation and file-migration handover](INDEPENDENT-MAPPING.md) for the staged files, database importer, standalone login and service unit.
 
 ## Administrator work required for independent backend
 

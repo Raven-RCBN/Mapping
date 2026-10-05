@@ -33,3 +33,4 @@ apps/mobile/assets/viewer.json
 .deploy/
 
 *.xlsx
+!apps/web/public/branding/minor-logo.png

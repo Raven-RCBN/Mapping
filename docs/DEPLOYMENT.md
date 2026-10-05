@@ -4,7 +4,7 @@ Estate Atlas now publishes its frontend at `https://mapping.digitalpalm.ai/`. Se
 
 The following section describes the retained legacy integration and rollback procedure.
 
-# AgriNexus deployment
+# Legacy AgriNexus deployment
 
 The existing AgriNexus frontend stays intact. Nginx's existing directory handling serves a separate `dist/EstateAtlas` symlink and redirects `/EstateAtlas` to `/EstateAtlas/`. No Nginx configuration changes are needed for this single-page app.
 
@@ -34,9 +34,9 @@ Stage source, install production API dependencies with the repository lockfile a
 
 The first deployment's backup is `/home/deploy_agrinexus/releases/EstateAtlas-before-20261004`, containing the previous API entry file and frontend checksums. To roll back, restore that entry file, restart the API, and remove only the new frontend symlink. Keep the persistent data directory. Subsequent releases can switch the EstateAtlas links after verification; retain older releases for rollback.
 
-## Standalone deployment
+## Independent deployment
 
-EstateAtlas is deployed at `https://agrinexus.digitalpalm.ai/EstateAtlas/`. Capitalization is significant. The existing `/mapping` frontend and API remain separate.
+See [INDEPENDENT-MAPPING.md](INDEPENDENT-MAPPING.md) for Mapping-owned files, independent authentication/database provisioning, service activation and final old-site cleanup.
 
 ## Services and storage
 

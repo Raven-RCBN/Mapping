@@ -27,6 +27,7 @@ export default function SignIn({ onSignedIn, message, onRetry }) {
             await onSignedIn();
           } catch (e) {
             setError(
+              (typeof e.response?.data?.error === "string" ? e.response.data.error : "") ||
               e.response?.data?.error?.desc ||
                 e.response?.data?.error?.Desc ||
                 e.message ||

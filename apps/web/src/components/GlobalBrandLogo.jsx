@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+const staticLogo = import.meta.env.VITE_STATIC_BRANDING_LOGO;
 const hostOrigin =
   import.meta.env.VITE_BRANDING_ORIGIN ||
   (import.meta.env.VITE_AGRINEXUS_SESSION === "true"
@@ -31,6 +32,7 @@ function minorLogoUrl(payload) {
 
 export default function GlobalBrandLogo() {
   const [url, setUrl] = useState(() => {
+    if (staticLogo) return staticLogo;
     try {
       return minorLogoUrl({ minorLogo: localStorage.getItem(cacheKey) });
     } catch {
@@ -39,6 +41,7 @@ export default function GlobalBrandLogo() {
   });
   const [failedUrl, setFailedUrl] = useState("");
   useEffect(() => {
+    if (staticLogo) return;
     let controller;
     const refresh = async () => {
       controller?.abort();
@@ -86,8 +89,8 @@ export default function GlobalBrandLogo() {
   return (
     <a
       className="global-brand"
-      href={hostOrigin + "/"}
-      aria-label="AgriNexus home"
+      href={staticLogo ? import.meta.env.BASE_URL : hostOrigin + "/"}
+      aria-label={staticLogo ? "Estate Atlas home" : "AgriNexus home"}
     >
       <img src={url} alt="AgriNexus logo" onError={() => setFailedUrl(url)} />
     </a>

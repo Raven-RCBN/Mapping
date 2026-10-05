@@ -24,6 +24,9 @@ export default defineConfig({
               base + "index.html",
               base + "manifest.webmanifest",
               base + "icon.svg",
+              ...(process.env.VITE_STATIC_BRANDING_LOGO
+                ? [process.env.VITE_STATIC_BRANDING_LOGO]
+                : []),
               ...files,
             ])
           )
