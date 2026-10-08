@@ -156,3 +156,17 @@ test("estate choice scopes workspace, grids, map assets, summaries, storage and 
     assert.equal(offline.snapshot.blocks.length, expected);
   }
 });
+test("undated reference mosaics stay estate scoped, available offline, and outside dated imagery", async () => {
+  await models.Asset.create({
+    _id: "estate-a-mosaic", estateId: "estate-a", name: "Supplied mosaic",
+    kind: "reference-image", importedAt: "2026-10-08", bounds: [[5,8],[5.1,8.1]],
+    file: payload.assets[0].file,
+  });
+  const a = await request(app).get("/api/map-assets?estates=estate-a&at=2024-01-01");
+  assert.equal(a.status,200);
+  assert.equal(a.body.find(x => x.id === "estate-a-mosaic").acquiredAt,undefined);
+  const b = await request(app).get("/api/map-assets?estates=estate-b&at=2024-01-01");
+  assert.ok(!b.body.some(x => x.id === "estate-a-mosaic"));
+  const offline = await request(app).get("/api/offline?estates=estate-a");
+  assert.ok(offline.body.files.some(x => x.id === "estate-a-mosaic"));
+});

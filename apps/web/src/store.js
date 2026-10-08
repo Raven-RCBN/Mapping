@@ -150,6 +150,7 @@ const slice = createSlice({
       s.activity = "all";
       s.review = false;
       s.hiddenGisLayers = [];
+      if (s.base === "reference") s.base = "road";
       if (s.data.paged) {
         s.data.blocks = [];
         s.data.sources = [];

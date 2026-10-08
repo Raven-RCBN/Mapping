@@ -18,6 +18,9 @@ const gisBlockColumns = [
   ["palmsPerHectare", "Palms / ha"],
   ["surveyDate", "Survey date"],
   ["division", "Division"],
+  ["gpsAreaHa", "GPS area (ha)"],
+  ["sourceYieldLastYear", "Source LYr_Yield (unit/year unspecified)"],
+  ["sourceYieldTwoYears", "Source 2Yr_Yield (unit/period unspecified)"],
 ];
 const extraBlockColumns = (rows) =>
   gisBlockColumns.filter(([key]) =>

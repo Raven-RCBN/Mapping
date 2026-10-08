@@ -37,6 +37,7 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
       type: String,
       enum: [
         "imagery",
+        "reference-image",
         "terrain",
         "hillshade",
         "slope",
@@ -155,6 +156,9 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     palmsPerHectare: Number,
     surveyDate: String,
     division: String,
+    gpsAreaHa: Number,
+    sourceYieldLastYear: Number,
+    sourceYieldTwoYears: Number,
     mapBlockNames: [String],
     mapLinkMethod: String,
     ...provenance,

@@ -3133,3 +3133,5 @@ button:disabled {
 .mapping-signin label { display: grid; gap: 6px; }
 .mapping-signin input { width: 100%; padding: 12px; border: 1px solid #d6dfd3; border-radius: 8px; font: inherit; }
 .mapping-signin h1 { font-size: 28px; }
+
+.base-tabs.has-reference { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; }

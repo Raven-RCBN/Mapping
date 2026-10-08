@@ -64,6 +64,9 @@ export default function MapView({
       override
     ),
     estates = data.estates.filter((e) => selected.includes(e.id));
+  const referenceImages = (data.paged ? state.mapAssets || [] : data.assets).filter(
+    (a) => selected.includes(a.estateId) && a.kind === "reference-image"
+  );
   const gisAssets = (data.paged ? state.mapAssets || [] : data.assets).filter(
     (a) => selected.includes(a.estateId) && a.kind === "vector"
   );
@@ -341,6 +344,15 @@ export default function MapView({
     loadGis();
     async function load() {
       try {
+        if (base === "reference") {
+          if (!referenceImages.length) {
+            setNotice("No reference mosaic available for this estate. Choose another map view.");
+            return;
+          }
+          for (const a of referenceImages) await raster(a);
+          setNotice("Supplied reference mosaic · capture date unknown · independent of timeline dates.");
+          return;
+        }
         if (base === "road") {
           if (data.offline) {
             setNotice(
@@ -554,11 +566,12 @@ export default function MapView({
         </h3>
         {!collapsed && (
           <>
-            <div className="base-tabs">
+            <div className={`base-tabs${referenceImages.length ? " has-reference" : ""}`}>
               {[
                 ["road", "Road map"],
                 ["satellite", "Satellite"],
                 ["topography", "Topography"],
+                ...(referenceImages.length ? [["reference", "Estate mosaic"]] : []),
               ].map(([b, title]) => (
                 <button
                   key={b}

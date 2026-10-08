@@ -25,3 +25,9 @@ test("imagery never substitutes another estate or a future capture", () => {
   assert.deepEqual(imagesAt(assets, ["a"], "2026-09-28"), []);
   assert.equal(imagesAt(assets, ["a", "b"], "2026-10-03").length, 2);
 });
+test("undated reference mosaics never become a dated satellite capture", () => {
+  const assets = [{id:"reference",estateId:"a",kind:"reference-image"},
+    {id:"dated",estateId:"a",kind:"imagery",acquiredAt:"2024-01-01"}];
+  assert.deepEqual(imagesAt(assets,["a"],"2023-12-31"),[]);
+  assert.equal(imagesAt(assets,["a"],"2024-01-02")[0].id,"dated");
+});
