@@ -683,7 +683,9 @@ export default function MapView({
         <span className="status-dot" />
         <b>{label(date)}</b>
         <span>
-          {data.offline
+          {base === "reference"
+            ? "Activity date · undated reference mosaic"
+            : data.offline
             ? "Offline map"
             : base === "road"
             ? "Activity date · current road map"
@@ -694,6 +696,8 @@ export default function MapView({
       <div id="mapSourceLabel">
         {base === "road"
           ? "OpenStreetMap · road map"
+          : base === "reference"
+          ? "Supplied Oban mosaic · capture date unknown · approximately 3 m overview"
           : base === "topography"
           ? "Copernicus GLO-30 · acquired mainly 2011–2015 · surface elevation, includes canopy"
           : images
