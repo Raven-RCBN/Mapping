@@ -52,6 +52,11 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     importedAt: String,
     bounds: [[Number]],
     file: { path: String, mime: String, bytes: Number, sha256: String },
+    mosaic: {
+      path: String, sha256: String, bytes: Number, dataOffset: Number,
+      levels: [{ _id: false, cols: Number, rows: Number, indexOffset: Number,
+        xmin: Number, ymin: Number, xmax: Number, ymax: Number }],
+    },
     cloudPercent: Number,
     resolution: Number,
     attribution: String,

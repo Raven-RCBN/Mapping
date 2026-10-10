@@ -1,3 +1,4 @@
+import { installMosaic } from "./service/mosaic.js";
 import express from "express";
 import { renderQgisCgi } from "./service/qgis.js";
 import cors from "cors";
@@ -53,7 +54,7 @@ const clean = (doc) => {
   return { ...rest, id: _id };
 };
 const publicAsset = (a, base = "/api") => {
-  const { _id, file, ...rest } = a;
+  const { _id, file, mosaic, ...rest } = a;
   return {
     ...rest,
     id: _id,
@@ -61,6 +62,12 @@ const publicAsset = (a, base = "/api") => {
     mime: file.mime,
     bytes: file.bytes,
     sha256: file.sha256,
+    ...(mosaic?.levels?.length ? { tilePyramid: {
+      url: `${base}/assets/${_id}/tiles/{z}/{x}/{y}`,
+      sha256: mosaic.sha256,
+      levels: mosaic.levels.map(({ cols, rows, xmin, ymin, xmax, ymax }) =>
+        ({ cols, rows, xmin, ymin, xmax, ymax })),
+    } } : {}),
   };
 };
 export async function createApp(config) {
@@ -549,6 +556,7 @@ export async function createApp(config) {
       }
     }
   );
+  installMosaic(api, { Asset }, config, canAccess);
   for (const variant of ["file", "thumbnail"])
     api.get(
       "/assets/:id/" + variant,

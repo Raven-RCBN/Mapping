@@ -14,6 +14,8 @@ import ImageStatic from "ol/source/ImageStatic";
 import ImageWMS from "ol/source/ImageWMS";
 import VectorSource from "ol/source/Vector";
 import OSM from "ol/source/OSM";
+import XYZ from "ol/source/XYZ";
+import TileGrid from "ol/tilegrid/TileGrid";
 import GeoJSON from "ol/format/GeoJSON";
 import { fromLonLat, toLonLat, transformExtent } from "ol/proj";
 import { isEmpty, getCenter } from "ol/extent";
@@ -188,7 +190,7 @@ export default function MapView({
                     color:
                       color +
                       Math.round(
-                        (base === "topography" ? 0.04 : state.opacity / 100) *
+                        (["topography", "reference"].includes(base) ? 0.04 : state.opacity / 100) *
                           255
                       )
                         .toString(16)
@@ -349,8 +351,39 @@ export default function MapView({
             setNotice("No reference mosaic available for this estate. Choose another map view.");
             return;
           }
-          for (const a of referenceImages) await raster(a);
-          setNotice("Supplied reference mosaic · capture date unknown · independent of timeline dates.");
+          for (const a of referenceImages) {
+            await raster(a);
+            if (cancelled || data.offline || !a.tilePyramid) continue;
+            const levels = a.tilePyramid.levels;
+            const source = new XYZ({
+              projection: "EPSG:4326", wrapX: false,
+              tileGrid: new TileGrid({
+                origins: levels.map(l => [l.xmin, l.ymax]),
+                resolutions: levels.map(l => (l.xmax - l.xmin) / (l.cols * 256)),
+                sizes: levels.map(l => [l.cols, l.rows]), tileSize: 256,
+              }),
+              url: a.tilePyramid.url + "?v=" + a.tilePyramid.sha256,
+              attributions: a.attribution || "",
+              tileLoadFunction: (tile, url) => {
+                authorisedFile(url).then(blob => {
+                  if (cancelled) return;
+                  const u = URL.createObjectURL(blob);
+                  const image = tile.getImage();
+                  const release = () => URL.revokeObjectURL(u);
+                  image.addEventListener("load", release, { once: true });
+                  image.addEventListener("error", release, { once: true });
+                  image.src = u;
+                }).catch(() => {
+                  tile.setState(3);
+                  if (!cancelled) setNotice("Detailed mosaic tiles could not load. Showing the saved overview; reconnect to retry.");
+                });
+              },
+            });
+            add(new TileLayer({ source }), 2);
+          }
+          if (!cancelled) setNotice(data.offline
+            ? "Saved mosaic overview · connect to zoom into detailed CarryMap imagery."
+            : "Supplied reference mosaic · capture date unknown · independent of timeline dates.");
           return;
         }
         if (base === "road") {
@@ -697,7 +730,9 @@ export default function MapView({
         {base === "road"
           ? "OpenStreetMap · road map"
           : base === "reference"
-          ? "Supplied Oban mosaic · capture date unknown · approximately 3 m overview"
+          ? (referenceImages.some(a => a.tilePyramid) && !data.offline
+            ? "Oban CarryMap mosaic · zoom in for detail · capture date unknown"
+            : "Supplied estate mosaic · capture date unknown · saved overview")
           : base === "topography"
           ? "Copernicus GLO-30 · acquired mainly 2011–2015 · surface elevation, includes canopy"
           : images

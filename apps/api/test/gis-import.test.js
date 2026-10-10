@@ -161,10 +161,17 @@ test("undated reference mosaics stay estate scoped, available offline, and outsi
     _id: "estate-a-mosaic", estateId: "estate-a", name: "Supplied mosaic",
     kind: "reference-image", importedAt: "2026-10-08", bounds: [[5,8],[5.1,8.1]],
     file: payload.assets[0].file,
+    mosaic: { path: "private/source.cmf2", dataOffset: 15656, sha256: "a".repeat(64),
+      levels: [{cols:2,rows:2,indexOffset:123,xmin:8,ymin:5,xmax:8.1,ymax:5.1}] },
   });
   const a = await request(app).get("/api/map-assets?estates=estate-a&at=2024-01-01");
   assert.equal(a.status,200);
-  assert.equal(a.body.find(x => x.id === "estate-a-mosaic").acquiredAt,undefined);
+  const publicMosaic = a.body.find(x => x.id === "estate-a-mosaic");
+  assert.equal(publicMosaic.acquiredAt,undefined);
+  assert.equal(publicMosaic.mosaic,undefined);
+  assert.equal(publicMosaic.tilePyramid.levels[0].indexOffset,undefined);
+  assert.ok(!JSON.stringify(publicMosaic).includes("private/source"));
+  assert.equal(publicMosaic.tilePyramid.url,"/api/assets/estate-a-mosaic/tiles/{z}/{x}/{y}");
   const b = await request(app).get("/api/map-assets?estates=estate-b&at=2024-01-01");
   assert.ok(!b.body.some(x => x.id === "estate-a-mosaic"));
   const offline = await request(app).get("/api/offline?estates=estate-a");
