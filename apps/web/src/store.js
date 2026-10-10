@@ -10,9 +10,7 @@ const currentRequest = (s, payload) =>
 export const estateMapReady = (s) =>
   !s.data?.paged ||
   s.data.offline ||
-  [s.workspaceEstate, s.assetsEstate, s.rowsEstate].every(
-    (id) => id === s.selected[0]
-  );
+  s.workspaceEstate === s.selected[0];
 const defaultMapActivities = () => ({
   mode: "include",
   fields: [],
@@ -120,6 +118,7 @@ const slice = createSlice({
       s.data.blocks = payload.data.blocks;
       s.data.sources = payload.data.sources;
       s.workspaceEstate = payload.estateId;
+      s.estateLoadError = "";
     },
     assetsLoaded(s, { payload }) {
       if (!currentRequest(s, payload)) return;

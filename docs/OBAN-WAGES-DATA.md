@@ -4,7 +4,7 @@
 
 The authorised source is `Yearly Wages Activities 2025_FINAL.xlsx`: the last sheet `Wages 2025` plus Jan–Dec classification sheets, inspected with owner approval. Currency is NGN, confirmed by the owner. The source contains division/planting-group costs, not individual block numbers. The monthly `S/N` is a source row serial, not a stable task code; keep the task name and activity alongside it.
 
-The workbook contains 3,844 monthly rows and 2,669 annual division/task/activity cells. The owner requested that costs outside mapped blocks be ignored entirely. Only the 2,445 monthly source rows and 1,413 annual cells for the nine mapped divisions are uploaded (including their explicit zeros). Excluded groups never enter the live wage tables. Subtotals and grand totals are reconciliation controls, never imported as additional costs. All monthly totals, annual row/column totals, and all 2,669 annual cells reconcile at kobo precision. Both source bases reconcile to the workbook grand total. They must never be added together.
+The workbook contains 3,844 monthly rows and 2,669 annual division/task/activity cells. The owner requested that costs outside mapped blocks be ignored entirely. Only the 2,445 monthly source rows and 1,386 annual cells for the nine mapped divisions are uploaded (including their explicit zeros). MILL task rows are excluded, including 27 zero-value annual cells. Excluded groups never enter the live wage tables. Subtotals and grand totals are reconciliation controls, never imported as additional costs. All monthly totals, annual row/column totals, and all 2,669 annual cells reconcile at kobo precision. Both source bases reconcile to the workbook grand total. They must never be added together.
 
 ## Allocation rule approved by the owner
 
@@ -31,7 +31,7 @@ Data → Wages opens the calculated allocated-block-cost table and also provides
 
 All routes are under `/api/EstateAtlas`, use existing authentication, estate permissions and `X-Mapping-Client: 1` for writes. Currency currently supports NGN only. Monetary values use integer kobo: NGN 2,700 = `270000`.
 
-- `GET /wages?estateId=…&year=2025&basis=monthly`: paged source rows, filtered totals, task/month summaries. `basis=annual_summary` selects independent annual data. Optional division/task/mapBlockCode/search/match filters. No combined-basis total.
+- `GET /wages?estateId=…&year=2025&basis=monthly`: paged source rows, filtered totals, task/month summaries. `basis=annual_summary` selects independent annual data. Optional division/task/activity/mapBlockCode/search/match filters. No combined-basis total.
 - `GET /wages/meta?estateId=…&year=2025`: available years, groups, tasks and map blocks.
 - `POST /wages`: `{estateId, record}` creates a source record.
 - `PATCH /wages/:id`: `{estateId, revision, record}` corrects a record; stale revision returns 409.
@@ -40,7 +40,7 @@ All routes are under `/api/EstateAtlas`, use existing authentication, estate per
 - `GET /wages/areas?estateId=…&year=2025`: allocation snapshots.
 - `POST /wages/areas`: `{estateId, record:{year,mapBlockCode,division,note}}` loads map GIS area and creates a unique annual snapshot.
 - `PATCH /wages/areas/:id`: `{estateId,revision,record:{division,note}}` updates assignment and refreshes current GIS hectares, with history.
-- `GET /wages/allocation?estateId=…&year=2025&basis=monthly&mapBlockCode=G4`: computed costs, source S/N, task, activity, `rateMinorPerHa`, block/division hectares, coverage warnings, monthly/task summaries and paged activity rows. Omit block for estate coverage. Actual block-linked costs are excluded from estimates and accessed through `/wages?match=mapped`.
+- `GET /wages/allocation?estateId=…&year=2025&basis=monthly&mapBlockCode=G4`: computed costs, source S/N, task, activity, `rateMinorPerHa`, block/division hectares, coverage warnings, monthly/task/activity summaries and paged activity rows. Omit block for estate coverage. Actual block-linked costs are excluded from estimates and accessed through `/wages?match=mapped`.
 
 Example monthly integration record:
 

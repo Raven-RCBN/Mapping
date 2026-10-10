@@ -41,7 +41,8 @@ import { dashboardCardState } from "../../../packages/shared/dashboard-summary.j
 import SignIn from "./components/SignIn";
 import EstatePicker from "./components/EstatePicker";
 import GlobalBrandLogo from "./components/GlobalBrandLogo";
-const MapView = lazy(() => import("./components/MapView"));
+const loadMapView = () => import("./components/MapView");
+const MapView = lazy(loadMapView);
 import Timeline from "./components/Timeline";
 import Dialogs from "./components/Dialogs";
 import Storage from "./components/Storage";
@@ -179,6 +180,9 @@ export default function App() {
   const failEstateLoad = (e) =>
     dispatch(estateLoadFailed({ ...estateRequest, message: errorMessage(e) }));
   useEffect(() => {
+    if (s.data && !dataView && !storageView) loadMapView().catch(() => {});
+  }, [Boolean(s.data), dataView, storageView]);
+  useEffect(() => {
     if (!s.data?.paged || s.data.offline) return;
     const controller = new AbortController();
     api
@@ -232,7 +236,6 @@ export default function App() {
       })
       .catch((e) => {
         if (e.code !== "ERR_CANCELED" && !controller.signal.aborted) {
-          failEstateLoad(e);
           setError(errorMessage(e));
           dispatch(
             patch({
@@ -263,7 +266,6 @@ export default function App() {
       })
       .catch((e) => {
         if (e.code !== "ERR_CANCELED" && !controller.signal.aborted) {
-          failEstateLoad(e);
           setError(errorMessage(e));
         }
       });

@@ -4,7 +4,7 @@ import mongoose from 'mongoose';
 import express from 'express';
 import request from 'supertest';
 import {createModels} from '../src/model/index.js';
-import {installWages} from '../src/service/wages.js';
+import {installWages,wageTotals} from '../src/service/wages.js';
 let m,app,areaId,wageKey;
 const record={basis:'monthly',period:'2025-01',division:'RO',task:'UPKEEP',activity:'PRUNING',sourceSerial:'7',amountMinor:10000,currency:'NGN',sourceSystem:'test',sourceKey:'cost-1'};
 before(async()=>{
@@ -50,4 +50,23 @@ test('rejects cross-estate access, viewers, invalid amounts, duplicate import ke
   await request(app).post('/wages/import').send({estateId:'estate-a',records:[record,record]}).expect(400);
   await request(app).post('/wages').send({estateId:'estate-a',record:{...record,sourceKey:'outside',division:'MILL'}}).expect(400);
   await request(app).post('/wages').send({estateId:'estate-a',record:{...record,sourceKey:'unmapped',sourceBlockCode:'NO-POLYGON'}}).expect(400);
+});
+
+test('activity breakdowns keep task identities and filtering updates block costs and rates',async()=>{
+  await request(app).post('/wages').send({estateId:'estate-a',record:{...record,sourceKey:'other-task',task:'HARVESTING',activity:'PRUNING',amountMinor:6000}}).expect(201);
+  await request(app).post('/wages').send({estateId:'estate-a',record:{...record,sourceKey:'other-activity',activity:'WEEDING',amountMinor:3000}}).expect(201);
+  const query={estateId:'estate-a',year:'2025',mapBlockCode:'G4',task:'UPKEEP',activity:'WEEDING'};
+  const r=await request(app).get('/wages/allocation').query(query).expect(200);
+  assert.equal(r.body.amountMinor,1200);
+  assert.equal(r.body.items[0].rateMinorPerHa,60);
+  assert.deepEqual(r.body.byActivity,[{task:'UPKEEP',activity:'WEEDING',amountMinor:1200}]);
+  assert.equal('sources' in r.body,false);
+  const source=await request(app).get('/wages').query({...query,mapBlockCode:undefined}).expect(200);
+  assert.equal(source.body.amountMinor,3000);
+  const meta=await request(app).get('/wages/meta').query({estateId:'estate-a',year:'2025',task:'HARVESTING'}).expect(200);
+  assert.deepEqual(meta.body.activities,['PRUNING']);
+  const totals=wageTotals([{task:'UPKEEP',activity:'PRUNING',amountMinor:10},{task:'HARVESTING',activity:'PRUNING',amountMinor:20}]);
+  assert.equal(totals.byActivity.length,2);
+  assert.equal(totals.byActivity.reduce((n,r)=>n+r.amountMinor,0),30);
+  await request(app).post('/wages').send({estateId:'estate-a',record:{...record,sourceKey:'mill-task',task:'MILL'}}).expect(400);
 });

@@ -71,7 +71,7 @@ test("applying the same estate preserves the loaded map, activities and filters"
   assert.strictEqual(atlasReducer(state, select(["sg"])), state);
 });
 
-test("switching estates waits for that estate's workspace, assets and activities in any response order", () => {
+test("switching estates never renders the previous estate while secondary requests arrive first", () => {
   let state = atlasReducer(ready(), select(["oban"]));
   assert.equal(estateMapReady(state), false);
   assert.deepEqual(state.mapRows, []);
@@ -87,6 +87,20 @@ test("switching estates waits for that estate's workspace, assets and activities
     undefined
   );
   assert.equal(state.data.blocks[0].estateId, "oban");
+});
+
+test("the boundary renders before slow imagery or activity requests finish", () => {
+  let state = atlasReducer(ready(), select(["oban"]));
+  state = atlasReducer(state, workspace("oban"));
+  assert.equal(estateMapReady(state), true);
+  assert.equal(state.assetsEstate, null);
+  assert.equal(state.rowsEstate, null);
+  assert.deepEqual(state.mapRows, []);
+  assert.deepEqual(state.mapAssets, []);
+  state = atlasReducer(state, assets("oban"));
+  assert.equal(estateMapReady(state), true);
+  state = atlasReducer(state, rows("oban"));
+  assert.equal(state.mapRows[0].estateId, "oban");
 });
 
 test("late responses and errors cannot overwrite the newly selected estate", () => {

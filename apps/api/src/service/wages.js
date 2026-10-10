@@ -18,11 +18,13 @@ export const wageInput=z.object({
   sourceHash:z.string().regex(/^[a-f0-9]{64}$/).optional(), note:z.string().max(4000).default(''),
 }).strict().refine(r=>r.period.length===(r.basis==='monthly'?7:4),'Monthly records need YYYY-MM; annual summaries need YYYY.')
  .refine(r=>!r.mapBlockCode||!!r.sourceBlockCode,'A map link requires an original block number.')
+ .refine(r=>r.task.toUpperCase()!=='MILL','MILL is excluded from block wages.')
  .refine(r=>r.basis!=='annual_summary'||(!r.sourceBlockCode&&!r.mapBlockCode),'Annual division summaries cannot be assigned to individual blocks.');
 export const wageId=(estateId,r)=>'wg-'+createHash('sha256').update(JSON.stringify([estateId,r.sourceSystem,r.sourceKey])).digest('hex').slice(0,40);
 export function wageTotals(rows){
   const group=key=>{const totals=new Map();for(const r of rows)totals.set(r[key],(totals.get(r[key])||0)+r.amountMinor);return [...totals].map(([name,amountMinor])=>({name,amountMinor}));};
-  return {amountMinor:rows.reduce((a,r)=>a+r.amountMinor,0),byTask:group('task').sort((a,b)=>b.amountMinor-a.amountMinor),
+  const activities=new Map();for(const r of rows){const key=JSON.stringify([r.task,r.activity]);if(!activities.has(key))activities.set(key,{task:r.task,activity:r.activity,amountMinor:0});activities.get(key).amountMinor+=r.amountMinor;}
+  return {byActivity:[...activities.values()].sort((a,b)=>b.amountMinor-a.amountMinor),amountMinor:rows.reduce((a,r)=>a+r.amountMinor,0),byTask:group('task').sort((a,b)=>b.amountMinor-a.amountMinor),
     byPeriod:group('period').sort((a,b)=>a.name.localeCompare(b.name)),byDivision:group('division').sort((a,b)=>b.amountMinor-a.amountMinor)};
 }
 export function installWages(api,models){
@@ -75,32 +77,34 @@ export function installWages(api,models){
   });
   api.get('/wages/allocation',async(req,res)=>{
     const estateId=await scope(req),q=z.object({year:z.string().regex(/^\d{4}$/),basis:z.enum(['monthly','annual_summary']).default('monthly'),
-      mapBlockCode:z.string().max(200).optional(),task:z.string().max(200).optional(),division:z.string().max(200).optional(),q:z.string().max(200).default(''),page:z.coerce.number().int().min(0).max(10000).default(0)}).parse(req.query);
+      mapBlockCode:z.string().max(200).optional(),task:z.string().max(200).optional(),activity:z.string().max(200).optional(),division:z.string().max(200).optional(),q:z.string().max(200).default(''),page:z.coerce.number().int().min(0).max(10000).default(0)}).parse(req.query);
     const [wages,areas]=await Promise.all([
-      Wage.find({estateId,basis:q.basis,period:{$gte:q.year,$lt:String(Number(q.year)+1)},...(q.task?{task:q.task}:{}),...(q.division?{division:q.division}:{})}).select('-history').limit(50001).lean(),
+      Wage.find({estateId,basis:q.basis,period:{$gte:q.year,$lt:String(Number(q.year)+1)},...(q.task?{task:q.task}:{}),...(q.activity?{activity:q.activity}:{}),...(q.division?{division:q.division}:{})}).select('-history').limit(50001).lean(),
       WageArea.find({estateId,year:Number(q.year)}).select('-history').limit(5001).lean(),
     ]);
     if(wages.length>50000||areas.length>5000)throw new QueryError('Too many allocation records',413);
-    const allocation=allocateWages(wages,areas,q.mapBlockCode),items=allocation.items.filter(r=>!q.q||[r.mapBlockCode,r.task,r.activity,r.division].join(' ').toLowerCase().includes(q.q.toLowerCase())).sort((a,b)=>a.period.localeCompare(b.period)||a.sourceBlockCode.localeCompare(b.sourceBlockCode)||a.task.localeCompare(b.task)||a.activity.localeCompare(b.activity));
+    const {sources,...allocation}=allocateWages(wages,areas,q.mapBlockCode),items=allocation.items.filter(r=>!q.q||[r.mapBlockCode,r.task,r.activity,r.division].join(' ').toLowerCase().includes(q.q.toLowerCase())).sort((a,b)=>a.period.localeCompare(b.period)||a.sourceBlockCode.localeCompare(b.sourceBlockCode)||a.task.localeCompare(b.task)||a.activity.localeCompare(b.activity));
     const totals=wageTotals(items);
     res.json({...allocation,...totals,items:items.slice(q.page*25,(q.page+1)*25),count:items.length,
       selectedAreas:areas.filter(a=>a.mapBlockCode===q.mapBlockCode),unknownDivisionBlocks:areas.filter(a=>a.division==='DIVISION NOT SET').map(a=>a.mapBlockCode)});
   });
   api.get('/wages/meta',async(req,res)=>{
     const estateId=await scope(req),year=z.string().regex(/^\d{4}$/).default('2025').parse(req.query.year);
-    const [periods,divisions,tasks,mapBlocks,areaDivisions]=await Promise.all([
+    const task=z.string().max(200).optional().parse(req.query.task);
+    const [periods,divisions,tasks,mapBlocks,areaDivisions,activities]=await Promise.all([
       Wage.distinct('period',{estateId}),Wage.distinct('division',{estateId}),Wage.distinct('task',{estateId}),polygons(estateId),
       WageArea.distinct('division',{estateId,year:Number(year)}),
+      Wage.distinct('activity',{estateId,period:{$gte:year,$lt:String(Number(year)+1)},...(task?{task}:{})}),
     ]);
-    res.json({years:[...new Set(periods.map(p=>p.slice(0,4)))].sort().reverse(),divisions:[...new Set([...divisions,...areaDivisions])].sort(),tasks:tasks.sort(),mapBlocks});
+    res.json({years:[...new Set(periods.map(p=>p.slice(0,4)))].sort().reverse(),divisions:[...new Set([...divisions,...areaDivisions])].sort(),tasks:tasks.filter(t=>t.toUpperCase()!=='MILL').sort(),activities:activities.sort(),mapBlocks});
   });
   api.get('/wages',async(req,res)=>{
     const estateId=await scope(req),q=z.object({basis:z.enum(['monthly','annual_summary']).default('monthly'),year:z.string().regex(/^\d{4}$/),
-      division:z.string().max(200).optional(),task:z.string().max(200).optional(),mapBlockCode:z.string().max(200).optional(),
+      division:z.string().max(200).optional(),task:z.string().max(200).optional(),activity:z.string().max(200).optional(),mapBlockCode:z.string().max(200).optional(),
       match:z.enum(['all','mapped','unmapped','group']).default('all'),q:z.string().max(200).default(''),
       page:z.coerce.number().int().min(0).max(10000).default(0),limit:z.coerce.number().int().min(1).max(500).default(25)}).parse(req.query);
     const where={estateId,basis:q.basis,period:{$gte:q.year,$lt:String(Number(q.year)+1)},
-      ...(q.division?{division:q.division}:{}),...(q.task?{task:q.task}:{}),
+      ...(q.division?{division:q.division}:{}),...(q.task?{task:q.task}:{}),...(q.activity?{activity:q.activity}:{}),
       ...(q.mapBlockCode?{mapBlockCode:q.mapBlockCode}:q.match==='mapped'?{mapBlockCode:{$ne:null}}:
         q.match==='unmapped'?{mapBlockCode:null,sourceBlockCode:{$ne:null}}:q.match==='group'?{sourceBlockCode:null}:{})};
     let rows=await Wage.find(where).select('-history').sort({period:1,division:1,task:1,activity:1,_id:1}).limit(50001).maxTimeMS(10000).lean();

@@ -97,7 +97,7 @@ assert len(areas) == len({a['mapBlockCode'] for a in areas}) == 239
 # Upload only source costs that have mapped block areas available for allocation.
 # Other cost groups stay solely in the original workbook; never send them to app tables.
 allocated_divisions = {a['division'] for a in areas if a['division'] != 'DIVISION NOT SET'}
-records = [r for r in records if r['division'] in allocated_divisions]
+records = [r for r in records if r['division'] in allocated_divisions and r['task'].upper() != 'MILL']
 allocated_total = sum(r['amountMinor'] for r in records if r['basis'] == 'monthly')
 assert allocated_total == sum(r['amountMinor'] for r in records if r['basis'] == 'annual_summary')
 audit = dict(monthlyRecords=sum(r['basis']=='monthly' for r in records),
