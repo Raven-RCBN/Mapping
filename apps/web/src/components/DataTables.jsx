@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { queryData } from "../api";
 import { exactCoordinates } from "../../../../packages/shared/activities.js";
 import { label } from "../../../../packages/shared/timeline.js";
+import ProductionTables from './ProductionTables';
 
 export const blockColumns = [
   ["blockCode", "Block"],
@@ -88,13 +89,16 @@ export default function DataTables({
   server = null,
   onSelectBlock,
   onHistory,
+  productionEstateId,
+  role,
+  initialTab = "blocks",
 }) {
   const [tab, setTab] = useState(
     popup
       ? rows.some((r) => r.recordKind === "harvesting")
         ? "harvesting"
         : "field"
-      : "blocks"
+      : initialTab
   );
   const [query, setQuery] = useState(""),
     [page, setPage] = useState(0);
@@ -104,6 +108,7 @@ export default function DataTables({
     [cursors, setCursors] = useState([null]),
     [from, setFrom] = useState(""),
     [to, setTo] = useState("");
+  const productionTab=['monthly','parameters','names','yearly'].includes(tab);
   const reset = () => {
     setPage(0);
     setCursors([null]);
@@ -118,7 +123,7 @@ export default function DataTables({
   };
   const remoteKey = JSON.stringify([tab, params]);
   useEffect(() => {
-    if (!server) return;
+    if (!server || productionTab) return;
     const controller = new AbortController();
     setBusy(true);
     setRemote(null);
@@ -144,6 +149,7 @@ export default function DataTables({
     };
   }, [remoteKey, !!server]);
   const tabs = [
+    ...(!popup&&productionEstateId?[["monthly","Monthly production",0],["parameters","Monthly parameters",0],["names","Block-name history",0],["yearly","Yearly source totals",0]]:[]),
     ["blocks", "Block details", blocks.length],
     [
       "harvesting",
@@ -231,6 +237,7 @@ export default function DataTables({
       : key === "mapBlockNames"
       ? r.mapBlockNames?.join(", ") || "Pending"
       : format(r[key], key);
+  if(productionTab) return <div className="data-tables"><div className="table-tabs" role="tablist">{tabs.map(([id,name])=><button key={id} role="tab" aria-selected={tab===id} onClick={()=>{setTab(id);reset();setQuery('');}}>{name}</button>)}</div><ProductionTables key={productionEstateId} estateId={productionEstateId} role={role} view={tab} onMap={onSelectBlock}/></div>;
   return (
     <div className="data-tables">
       <div className="table-tabs" role="tablist">

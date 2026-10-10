@@ -170,6 +170,30 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
   });
   ensureIndex(Block, { estateId: 1, blockCode: 1 }, { unique: true });
   ensureIndex(Block, { estateId: 1, blockCode: -1, _id: -1 });
+  const ProductionName = model("MappingProductionName", {
+    _id: String, estateId: {type:String,required:true,index:true},
+    sourceBlockCode: {type:String,required:true}, division:String,
+    mapBlockCode: {type:String,default:null}, linkMethod:String,
+    firstMonth:String, lastMonth:String, note:String,
+    revision:{type:Number,default:0}, updatedBy:String, history:[Schema.Types.Mixed],
+  });
+  ensureIndex(ProductionName,{estateId:1,sourceBlockCode:1,division:1},{unique:true});
+  const MonthlyProduction = model("MappingMonthlyProduction", {
+    _id:String, estateId:{type:String,required:true,index:true},
+    sourceBlockId:{type:String,required:true}, month:{type:String,required:true},
+    receiptStatus:{type:String,enum:['received','not_received','unavailable'],required:true},
+    mt:Number,bunches:Number,workbookPalms:Number,gpsHa:Number,effectiveHa:Number,yieldAreaHa:Number,
+    sourceAbw:Number,sourceYield:Number,sourceBunchesHa:Number,sourceBunchesPalm:Number,harvestingDays:Number,plantingYear:String,
+    parameterNote:String,note:String,sourceSystem:String,sourceKey:String,sourceHash:String,
+    sourceCells:Schema.Types.Mixed,issues:[String],...provenance,
+    revision:{type:Number,default:0},updatedBy:String,history:[Schema.Types.Mixed],
+  });
+  ensureIndex(MonthlyProduction,{estateId:1,sourceBlockId:1,month:1},{unique:true});
+  ensureIndex(MonthlyProduction,{estateId:1,month:-1});
+  const YearlyProduction = model("MappingYearlyProduction", {
+    ...MonthlyProduction.schema.obj, year:{type:Number,required:true}, periodLabel:String,
+  });
+  ensureIndex(YearlyProduction,{estateId:1,sourceBlockId:1,year:1},{unique:true});
   const activityFields = {
     _id: String,
     estateId: { type: String, required: true, index: true },
@@ -233,6 +257,9 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     Block,
     HarvestingActivity,
     FieldActivity,
+    ProductionName,
+    MonthlyProduction,
+    YearlyProduction,
   };
 }
 export const {
@@ -244,4 +271,7 @@ export const {
   Block,
   HarvestingActivity,
   FieldActivity,
+  ProductionName,
+  MonthlyProduction,
+  YearlyProduction,
 } = createModels();

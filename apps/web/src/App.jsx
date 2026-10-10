@@ -46,6 +46,7 @@ import Timeline from "./components/Timeline";
 import Dialogs from "./components/Dialogs";
 import Storage from "./components/Storage";
 import DataTables, { BlockInformation } from "./components/DataTables";
+import ProductionDashboard from './components/ProductionDashboard';
 import {
   activityName,
   recordKey,
@@ -93,6 +94,8 @@ export default function App() {
     [error, setError] = useState(""),
     [dialog, setDialog] = useState(null),
     [mapRecord, setMapRecord] = useState(null),
+    [productionHighlights, setProductionHighlights] = useState([]),
+    [dashboardTab, setDashboardTab] = useState("production"),
     [mapPaging, setMapPaging] = useState({ key: "", cursors: [undefined] }),
     [token, setInputToken] = useState("");
   const reload = useCallback(async () => {
@@ -392,10 +395,11 @@ export default function App() {
       .filter((a) => s.selected.includes(a.estateId) && a.kind === "imagery")
       .sort((a, b) => a.acquiredAt.localeCompare(b.acquiredAt));
   const goHistory = () => {
+    setDashboardTab("operations");
     openMap();
     requestAnimationFrame(() =>
       document
-        .getElementById("timeline")
+        .getElementById("map-dashboard-tabs")
         ?.scrollIntoView({ behavior: "smooth" })
     );
   };
@@ -522,7 +526,7 @@ export default function App() {
                 {storageView
                   ? "Review image usage and manage retention for your estates."
                   : dataView
-                  ? "Block information, harvesting and field work in separate grids."
+                  ? "Monthly production, block history, parameters and field records."
                   : "One view of your land, your people, and the work getting done."}
               </p>
             </div>
@@ -567,6 +571,9 @@ export default function App() {
             <section className="data-workspace">
               <DataTables
                 key={s.selected.join(",")}
+                productionEstateId={!s.data.offline?s.selected[0]:null}
+                initialTab={['monthly','parameters','names','yearly'].includes(searchParams.get('tab'))?searchParams.get('tab'):'blocks'}
+                role={s.data.access.role}
                 server={s.data.paged ? { estates: s.selected.join(",") } : null}
                 blocks={(s.data.blocks || []).filter((b) =>
                   s.selected.includes(b.estateId)
@@ -645,6 +652,7 @@ export default function App() {
                     {estateMapReady(s) ? (
                       <MapView
                         key={s.selected[0]}
+                        productionHighlights={productionHighlights}
                         rows={displayRows}
                         pageOffset={(pageCursors.length - 1) * 100}
                         requestedRecord={
@@ -703,7 +711,24 @@ export default function App() {
                       <span>Activities remain on {label(s.date)}</span>
                     </div>
                   )}
-                  <Timeline key={s.selected[0]} />
+                  <div className="map-dashboard-tabs" id="map-dashboard-tabs" role="tablist" aria-label="Map dashboard"
+                    onKeyDown={e=>{
+                      if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key)) return;
+                      e.preventDefault();
+                      const next=e.key==='Home'?'production':e.key==='End'?'operations':dashboardTab==='production'?'operations':'production';
+                      setDashboardTab(next);
+                      document.getElementById('dashboard-tab-'+next)?.focus();
+                    }}>
+                    {['production','operations'].map(tab=><button key={tab} type="button" role="tab" id={'dashboard-tab-'+tab}
+                      aria-selected={dashboardTab===tab} aria-controls={'dashboard-panel-'+tab} tabIndex={dashboardTab===tab?0:-1}
+                      onClick={()=>setDashboardTab(tab)}>{tab==='production'?'Production':'Operations'}</button>)}
+                  </div>
+                  <div className="map-dashboard-panel" id="dashboard-panel-production" role="tabpanel" aria-labelledby="dashboard-tab-production" hidden={dashboardTab!=='production'}>
+                    <ProductionDashboard key={"production-"+s.selected[0]} estateId={s.selected[0]} selection={s.selectedBlock || (s.block !== 'all'?s.block:null)} offline={s.data.offline} onHighlights={setProductionHighlights} onData={()=>setSearchParams({view:'data',tab:'monthly'})}/>
+                  </div>
+                  <div className="map-dashboard-panel" id="dashboard-panel-operations" role="tabpanel" aria-labelledby="dashboard-tab-operations" hidden={dashboardTab!=='operations'}>
+                    {dashboardTab==='operations'&&<Timeline key={s.selected[0]} />}
+                  </div>
                 </section>
                 <aside className="activity-panel">
                   <div className="activity-header">

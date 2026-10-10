@@ -1,4 +1,5 @@
 import { installMosaic } from "./service/mosaic.js";
+import { installProduction } from "./service/production.js";
 import express from "express";
 import { renderQgisCgi } from "./service/qgis.js";
 import cors from "cors";
@@ -81,6 +82,8 @@ export async function createApp(config) {
     FieldActivity,
   } = config.models || defaultModels;
   const apiPath = config.apiPath ?? "/api";
+  const productionModels = config.models || defaultModels;
+  await Promise.all([productionModels.ProductionName, productionModels.MonthlyProduction, productionModels.YearlyProduction].filter(Boolean).map(m=>m.createIndexes()));
   const mount = apiPath || "/";
   const expose = (a) => publicAsset(a, config.publicApiPath || "/api");
   // Build only declared indexes; never drop or synchronize away existing indexes.
@@ -135,6 +138,7 @@ export async function createApp(config) {
   const models = config.models || defaultModels;
   installQueries(api, models, expose);
   installStorage(api, models, config);
+  installProduction(api, models);
   const snapshot = async (req) => {
     const q = selection(req),
       scope = q.scope;

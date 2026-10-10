@@ -43,6 +43,7 @@ export default function MapView({
   requestedRecord,
   onImport,
   onOffline,
+  productionHighlights = [],
 }) {
   const state = useSelector((s) => s),
     dispatch = useDispatch(),
@@ -177,13 +178,14 @@ export default function MapView({
           source,
           style: (f) => {
             const r = rows.find((r) => linked(r).includes(f)),
+              palmWarning = productionHighlights.includes(f.get('blockName')),
               color =
-                base === "topography"
+                palmWarning ? '#c75c22' : base === "topography"
                   ? "#17412b"
                   : types[r?.type]?.color || "#d6bf67";
             return new Style({
               stroke: state.showBoundaries
-                ? new Stroke({ color, width: r ? 2.4 : 1.3 })
+                ? new Stroke({ color, width: palmWarning ? 3.5 : r ? 2.4 : 1.3 })
                 : undefined,
               fill: state.showBoundaries
                 ? new Fill({
@@ -569,6 +571,7 @@ export default function MapView({
     state.opacity,
     state.block,
     pageOffset,
+    productionHighlights,
   ]);
   return (
     <div className="map-stage">
