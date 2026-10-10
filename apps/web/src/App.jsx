@@ -307,7 +307,7 @@ export default function App() {
     return (
       <main className="startup">
         <img src={import.meta.env.BASE_URL + "icon.svg"} width="60" />
-        <h1>Estate Atlas</h1>
+        <h1>MapIntel</h1>
         <p>{error || "Loading your estate workspace…"}</p>
         {error && (
           <>
@@ -317,7 +317,7 @@ export default function App() {
                   Sign in to AgriNexus
                 </a>
                 <br />
-                Then return to Estate Atlas.
+                Then return to MapIntel.
               </p>
             )}
             <button
@@ -495,7 +495,7 @@ export default function App() {
             <small>ESTATE INTELLIGENCE</small>
           </div>
           <div className="breadcrumb">
-            Workspace / Estate Atlas{dataView ? " / Data tables" : ""}
+            Workspace / MapIntel{dataView ? " / Data tables" : ""}
           </div>
           <div className="header-right">
             <span className="today">
@@ -560,7 +560,7 @@ export default function App() {
           <EstatePicker onAdd={() => setDialog({ type: "estate" })} />
           {!estates.length && (
             <div className="callout">
-              Add an estate to begin, or import the existing Estate Atlas data
+              Add an estate to begin, or import the existing MapIntel data
               using the setup command.
             </div>
           )}

@@ -60,7 +60,7 @@ export default function App() {
       <SafeAreaView style={styles.safe}>
         <StatusBar barStyle="light-content" />
         <View style={styles.header}>
-          <Text style={styles.logo}>◈ Estate Atlas</Text>
+          <Text style={styles.logo}>◈ MapIntel</Text>
           <Text style={styles.sub}>
             DIGITALPALM · {online ? 'CONNECTED' : 'OFFLINE'}
           </Text>

@@ -11,9 +11,9 @@ export default function SignIn({ onSignedIn, message, onRetry }) {
       <img
         src={import.meta.env.BASE_URL + "icon.svg"}
         width="64"
-        alt="Estate Atlas"
+        alt="MapIntel"
       />
-      <h1>Sign in to Estate Atlas</h1>
+      <h1>Sign in to MapIntel</h1>
       <p>Your maps, imagery and field activities.</p>
       {message && <p role="status">{message}</p>}
       <form

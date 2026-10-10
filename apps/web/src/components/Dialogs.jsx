@@ -108,7 +108,7 @@ export default function Dialogs({
     >
       <div className="modal-top">
         <div>
-          <div className="eyebrow">ESTATE ATLAS</div>
+          <div className="eyebrow">MAPINTEL</div>
           <h2>{titles[mode.type]}</h2>
         </div>
         <button aria-label="Close dialog" onClick={onClose}>

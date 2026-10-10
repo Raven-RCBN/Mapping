@@ -7,7 +7,7 @@ import { createModels } from "../model/index.js";
 export function agrinexusAccess(AuthHandler, AccessGrant) {
   return (req, res, next) => {
     if (!req.signedCookies?.["user.sid"] && !req.headers.authorization?.startsWith("Bearer "))
-      return res.status(401).json({ error: "Sign in to AgriNexus to open Estate Atlas." });
+      return res.status(401).json({ error: "Sign in to AgriNexus to open MapIntel." });
     return AuthHandler(req, res, async (err) => {
       if (err) return next(err);
       try {
@@ -17,7 +17,7 @@ export function agrinexusAccess(AuthHandler, AccessGrant) {
           req.access = { subject, role: "admin", estateIds: null };
         } else {
           const grant = await AccessGrant.findById(subject).lean();
-          if (!grant?.active) return res.status(403).json({ error: "Ask your administrator for Estate Atlas access." });
+          if (!grant?.active) return res.status(403).json({ error: "Ask your administrator for MapIntel access." });
           // Non-root users cannot promote themselves beyond their explicit mapping grant.
           req.access = { subject, role: grant.role, estateIds: grant.role === "admin" ? null : grant.estateIds };
         }

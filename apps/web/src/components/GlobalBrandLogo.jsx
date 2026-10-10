@@ -90,7 +90,7 @@ export default function GlobalBrandLogo() {
     <a
       className="global-brand"
       href={staticLogo ? import.meta.env.BASE_URL : hostOrigin + "/"}
-      aria-label={staticLogo ? "Estate Atlas home" : "AgriNexus home"}
+      aria-label={staticLogo ? "MapIntel home" : "AgriNexus home"}
     >
       <img src={url} alt="AgriNexus logo" onError={() => setFailedUrl(url)} />
     </a>

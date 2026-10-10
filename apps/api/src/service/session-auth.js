@@ -83,12 +83,12 @@ export async function sessionAuth(connection, origin) {
   const authenticate = async (req, res, next) => {
     try {
       const raw = token(req);
-      if (!raw || !/^[a-f0-9]{64}$/.test(raw)) return res.status(401).json({ error: 'Sign in to Estate Atlas.' });
+      if (!raw || !/^[a-f0-9]{64}$/.test(raw)) return res.status(401).json({ error: 'Sign in to MapIntel.' });
       if (!['GET', 'HEAD'].includes(req.method) && req.get('origin') !== origin)
         return res.status(403).json({ error: 'Origin not allowed.' });
       const session = await Session.findOne({ _id: hash(raw), expiresAt: { $gt: new Date() } }).lean();
       const user = session && await User.findById(session.subject).lean();
-      if (!user?.active) return res.status(401).json({ error: 'Sign in to Estate Atlas.' });
+      if (!user?.active) return res.status(401).json({ error: 'Sign in to MapIntel.' });
       req.access = { subject: user._id, role: user.role, estateIds: user.role === 'admin' ? null : user.estateIds };
       next();
     } catch (e) { next(e); }
