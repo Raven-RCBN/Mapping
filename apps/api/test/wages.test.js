@@ -48,4 +48,6 @@ test('rejects cross-estate access, viewers, invalid amounts, duplicate import ke
   await request(app).post('/wages').send({estateId:'estate-a',record:{...record,sourceBlockCode:'G99',mapBlockCode:'G99'}}).expect(400);
   await request(app).post('/wages').send({estateId:'estate-a',record:{...record,basis:'annual_summary',period:'2025',sourceBlockCode:'G4',mapBlockCode:'G4'}}).expect(400);
   await request(app).post('/wages/import').send({estateId:'estate-a',records:[record,record]}).expect(400);
+  await request(app).post('/wages').send({estateId:'estate-a',record:{...record,sourceKey:'outside',division:'MILL'}}).expect(400);
+  await request(app).post('/wages').send({estateId:'estate-a',record:{...record,sourceKey:'unmapped',sourceBlockCode:'NO-POLYGON'}}).expect(400);
 });

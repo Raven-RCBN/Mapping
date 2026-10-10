@@ -4,7 +4,7 @@
 
 The authorised source is `Yearly Wages Activities 2025_FINAL.xlsx`: the last sheet `Wages 2025` plus Jan–Dec classification sheets, inspected with owner approval. Currency is NGN, confirmed by the owner. The source contains division/planting-group costs, not individual block numbers. The monthly `S/N` is a source row serial, not a stable task code; keep the task name and activity alongside it.
 
-The importer retains 3,844 monthly source rows and 2,669 annual division/task/activity cells (157 activities × 17 divisions, including explicit zero cells). Subtotals and grand totals are reconciliation controls, never imported as additional costs. All monthly totals, annual row/column totals, and all 2,669 annual cells reconcile at kobo precision. Both source bases reconcile to the workbook grand total. They must never be added together.
+The workbook contains 3,844 monthly rows and 2,669 annual division/task/activity cells. The owner requested that costs outside mapped blocks be ignored entirely. Only the 2,445 monthly source rows and 1,413 annual cells for the nine mapped divisions are uploaded (including their explicit zeros). Excluded groups never enter the live wage tables. Subtotals and grand totals are reconciliation controls, never imported as additional costs. All monthly totals, annual row/column totals, and all 2,669 annual cells reconcile at kobo precision. Both source bases reconcile to the workbook grand total. They must never be added together.
 
 ## Allocation rule approved by the owner
 
@@ -18,14 +18,14 @@ Each polygon occurs once, including shared `F8+F9A` and `G8+G7A` polygons. Produ
 
 The initial 2025 snapshot uses current map `gisAreaHa` (not workbook GPS/effective area). It does not claim that current GIS boundaries are historical 2025 boundaries. Map division is used; B12's missing division is supplied by its unambiguous 2025 production group, 2017. H11, M6 and N6 have no confirmed division and remain flagged `DIVISION NOT SET`. Their areas are excluded until assigned. Unmapped production blocks have no polygon area and are excluded from this explicitly map-based denominator; this allocates the full applicable division cost among its mapped blocks, not measured actual block costs.
 
-Initial allocation covers 236 mapped polygons with assigned divisions. Other costs remain unallocated across 2025 planting, MAIN-NURSERY, PRE-NURSERY, MILL, ADMIN, OLD and UNASSIGNED groups. DMC has zero cost and no mapped allocation. Do not invent division links for these groups.
+Initial allocation covers 236 mapped polygons with assigned divisions. Costs in 2025 planting, MAIN-NURSERY, PRE-NURSERY, MILL, ADMIN, OLD, UNASSIGNED and DMC are excluded from the upload and all wage tables. Do not invent division links for these groups.
 
 ## Persistent tables and editing
 
 - `mappingwages`: estate, basis (`monthly` or `annual_summary`), period, division, task, activity, source serial, optional original/map block numbers, currency, `amountMinor` (integer kobo), immutable source system/key, file/hash/sheet/row/cell provenance, revision and previous-value history.
 - `mappingwageareas`: estate, reporting year, unique map block, division, GIS hectares snapshot, GIS source/survey metadata, revision and history. One row per estate/year/polygon prevents shared-polygon duplication. Saving an area assignment refreshes its hectares from the map block table. It never edits map geometry or production records.
 
-Data → Wages has monthly wages, annual summaries and allocation-area views. Admins/managers can add and edit records; viewers cannot write. Original wage identities are immutable after creation; amount, notes and explicit map links may be corrected with optimistic revision checks and audit history. Annual summaries stay independent of monthly corrections. New annual area snapshots can be added using existing map blocks. Correct the source map inventory first if a GIS area is wrong.
+Data → Wages opens the calculated allocated-block-cost table and also provides supporting monthly source records, annual summaries and allocation-area views. No outside-block costs are stored or displayed. Admins/managers can add and edit records; viewers cannot write. Original wage identities are immutable after creation; amount, notes and explicit map links may be corrected with optimistic revision checks and audit history. Annual summaries stay independent of monthly corrections. New annual area snapshots can be added using existing map blocks. Correct the source map inventory first if a GIS area is wrong.
 
 ## Integration contract
 
@@ -36,7 +36,7 @@ All routes are under `/api/EstateAtlas`, use existing authentication, estate per
 - `POST /wages`: `{estateId, record}` creates a source record.
 - `PATCH /wages/:id`: `{estateId, revision, record}` corrects a record; stale revision returns 409.
 - `GET /wages/:id/history?estateId=…`: previous versions.
-- `POST /wages/import`: `{estateId, records, preview:true}` validates up to 5,000 rows and reports new/existing counts. `preview:false` inserts only new keys. Re-imports preserve manual corrections. An integration updates existing records through revision-controlled PATCH, not blind replacement. A source must keep its `(sourceSystem, sourceKey)` stable across uploads; use upstream record IDs. The initial workbook uses sheet/cell identifiers for its fixed source snapshot.
+- `POST /wages/import`: `{estateId, records, preview:true}` validates up to 5,000 rows and reports new/existing counts. `preview:false` inserts only new keys. Re-imports preserve manual corrections. An integration updates existing records through revision-controlled PATCH, not blind replacement. Costs require a mapped block or an existing division/map-area allocation; outside-block costs are rejected. A source must keep its `(sourceSystem, sourceKey)` stable across uploads; use upstream record IDs. The initial workbook uses sheet/cell identifiers for its fixed source snapshot.
 - `GET /wages/areas?estateId=…&year=2025`: allocation snapshots.
 - `POST /wages/areas`: `{estateId, record:{year,mapBlockCode,division,note}}` loads map GIS area and creates a unique annual snapshot.
 - `PATCH /wages/areas/:id`: `{estateId,revision,record:{division,note}}` updates assignment and refreshes current GIS hectares, with history.

@@ -94,11 +94,18 @@ for block in gis['blocks']:
                       sourceSheet='GIS block inventory', sourceRow=block['sourceRow'],
                       sourceCell='gisAreaHa', note=note))
 assert len(areas) == len({a['mapBlockCode'] for a in areas}) == 239
+# Upload only source costs that have mapped block areas available for allocation.
+# Other cost groups stay solely in the original workbook; never send them to app tables.
+allocated_divisions = {a['division'] for a in areas if a['division'] != 'DIVISION NOT SET'}
+records = [r for r in records if r['division'] in allocated_divisions]
+allocated_total = sum(r['amountMinor'] for r in records if r['basis'] == 'monthly')
+assert allocated_total == sum(r['amountMinor'] for r in records if r['basis'] == 'annual_summary')
 audit = dict(monthlyRecords=sum(r['basis']=='monthly' for r in records),
              annualSummaryRecords=sum(r['basis']=='annual_summary' for r in records),
-             amountMinor=annual_total, currency='NGN', monthlyTotals=dict(monthly_totals),
-             mappedRecords=0, blockNumbersPresent=False, annualCellsReconciled=2669,
-             allocationAreas=len(areas), missingAreas=sum(a['mapHa'] is None for a in areas), unknownDivisions=sum(a['division']=='DIVISION NOT SET' for a in areas))
+             amountMinor=allocated_total, currency='NGN',
+             includedDivisions=sorted(allocated_divisions),
+             allocationAreas=len(areas), unknownDivisions=sum(a['division']=='DIVISION NOT SET' for a in areas),
+             allSourceControlsReconciled=True)
 destination.parent.mkdir(parents=True, exist_ok=True)
 destination.write_text(json.dumps(dict(version=1, estateId=estate, audit=audit, records=records, areas=areas), separators=(',',':')))
 print(json.dumps(audit, indent=2))

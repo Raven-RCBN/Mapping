@@ -8,15 +8,15 @@ import * as models from '../../apps/api/src/model/index.js';
 import {wageInput,wageId} from '../../apps/api/src/service/wages.js';
 import {allocateWages} from '../../packages/shared/wages.js';
 const [filename,mode]=process.argv.slice(2),p=JSON.parse(await fs.readFile(filename,'utf8'));
-assert.equal(p.version,1);assert.equal(p.records.length,6513);assert.equal(p.areas.length,239);
+assert.equal(p.version,1);assert.equal(p.records.length,p.audit.monthlyRecords+p.audit.annualSummaryRecords);assert.equal(p.areas.length,239);
 const records=p.records.map(r=>({...wageInput.parse(r),_id:wageId(p.estateId,r),estateId:p.estateId,revision:0}));
 assert.equal(new Set(records.map(r=>r._id)).size,records.length);
 const areas=p.areas.map(a=>({...a,estateId:p.estateId,revision:0,_id:'wa-'+createHash('sha256').update(JSON.stringify([p.estateId,a.year,a.mapBlockCode])).digest('hex').slice(0,40)}));
 assert.equal(new Set(areas.map(a=>a.mapBlockCode)).size,239);
 for(const basis of ['monthly','annual_summary'])assert.equal(records.filter(r=>r.basis===basis).reduce((n,r)=>n+r.amountMinor,0),p.audit.amountMinor);
 const allocation=allocateWages(records.filter(r=>r.basis==='monthly'),areas);
-assert.equal(allocation.mappedMinor+allocation.unmappedMinor+allocation.unallocatedMinor,p.audit.amountMinor);
-const summary={wages:records.length,monthly:3844,annual:2669,areas:areas.length,mappedEstimate:allocation.mappedMinor/100,unallocated:allocation.unallocatedMinor/100};
+assert.equal(allocation.mappedMinor,p.audit.amountMinor);assert.equal(allocation.unmappedMinor,0);assert.equal(allocation.unallocatedMinor,0);
+const summary={wages:records.length,monthly:p.audit.monthlyRecords,annual:p.audit.annualSummaryRecords,areas:areas.length,mappedEstimate:allocation.mappedMinor/100,unallocated:allocation.unallocatedMinor/100};
 if(mode==='--validate'){console.log(JSON.stringify({validated:true,...summary}));process.exit(0);}
 await mongoose.connect(process.env.MONGODB_URI,{serverSelectionTimeoutMS:8000});
 try{

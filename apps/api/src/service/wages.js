@@ -32,7 +32,17 @@ export function installWages(api,models){
     if(!await Estate.exists({_id:estateId}))throw new QueryError('Estate not found',404);return estateId;};
   const polygons=async estateId=>{const e=await Estate.findById(estateId).select('boundary').lean();return [...new Set((e.boundary?.features||[]).map(f=>f.properties?.blockName||f.properties?.Block_No).filter(Boolean))].sort();};
   const verify=async(estateId,rows)=>{const codes=new Set(await polygons(estateId));
-    if(rows.some(r=>r.mapBlockCode&&!codes.has(r.mapBlockCode)))throw new QueryError('Choose an existing map block in this estate');};
+    if(rows.some(r=>r.mapBlockCode&&!codes.has(r.mapBlockCode)))throw new QueryError('Choose an existing map block in this estate');
+    const costs=rows.filter(r=>r.period);if(!costs.length)return;
+    if(costs.some(r=>r.sourceBlockCode&&!r.mapBlockCode))throw new QueryError('Only costs linked to mapped blocks can be stored.');
+    const years=[...new Set(costs.map(r=>Number(r.period.slice(0,4))))];
+    const areas=await WageArea.find({estateId,year:{$in:years}}).select('year division mapHa mapBlockCode').lean();
+    for(const r of costs){
+      const group=areas.filter(a=>a.year===Number(r.period.slice(0,4))&&a.division===r.division&&codes.has(a.mapBlockCode));
+      if(!r.sourceBlockCode&&(!group.length||group.some(a=>!(a.mapHa>0))||r.division==='DIVISION NOT SET'))
+        throw new QueryError('This division has no complete map-area allocation. Add its mapped block areas first; costs outside mapped blocks are excluded.');
+    }
+  };
   api.get('/wages/areas',async(req,res)=>{
     const estateId=await scope(req),year=z.coerce.number().int().min(1900).max(2200).parse(req.query.year);
     const items=await WageArea.find({estateId,year}).select('-history').sort({division:1,sourceBlockCode:1}).limit(5001).lean();
@@ -56,19 +66,22 @@ export function installWages(api,models){
     const estateId=await scope(req),body=z.object({division:label,note:z.string().max(4000)}).strict().parse(req.body.record);
     const where={_id:id.parse(req.params.id),estateId,revision:z.number().int().min(0).parse(req.body.revision)};
     const old=await WageArea.findOne(where).select('-history').lean();if(!old)throw new QueryError('Area changed. Reload before saving.',409);
+    if(old.division!==body.division&&await Wage.exists({estateId,division:old.division,sourceBlockCode:null,period:{$gte:String(old.year),$lt:String(old.year+1)}})&&
+      !await WageArea.exists({estateId,year:old.year,division:old.division,_id:{$ne:old._id}}))
+      throw new QueryError('This is the last mapped block for a division with allocated costs. Keep a mapped block in that division.');
     const source=await mapArea(estateId,old.mapBlockCode);
     const changed=await WageArea.updateOne(where,{$set:{...body,...source,updatedBy:req.access.subject},$inc:{revision:1},$push:{history:{at:new Date(),by:req.access.subject,previous:old}}});
     if(!changed.modifiedCount)throw new QueryError('Area changed. Reload before saving.',409);res.json({saved:true});
   });
   api.get('/wages/allocation',async(req,res)=>{
     const estateId=await scope(req),q=z.object({year:z.string().regex(/^\d{4}$/),basis:z.enum(['monthly','annual_summary']).default('monthly'),
-      mapBlockCode:z.string().max(200).optional(),task:z.string().max(200).optional(),page:z.coerce.number().int().min(0).max(10000).default(0)}).parse(req.query);
+      mapBlockCode:z.string().max(200).optional(),task:z.string().max(200).optional(),division:z.string().max(200).optional(),q:z.string().max(200).default(''),page:z.coerce.number().int().min(0).max(10000).default(0)}).parse(req.query);
     const [wages,areas]=await Promise.all([
-      Wage.find({estateId,basis:q.basis,period:{$gte:q.year,$lt:String(Number(q.year)+1)},...(q.task?{task:q.task}:{})}).select('-history').limit(50001).lean(),
+      Wage.find({estateId,basis:q.basis,period:{$gte:q.year,$lt:String(Number(q.year)+1)},...(q.task?{task:q.task}:{}),...(q.division?{division:q.division}:{})}).select('-history').limit(50001).lean(),
       WageArea.find({estateId,year:Number(q.year)}).select('-history').limit(5001).lean(),
     ]);
     if(wages.length>50000||areas.length>5000)throw new QueryError('Too many allocation records',413);
-    const allocation=allocateWages(wages,areas,q.mapBlockCode),items=allocation.items.sort((a,b)=>a.period.localeCompare(b.period)||a.sourceBlockCode.localeCompare(b.sourceBlockCode)||a.task.localeCompare(b.task)||a.activity.localeCompare(b.activity));
+    const allocation=allocateWages(wages,areas,q.mapBlockCode),items=allocation.items.filter(r=>!q.q||[r.mapBlockCode,r.task,r.activity,r.division].join(' ').toLowerCase().includes(q.q.toLowerCase())).sort((a,b)=>a.period.localeCompare(b.period)||a.sourceBlockCode.localeCompare(b.sourceBlockCode)||a.task.localeCompare(b.task)||a.activity.localeCompare(b.activity));
     const totals=wageTotals(items);
     res.json({...allocation,...totals,items:items.slice(q.page*25,(q.page+1)*25),count:items.length,
       selectedAreas:areas.filter(a=>a.mapBlockCode===q.mapBlockCode),unknownDivisionBlocks:areas.filter(a=>a.division==='DIVISION NOT SET').map(a=>a.mapBlockCode)});
