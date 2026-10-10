@@ -574,6 +574,9 @@ h1 {
   z-index: 800;
   font-size: 9px;
 }
+.map-legend:empty {
+  display: none;
+}
 .map-legend i {
   display: inline-block;
   width: 6px;
