@@ -303,7 +303,7 @@ export default function MapView({
               "EPSG:3857"
             ),
             projection: "EPSG:3857",
-            attributions: asset.attribution || "",
+            attributions: asset.kind === "reference-image" ? undefined : asset.attribution || "",
           }),
         }),
         z
@@ -327,7 +327,6 @@ export default function MapView({
                 new VectorLayer({
                   source: new VectorSource({
                     features: featuresOf(json),
-                    attributions: asset.attribution,
                   }),
                   declutter: asset.layerType === "poi",
                   style: gisStyle(asset.layerType, state.showLabels),
@@ -363,7 +362,6 @@ export default function MapView({
                 sizes: levels.map(l => [l.cols, l.rows]), tileSize: 256,
               }),
               url: a.tilePyramid.url + "?v=" + a.tilePyramid.sha256,
-              attributions: a.attribution || "",
               tileLoadFunction: (tile, url) => {
                 authorisedFile(url).then(blob => {
                   if (cancelled) return;
@@ -381,9 +379,6 @@ export default function MapView({
             });
             add(new TileLayer({ source }), 2);
           }
-          if (!cancelled) setNotice(data.offline
-            ? "Saved mosaic overview · connect to zoom into detailed CarryMap imagery."
-            : "Supplied reference mosaic · capture date unknown · independent of timeline dates.");
           return;
         }
         if (base === "road") {
@@ -726,24 +721,6 @@ export default function MapView({
         </span>
       </div>
       {notice && <div id="mapNotice">{notice}</div>}
-      <div id="mapSourceLabel">
-        {base === "road"
-          ? "OpenStreetMap · road map"
-          : base === "reference"
-          ? (referenceImages.some(a => a.tilePyramid) && !data.offline
-            ? "Oban CarryMap mosaic · zoom in for detail · capture date unknown"
-            : "Supplied estate mosaic · capture date unknown · saved overview")
-          : base === "topography"
-          ? "Copernicus GLO-30 · acquired mainly 2011–2015 · surface elevation, includes canopy"
-          : images
-              .map(
-                (a) =>
-                  `${estates.find((e) => e.id === a.estateId)?.name} · ${
-                    a.name
-                  }`
-              )
-              .join(" | ")}
-      </div>
       {base === "topography" && (
         <div id="terrainLegend">
           <b>
