@@ -194,6 +194,27 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     ...MonthlyProduction.schema.obj, year:{type:Number,required:true}, periodLabel:String,
   });
   ensureIndex(YearlyProduction,{estateId:1,sourceBlockId:1,year:1},{unique:true});
+  const Wage = model("MappingWage", {
+    _id: String, estateId: {type:String,required:true,index:true},
+    basis: {type:String,enum:['monthly','annual_summary'],required:true},
+    period: {type:String,required:true}, division: {type:String,required:true},
+    task: {type:String,required:true}, activity: {type:String,required:true},
+    sourceBlockCode: {type:String,default:null}, mapBlockCode: {type:String,default:null},
+    amountMinor: {type:Number,required:true}, currency: {type:String,default:'NGN'},
+    sourceSystem: {type:String,required:true}, sourceKey: {type:String,required:true},
+    sourceDivision:String, sourceSerial:String, sourceCell:String, sourceHash:String,
+    ...provenance, note:String, revision:{type:Number,default:0}, updatedBy:String,
+    history:[Schema.Types.Mixed],
+  });
+  ensureIndex(Wage,{estateId:1,sourceSystem:1,sourceKey:1},{unique:true});
+  ensureIndex(Wage,{estateId:1,basis:1,period:1,mapBlockCode:1});
+  const WageArea=model('MappingWageArea',{
+    _id:String,estateId:{type:String,required:true,index:true},year:{type:Number,required:true},
+    sourceBlockId:String,sourceBlockCode:String,division:String,mapBlockCode:{type:String,default:null},
+    mapHa:{type:Number,default:null},sourcePeriod:String,...provenance,sourceCell:String,
+    note:String,revision:{type:Number,default:0},updatedBy:String,history:[Schema.Types.Mixed],
+  });
+  ensureIndex(WageArea,{estateId:1,year:1,mapBlockCode:1},{unique:true});
   const activityFields = {
     _id: String,
     estateId: { type: String, required: true, index: true },
@@ -260,6 +281,8 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     ProductionName,
     MonthlyProduction,
     YearlyProduction,
+    Wage,
+    WageArea,
   };
 }
 export const {
@@ -274,4 +297,6 @@ export const {
   ProductionName,
   MonthlyProduction,
   YearlyProduction,
+  Wage,
+  WageArea,
 } = createModels();

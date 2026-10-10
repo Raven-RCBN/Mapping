@@ -47,6 +47,7 @@ import Dialogs from "./components/Dialogs";
 import Storage from "./components/Storage";
 import DataTables, { BlockInformation } from "./components/DataTables";
 import ProductionDashboard from './components/ProductionDashboard';
+import WagesDashboard from './components/WagesDashboard';
 import {
   activityName,
   recordKey,
@@ -572,7 +573,7 @@ export default function App() {
               <DataTables
                 key={s.selected.join(",")}
                 productionEstateId={!s.data.offline?s.selected[0]:null}
-                initialTab={['monthly','parameters','names','yearly'].includes(searchParams.get('tab'))?searchParams.get('tab'):'blocks'}
+                initialTab={['monthly','parameters','names','yearly','wages'].includes(searchParams.get('tab'))?searchParams.get('tab'):'blocks'}
                 role={s.data.access.role}
                 server={s.data.paged ? { estates: s.selected.join(",") } : null}
                 blocks={(s.data.blocks || []).filter((b) =>
@@ -715,19 +716,23 @@ export default function App() {
                     onKeyDown={e=>{
                       if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key)) return;
                       e.preventDefault();
-                      const next=e.key==='Home'?'production':e.key==='End'?'operations':dashboardTab==='production'?'operations':'production';
+                      const order=['production','operations','wages'];
+                      const next=e.key==='Home'?order[0]:e.key==='End'?order[2]:order[(order.indexOf(dashboardTab)+(e.key==='ArrowRight'?1:2))%3];
                       setDashboardTab(next);
                       document.getElementById('dashboard-tab-'+next)?.focus();
                     }}>
-                    {['production','operations'].map(tab=><button key={tab} type="button" role="tab" id={'dashboard-tab-'+tab}
+                    {['production','operations','wages'].map(tab=><button key={tab} type="button" role="tab" id={'dashboard-tab-'+tab}
                       aria-selected={dashboardTab===tab} aria-controls={'dashboard-panel-'+tab} tabIndex={dashboardTab===tab?0:-1}
-                      onClick={()=>setDashboardTab(tab)}>{tab==='production'?'Production':'Operations'}</button>)}
+                      onClick={()=>setDashboardTab(tab)}>{tab==='production'?'Production':tab==='operations'?'Operations':'Wages'}</button>)}
                   </div>
                   <div className="map-dashboard-panel" id="dashboard-panel-production" role="tabpanel" aria-labelledby="dashboard-tab-production" hidden={dashboardTab!=='production'}>
                     <ProductionDashboard key={"production-"+s.selected[0]} estateId={s.selected[0]} selection={s.selectedBlock || (s.block !== 'all'?s.block:null)} offline={s.data.offline} onHighlights={setProductionHighlights} onData={()=>setSearchParams({view:'data',tab:'monthly'})}/>
                   </div>
                   <div className="map-dashboard-panel" id="dashboard-panel-operations" role="tabpanel" aria-labelledby="dashboard-tab-operations" hidden={dashboardTab!=='operations'}>
                     {dashboardTab==='operations'&&<Timeline key={s.selected[0]} />}
+                  </div>
+                  <div className="map-dashboard-panel" id="dashboard-panel-wages" role="tabpanel" aria-labelledby="dashboard-tab-wages" hidden={dashboardTab!=='wages'}>
+                    {dashboardTab==='wages'&&<WagesDashboard key={'wages-'+s.selected[0]} estateId={s.selected[0]} selection={s.selectedBlock || (s.block !== 'all'?s.block:null)} offline={s.data.offline} onData={()=>setSearchParams({view:'data',tab:'wages'})}/>}
                   </div>
                 </section>
                 <aside className="activity-panel">
