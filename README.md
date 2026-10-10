@@ -1,4 +1,4 @@
-# DigitalPalm MapIntel
+# MapIntel
 
 A React mapping workspace with QGIS terrain publishing, dated imagery, multi-estate activity timelines, permanent image uploads and a React Native offline map viewer. This repository contains application source only; estate imagery, GIS packages and credentials stay outside Git.
 

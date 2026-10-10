@@ -336,7 +336,7 @@ export default function App() {
                 }}
               >
                 <label>
-                  DigitalPalm access token
+                  MapIntel access token
                   <input
                     type="password"
                     value={token}
@@ -436,7 +436,7 @@ export default function App() {
     <>
       <aside className="rail">
         <GlobalBrandLogo />
-        <a className="brand map-brand" href="#" aria-label="DigitalPalm home">
+        <a className="brand map-brand" href="#" aria-label="MapIntel home">
           <img src={import.meta.env.BASE_URL + "icon.svg"} alt="" />
         </a>
         <div className="rail-divider" />
@@ -491,7 +491,7 @@ export default function App() {
       <div className="shell">
         <header>
           <div className="wordmark">
-            digital<span>palm</span>
+            Map<span>Intel</span>
             <small>ESTATE INTELLIGENCE</small>
           </div>
           <div className="breadcrumb">
@@ -943,8 +943,7 @@ export default function App() {
           )}
           <div className="bottom-strip">
             <span>
-              {estates.map((e) => e.name).join(" · ")} · DigitalPalm Estate
-              Atlas
+              {estates.map((e) => e.name).join(" · ")} · MapIntel
             </span>
             {!dataView && !storageView && (
               <button onClick={() => setDialog({ type: "import" })}>
