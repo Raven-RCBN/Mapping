@@ -9,7 +9,8 @@ export const monthlySeries=(rows,year,metric,comparisonYear=Number(year)-1)=>{
   return [...groups.values()].sort((a,b)=>Number(a.previous)-Number(b.previous)||a.label.localeCompare(b.label));
 };
 export const annualSeries=(rows,metric)=>{
-  const years=[...new Set(rows.map(r=>r.year))].sort((a,b)=>a-b),groups=new Map();
+  const observedYears=[...new Set(rows.map(r=>r.year))].sort((a,b)=>a-b);
+  const years=observedYears.length?Array.from({length:observedYears.at(-1)-observedYears[0]+1},(_,i)=>observedYears[0]+i):[],groups=new Map();
   for(const r of rows){
     if(!groups.has(r.sourceBlockId))groups.set(r.sourceBlockId,{key:r.sourceBlockId,label:`${r.sourceBlockCode} · ${r.division}`,values:years.map(()=>null)});
     groups.get(r.sourceBlockId).values[years.indexOf(r.year)]=r.receiptStatus==='received'&&Number.isFinite(r[metric])?r[metric]:null;

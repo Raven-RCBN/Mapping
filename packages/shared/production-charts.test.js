@@ -18,3 +18,10 @@ test('chosen comparison year excludes other years and keeps missing months as ga
  assert.deepEqual(monthlySeries(rows,'2024','mt','').map(s=>s.values[0]),[2024]);
  assert.equal(monthlySeries(rows,'2023','mt','').length,0);
 });
+test('annual axes include each calendar year and preserve gaps for absent records',()=>{
+ const base={sourceBlockId:'x',sourceBlockCode:'F11',division:'2017',receiptStatus:'received',periodLabel:'Full year'};
+ const chart=annualSeries([{...base,year:2023,mt:10},{...base,year:2025,mt:20},{...base,year:2026,mt:5,periodLabel:'Jan–Jul YTD'}],'mt');
+ assert.deepEqual(chart.labels,['2023','2024','2025','2026 YTD']);
+ assert.deepEqual(chart.series[0].values,[10,null,20,5]);
+ assert.deepEqual(annualSeries([],'mt'),{labels:[],series:[]});
+});

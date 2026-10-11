@@ -7,7 +7,8 @@ const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov',
 function LineChart({title,labels,series,unit,controls,yStep}){
   const host=useRef(),[width,setWidth]=useState(560),[point,setPoint]=useState(null);
   useEffect(()=>{const observer=new ResizeObserver(([entry])=>setWidth(Math.max(280,entry.contentRect.width)));observer.observe(host.current);return()=>observer.disconnect();},[]);
-  const h=250,left=58,right=38,top=22,bottom=42,w=width,ys=series.flatMap(s=>s.values).filter(Number.isFinite),upper=Math.max(1,...ys)*1.12;
+  const rotateLabels=(width-96)/Math.max(1,labels.length-1)<Math.max(0,...labels.map(label=>String(label).length))*6+8;
+  const h=250,left=58,right=38,top=22,bottom=rotateLabels?70:42,w=width,ys=series.flatMap(s=>s.values).filter(Number.isFinite),upper=Math.max(1,...ys)*1.12;
   const max=yStep?Math.ceil(upper/yStep)*yStep:upper;
   const ticks=yStep?Array.from({length:Math.round(max/yStep)+1},(_,i)=>i*yStep):[0,1,2,3,4].map(i=>max*i/4);
   const x=i=>left+i*(w-left-right)/Math.max(1,labels.length-1),y=v=>h-bottom-v/max*(h-top-bottom);
@@ -15,7 +16,7 @@ function LineChart({title,labels,series,unit,controls,yStep}){
     <div className="production-chart-key">{series.map((s,i)=><span key={s.key}><i style={{background:colors[i%colors.length]}}/>{s.label}{s.previous?' (dashed)':''}</span>)}</div>
     {ys.length?<svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} role="img" aria-label={`${title}. ${unit}. Exact values in the table below.`}>
       {ticks.map(value=><g key={value}><line x1={left} x2={w-right} y1={y(value)} y2={y(value)} stroke="#e2e8df"/><text x={left-9} y={y(value)+4} textAnchor="end" fontSize="11" fill="#566354">{displayNumber(value)}</text></g>)}
-      {labels.map((l,i)=><text key={i} x={x(i)} y={h-14} textAnchor="middle" fontSize="11" fill="#566354">{width<440&&i%2&&i!==labels.length-1?'':l}</text>)}
+      {labels.map((label,i)=><g key={i}><line x1={x(i)} x2={x(i)} y1={h-bottom} y2={h-bottom+4} stroke="#a4b09f"/><text x={x(i)} y={h-bottom+18} textAnchor={rotateLabels?'end':'middle'} transform={rotateLabels?`rotate(-50 ${x(i)} ${h-bottom+18})`:undefined} fontSize="11" fill="#566354">{label}</text></g>)}
       {series.map((s,si)=>{let path='',open=false;for(let i=0;i<s.values.length;i++){const v=s.values[i];if(v==null){open=false;continue;}path+=`${open?'L':'M'}${x(i)},${y(v)} `;open=true;}return <g key={s.key}><path d={path} fill="none" stroke={colors[si%colors.length]} strokeWidth="2.3" strokeDasharray={s.previous?'6 4':undefined}/>{s.values.map((v,i)=>v==null?null:<g key={i}><circle cx={x(i)} cy={y(v)} r="3.5" fill={colors[si%colors.length]}/><circle cx={x(i)} cy={y(v)} r="12" fill="transparent" tabIndex="0" role="button" aria-label={`${s.label}, ${labels[i]}, ${displayNumber(v)} ${unit}`} onFocus={()=>setPoint(`${s.label} · ${labels[i]}: ${displayNumber(v)} ${unit}`)} onClick={()=>setPoint(`${s.label} · ${labels[i]}: ${displayNumber(v)} ${unit}`)} onKeyDown={e=>{if(['Enter',' '].includes(e.key)){e.preventDefault();setPoint(`${s.label} · ${labels[i]}: ${displayNumber(v)} ${unit}`);}}}><title>{s.label} · {labels[i]}: {displayNumber(v)} {unit}</title></circle></g>)}</g>;})}
     </svg>:<p className="empty">No received values for this comparison.</p>}
     {point&&<p className="chart-inspection" role="status">{point}</p>}
