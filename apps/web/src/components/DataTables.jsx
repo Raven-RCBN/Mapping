@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { queryData } from "../api";
 import { exactCoordinates } from "../../../../packages/shared/activities.js";
 import { label } from "../../../../packages/shared/timeline.js";
+import BlockComments from './BlockComments';
 import ProductionTables from './ProductionTables';
 import WagesTables from './WagesTables';
 
@@ -34,7 +35,7 @@ const format = (value, key) =>
     : ["workDate", "plantedDate"].includes(key)
     ? label(value)
     : String(value);
-export function BlockInformation({ blocks, selection, estates, onClose }) {
+export function BlockInformation({ blocks, selection, estates, onClose, offline }) {
   if (!selection)
     return (
       <div className="block-info-hint">
@@ -49,7 +50,7 @@ export function BlockInformation({ blocks, selection, estates, onClose }) {
   );
   const estate = estates.find((e) => e.id === estateId);
   return (
-    <section className="block-info" aria-label="Selected block information">
+    <><BlockComments key={selection} estateId={estateId} code={code} offline={offline}/><section className="block-info" aria-label="Selected block information">
       <div className="block-info-heading">
         <strong>
           ▱ {code} <small>· {estate?.name}</small>
@@ -80,7 +81,7 @@ export function BlockInformation({ blocks, selection, estates, onClose }) {
       {!matches.length && (
         <p>No block-detail record is linked to this map polygon.</p>
       )}
-    </section>
+    </section></>
   );
 }
 export default function DataTables({
@@ -109,7 +110,7 @@ export default function DataTables({
     [cursors, setCursors] = useState([null]),
     [from, setFrom] = useState(""),
     [to, setTo] = useState("");
-  const productionTab=['monthly','parameters','names','yearly','wages'].includes(tab);
+  const productionTab=['monthly','parameters','names','yearly','wages','comments'].includes(tab);
   const reset = () => {
     setPage(0);
     setCursors([null]);
@@ -150,7 +151,7 @@ export default function DataTables({
     };
   }, [remoteKey, !!server]);
   const tabs = [
-    ...(!popup&&productionEstateId?[["monthly","Monthly production",0],["parameters","Monthly parameters",0],["names","Block-name history",0],["yearly","Yearly source totals",0],["wages","Wages",0]]:[]),
+    ...(!popup&&productionEstateId?[["monthly","Monthly production",0],["parameters","Monthly parameters",0],["names","Block-name history",0],["yearly","Yearly source totals",0],["wages","Wages",0],["comments","Block comments",0]]:[]),
     ["blocks", "Block details", blocks.length],
     [
       "harvesting",
@@ -238,7 +239,7 @@ export default function DataTables({
       : key === "mapBlockNames"
       ? r.mapBlockNames?.join(", ") || "Pending"
       : format(r[key], key);
-  if(productionTab) return <div className="data-tables"><div className="table-tabs" role="tablist">{tabs.map(([id,name])=><button key={id} role="tab" aria-selected={tab===id} onClick={()=>{setTab(id);reset();setQuery('');}}>{name}</button>)}</div>{tab==='wages'?<WagesTables key={productionEstateId} estateId={productionEstateId} role={role} onMap={onSelectBlock}/>:<ProductionTables key={productionEstateId} estateId={productionEstateId} role={role} view={tab} onMap={onSelectBlock}/>}</div>;
+  if(productionTab) return <div className="data-tables"><div className="table-tabs" role="tablist">{tabs.map(([id,name])=><button key={id} role="tab" aria-selected={tab===id} onClick={()=>{setTab(id);reset();setQuery('');}}>{name}</button>)}</div>{tab==='comments'?<BlockComments key={productionEstateId} estateId={productionEstateId} table role={role} onMap={onSelectBlock}/>:tab==='wages'?<WagesTables key={productionEstateId} estateId={productionEstateId} role={role} onMap={onSelectBlock}/>:<ProductionTables key={productionEstateId} estateId={productionEstateId} role={role} view={tab} onMap={onSelectBlock}/>}</div>;
   return (
     <div className="data-tables">
       <div className="table-tabs" role="tablist">

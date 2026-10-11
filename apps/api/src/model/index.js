@@ -178,6 +178,12 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     revision:{type:Number,default:0}, updatedBy:String, history:[Schema.Types.Mixed],
   });
   ensureIndex(ProductionName,{estateId:1,sourceBlockCode:1,division:1},{unique:true});
+  const ProductionComment = model("MappingProductionComment", {
+    _id:String,estateId:{type:String,required:true,index:true},sourceBlockId:{type:String,required:true},
+    year:{type:Number,required:true},comment:{type:String,required:true},sourceSystem:String,sourceHash:String,sourceCell:String,...provenance,
+    revision:{type:Number,default:0},updatedBy:String,history:[Schema.Types.Mixed],
+  });
+  ensureIndex(ProductionComment,{estateId:1,sourceBlockId:1,year:1},{unique:true});
   const MonthlyProduction = model("MappingMonthlyProduction", {
     _id:String, estateId:{type:String,required:true,index:true},
     sourceBlockId:{type:String,required:true}, month:{type:String,required:true},
@@ -279,6 +285,7 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     HarvestingActivity,
     FieldActivity,
     ProductionName,
+    ProductionComment,
     MonthlyProduction,
     YearlyProduction,
     Wage,
@@ -295,6 +302,7 @@ export const {
   HarvestingActivity,
   FieldActivity,
   ProductionName,
+  ProductionComment,
   MonthlyProduction,
   YearlyProduction,
   Wage,

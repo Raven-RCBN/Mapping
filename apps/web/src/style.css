@@ -3231,3 +3231,13 @@ button:disabled {
 .analytics-query-control {padding:24px 32px 0;}
 .analytics-query-control label {display:flex;flex-direction:column;gap:8px;max-width:320px;color:#45634e;font-size:14px;}
 .analytics-query-control select {padding:12px;border:1px solid #cddbc8;border-radius:8px;background:white;color:#203d2d;font:inherit;}
+
+.block-comments {padding:20px 26px;background:#f6f8f2;border-bottom:1px solid #dce4d8;}
+.block-comments h3 {margin:0;font-size:18px;}
+.block-comments label {display:flex;gap:8px;align-items:center;}
+.block-comments select {padding:8px;border:1px solid #cddbc8;border-radius:6px;background:white;font:inherit;}
+.block-comments article {margin-top:12px;}
+.block-comments p {margin:8px 0;}
+.block-comment-text {white-space:pre-wrap!important;overflow-wrap:anywhere;min-width:200px;}
+.harvesting-days {margin:24px 0;}
+.harvesting-days th,.harvesting-days td {white-space:nowrap;padding:10px;border-bottom:1px solid #dce4d8;}

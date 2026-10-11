@@ -637,6 +637,7 @@ export default function App() {
                     </div>
                   </div>
                   <BlockInformation
+                    offline={s.data.offline}
                     blocks={s.data.blocks || []}
                     estates={estates}
                     selection={

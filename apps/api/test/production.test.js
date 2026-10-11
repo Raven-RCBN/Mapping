@@ -55,3 +55,28 @@ test('annual entry and edits remain separate from monthly records',async()=>{
   assert.equal(annual.body.items[0].month,'2026-12');assert.equal(annual.body.items[0].periodLabel,'Full year');
   assert.equal((await m.MonthlyProduction.findOne({month:'2026-07'})).mt,7);
 });
+
+test('annual block comments retain original names, provenance, edit history and scoped access',async()=>{
+ const c={sourceBlockId:'name-a',year:2026,comment:'Yield increasing',sourceSheet:'Monthly 2026',sourceCell:'CJ6'};
+ const added=await request(app).post('/production/comments').send({estateId:'estate-a',record:c}).expect(201);
+ await request(app).post('/production/comments').send({estateId:'estate-a',record:c}).expect(409);
+ await request(app).post('/production/comments').send({estateId:'estate-a',record:{...c,year:2025,comment:'Previous assessment'}}).expect(201);
+ const query={estateId:'estate-a',mapBlockCode:'E-4'};
+ const r=await request(app).get('/production/comments').query(query).expect(200);
+ assert.equal(r.body.items.length,2);assert.equal(r.body.items[0].year,2026);assert.equal(r.body.items[0].sourceBlockCode,'E4');assert.equal(r.body.items[0].mapBlockCode,'E-4');
+ assert.equal((await request(app).get('/production/comments').query({...query,mapBlockCode:'F8+F9A'})).body.items.length,0);
+ await request(app).patch('/production/comments/'+added.body.id).send({estateId:'estate-a',revision:0,record:{sourceBlockId:'name-a',year:2026,comment:'Reviewed comment'}}).expect(200);
+ const saved=await m.ProductionComment.findById(added.body.id);assert.equal(saved.sourceCell,'CJ6');assert.equal(saved.history[0].previous.comment,'Yield increasing');
+ await request(app).patch('/production/comments/'+added.body.id).send({estateId:'estate-a',revision:0,record:c}).expect(409);
+ await request(app).get('/production/comments').query({estateId:'estate-b'}).expect(403);
+ await request(app).post('/production/comments').set('x-role','viewer').send({estateId:'estate-a',record:c}).expect(403);
+ await request(app).post('/production/comments').send({estateId:'estate-a',record:{...c,sourceBlockId:'name-b'}}).expect(400);
+ assert.equal((await m.MonthlyProduction.findOne({month:'2026-07'})).mt,7);
+});
+test('monthly harvesting days retain real zero separately from blanks',async()=>{
+ const r={...record,month:'2026-06',harvestingDays:0};
+ await request(app).post('/production/monthly').send({estateId:'estate-a',record:r}).expect(201);
+ const a=await request(app).get('/production/monthly').query({estateId:'estate-a',mapBlockCode:'E-4',year:'2026'}).expect(200);
+ assert.equal(a.body.items.find(r=>r.month==='2026-06').harvestingDays,0);
+ assert.equal(a.body.items.find(r=>r.month==='2026-07').harvestingDays,undefined);
+});

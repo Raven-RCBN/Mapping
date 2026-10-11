@@ -1,3 +1,4 @@
+import {installProductionComments} from './production-comments.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { canAccess, requireWrite } from './auth.js';
@@ -68,6 +69,7 @@ export function installProduction(api, models) {
     const codes=new Set((e.boundary?.features||[]).map(f=>f.properties?.blockName||f.properties?.Block_No));
     if (!codes.has(record.mapBlockCode)) throw new QueryError('Choose an existing mapped polygon in this estate');
   };
+  installProductionComments(api,models,{scope,verifyName,namesAndBlocks});
   api.get('/production/meta',async(req,res)=>{
     const estateId=await scope(req);
     const [months,latest,inventory]=await Promise.all([
