@@ -23,7 +23,7 @@ export default defineConfig({
               base,
               base + "index.html",
               base + "manifest.webmanifest",
-              base + "icon.svg",
+              base + "branding/agrinexus-icon.png",
               ...(process.env.VITE_STATIC_BRANDING_LOGO
                 ? [process.env.VITE_STATIC_BRANDING_LOGO]
                 : []),
@@ -37,6 +37,11 @@ export default defineConfig({
               .update(
                 base + files.join(",") + fs.readFileSync("public/sw.js", "utf8")
               )
+              .update(fs.readFileSync("dist/index.html"))
+              .update(fs.readFileSync("public/manifest.webmanifest"))
+              .update(
+                fs.readFileSync("public/branding/agrinexus-icon.png")
+              )
               .digest("hex")
               .slice(0, 12)
           );
@@ -48,7 +53,7 @@ export default defineConfig({
         manifest.start_url = base;
         manifest.scope = base;
         manifest.icons.forEach((icon) => {
-          icon.src = base + "icon.svg";
+          icon.src = base + icon.src.replace(/^\//, "");
         });
         fs.writeFileSync("dist/manifest.webmanifest", JSON.stringify(manifest));
       },
