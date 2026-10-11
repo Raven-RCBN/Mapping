@@ -3227,3 +3227,7 @@ button:disabled {
 .analytics-method { margin-top:20px; color:#536a50; font-size:13px; }
 .analytics-method summary { cursor:pointer; }
 .analytics-map-key { background:white; border:1px solid #d9caef; border-radius:5px; padding:8px; color:#4c1d95; max-width:100%; }
+
+.analytics-query-control {padding:24px 32px 0;}
+.analytics-query-control label {display:flex;flex-direction:column;gap:8px;max-width:320px;color:#45634e;font-size:14px;}
+.analytics-query-control select {padding:12px;border:1px solid #cddbc8;border-radius:8px;background:white;color:#203d2d;font:inherit;}

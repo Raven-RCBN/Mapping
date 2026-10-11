@@ -2,6 +2,7 @@ import {createHash} from 'node:crypto';
 import {z} from 'zod';
 import {canAccess, requireWrite} from './auth.js';
 import {QueryError} from './performance.js';
+import {summarizeAllocatedBlocks} from '../../../../packages/shared/wage-analytics.js';
 import {allocateWages} from '../../../../packages/shared/wages.js';
 
 const id=z.string().regex(/^[a-zA-Z0-9-]{1,100}$/);
@@ -85,7 +86,7 @@ export function installWages(api,models){
     if(wages.length>50000||areas.length>5000)throw new QueryError('Too many allocation records',413);
     const {sources,...allocation}=allocateWages(wages,areas,q.mapBlockCode),items=allocation.items.filter(r=>!q.q||[r.mapBlockCode,r.task,r.activity,r.division].join(' ').toLowerCase().includes(q.q.toLowerCase())).sort((a,b)=>a.period.localeCompare(b.period)||a.sourceBlockCode.localeCompare(b.sourceBlockCode)||a.task.localeCompare(b.task)||a.activity.localeCompare(b.activity));
     const totals=wageTotals(items);
-    res.json({...allocation,...totals,items:items.slice(q.page*25,(q.page+1)*25),count:items.length,
+    res.json({...allocation,...totals,byBlock:summarizeAllocatedBlocks(items),items:items.slice(q.page*25,(q.page+1)*25),count:items.length,
       selectedAreas:areas.filter(a=>a.mapBlockCode===q.mapBlockCode),unknownDivisionBlocks:areas.filter(a=>a.division==='DIVISION NOT SET').map(a=>a.mapBlockCode)});
   });
   api.get('/wages/meta',async(req,res)=>{

@@ -1,9 +1,10 @@
 import {useEffect,useMemo,useState} from 'react';
 import {api} from '../api';
 import {displayNumber} from './ProductionTables';
+import WageAnalytics from './WageAnalytics';
 import {analyseYield} from '../../../../packages/shared/production-analytics.js';
 
-export default function AnalyticsDashboard({estateId,boundary,enabled,offline,selection,onHighlights,onSelect,onMap}) {
+function YieldAnalytics({estateId,boundary,enabled,offline,selection,onHighlights,onSelect,onMap}) {
   const [rows,setRows]=useState([]),[busy,setBusy]=useState(false),[error,setError]=useState(''),[year,setYear]=useState(''),[operator,setOperator]=useState('gt'),[threshold,setThreshold]=useState('20'),[applied,setApplied]=useState(null),[refresh,setRefresh]=useState(0);
   const mapCodes=useMemo(()=>[...new Set((boundary?.features||[]).map(f=>f.properties?.blockName||f.properties?.Block_No).filter(Boolean))],[boundary]);
   useEffect(()=>{
@@ -50,4 +51,12 @@ export default function AnalyticsDashboard({estateId,boundary,enabled,offline,se
       </>}
     </>}
   </section>;
+}
+
+export default function AnalyticsDashboard(props) {
+  const [query,setQuery]=useState('yield');
+  return <>
+    <div className="analytics-query-control"><label>Analytics query<select value={query} onChange={e=>{props.onHighlights(null);setQuery(e.target.value);}}><option value="yield">Production per hectare</option><option value="cost">Activity cost</option></select></label></div>
+    {query==='yield'?<YieldAnalytics {...props}/>:<WageAnalytics {...props}/>}
+  </>;
 }

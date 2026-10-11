@@ -70,3 +70,16 @@ test('activity breakdowns keep task identities and filtering updates block costs
   assert.equal(totals.byActivity.reduce((n,r)=>n+r.amountMinor,0),30);
   await request(app).post('/wages').send({estateId:'estate-a',record:{...record,sourceKey:'mill-task',task:'MILL'}}).expect(400);
 });
+
+test('block analytics covers every page, respects task/activity/year/basis and estate access',async()=>{
+  const records=Array.from({length:30},(_,i)=>({...record,sourceKey:`analytics-${i}`,sourceSerial:String(i),activity:'ANALYTICS',amountMinor:10000}));
+  await request(app).post('/wages/import').send({estateId:'estate-a',records,preview:false}).expect(200);
+  const query={estateId:'estate-a',year:'2025',task:'UPKEEP',activity:'ANALYTICS'};
+  const r=await request(app).get('/wages/allocation').query(query).expect(200);
+  assert.equal(r.body.items.length,25);assert.equal(r.body.count,60);
+  assert.deepEqual(r.body.byBlock.map(b=>[b.mapBlockCode,b.amountMinor,b.mapHa]),[['G4',120000,20],['G5',180000,30]]);
+  assert.equal(r.body.byBlock.reduce((n,b)=>n+b.amountMinor,0),r.body.amountMinor);
+  for(const b of r.body.byBlock){const selected=await request(app).get('/wages/allocation').query({...query,mapBlockCode:b.mapBlockCode}).expect(200);assert.equal(b.amountMinor,selected.body.amountMinor);}
+  for(const filters of [{basis:'annual_summary'},{year:'2024'},{task:'HARVESTING'}])assert.deepEqual((await request(app).get('/wages/allocation').query({...query,...filters}).expect(200)).body.byBlock,[]);
+  await request(app).get('/wages/allocation').query({...query,estateId:'estate-b'}).expect(403);
+});
