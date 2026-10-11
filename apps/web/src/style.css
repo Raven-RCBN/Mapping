@@ -3212,3 +3212,18 @@ button:disabled {
 .wages-rates td:nth-last-child(-n+2) { text-align:right; white-space:nowrap; }
 .wages-charts { grid-template-columns:repeat(2,minmax(0,1fr)); }
 @media(max-width:900px) { .wages-charts { grid-template-columns:1fr; } }
+
+/* Yield threshold analysis uses a separate overlay from palm-count warnings. */
+.map-dashboard-tabs { overflow-x:auto; }
+.map-dashboard-tabs [role="tab"] { white-space:nowrap; }
+.analytics-result-summary { display:flex; align-items:center; gap:12px; flex-wrap:wrap; padding:16px; background:#f4f0fc; border:1px solid #d9caef; border-radius:8px; }
+.analytics-swatch { display:inline-block; width:16px; height:16px; border:2px solid #6d28d9; background:#c4b5fd; flex:none; }
+.analytics-results { width:100%; border-collapse:collapse; margin:20px 0; font-size:14px; }
+.analytics-results caption { text-align:left; padding:12px 0; font-weight:600; }
+.analytics-results th,.analytics-results td { padding:12px; border-bottom:1px solid #e0e6dc; text-align:left; white-space:nowrap; }
+.analytics-results th { background:#174b37; color:white; }
+.analytics-results tr[aria-selected="true"] { background:#f4f0fc; }
+.analytics-block-link { color:#5b21b6; font-weight:700; text-decoration:underline; }
+.analytics-method { margin-top:20px; color:#536a50; font-size:13px; }
+.analytics-method summary { cursor:pointer; }
+.analytics-map-key { background:white; border:1px solid #d9caef; border-radius:5px; padding:8px; color:#4c1d95; max-width:100%; }

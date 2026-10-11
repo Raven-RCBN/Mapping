@@ -44,6 +44,7 @@ export default function MapView({
   onImport,
   onOffline,
   productionHighlights = [],
+  analyticsHighlights = null,
 }) {
   const state = useSelector((s) => s),
     dispatch = useDispatch(),
@@ -124,6 +125,17 @@ export default function MapView({
       map.dispose();
     };
   }, []);
+  useEffect(() => {
+    const map=mapRef.current;
+    if(!map||!analyticsHighlights||data.offline)return;
+    const codes=new Set(analyticsHighlights.blockCodes);
+    const features=featuresOf({type:'FeatureCollection',features:data.estates.filter(e=>e.id===analyticsHighlights.estateId).flatMap(e=>(e.boundary?.features||[]).filter(f=>codes.has(f.properties?.blockName||f.properties?.Block_No)).map(f=>({...f,properties:{...f.properties,blockName:f.properties?.blockName||f.properties?.Block_No,estateId:e.id,estateName:e.name}})))});
+    const source=new VectorSource({features});
+    const layer=new VectorLayer({source,zIndex:25,style:new Style({stroke:new Stroke({color:'#6d28d9',width:3}),fill:new Fill({color:'rgba(124,58,237,0.32)'})})});
+    map.addLayer(layer);
+    if(!isEmpty(source.getExtent()))map.getView().fit(source.getExtent(),{padding:[65,65,65,65],maxZoom:16,duration:200});
+    return()=>{map.removeLayer(layer);layer.dispose();source.dispose();};
+  },[analyticsHighlights,data.estates,data.offline]);
   useEffect(() => {
     roadRef.current?.setVisible(base === "road" && !data.offline);
   }, [base, data.offline]);
@@ -752,6 +764,7 @@ export default function MapView({
         </div>
       )}
       <div className="map-legend">
+        {analyticsHighlights&&<span className="analytics-map-key"><i style={{background:'#7c3aed'}}/>{analyticsHighlights.label} · {analyticsHighlights.blockCodes.length} blocks</span>}
         {Object.entries(types)
           .filter(([t]) =>
             rows.some((r) => selected.includes(r.estateId) && r.type === t)

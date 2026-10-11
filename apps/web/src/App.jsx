@@ -49,6 +49,9 @@ import Storage from "./components/Storage";
 import DataTables, { BlockInformation } from "./components/DataTables";
 import ProductionDashboard from './components/ProductionDashboard';
 import WagesDashboard from './components/WagesDashboard';
+import AnalyticsDashboard from './components/AnalyticsDashboard';
+const dashboardTabs=['production','operations','wages','analytics'];
+const noHighlights=[];
 import {
   activityName,
   recordKey,
@@ -97,6 +100,7 @@ export default function App() {
     [dialog, setDialog] = useState(null),
     [mapRecord, setMapRecord] = useState(null),
     [productionHighlights, setProductionHighlights] = useState([]),
+    [analyticsHighlights, setAnalyticsHighlights] = useState(null),
     [dashboardTab, setDashboardTab] = useState("production"),
     [mapPaging, setMapPaging] = useState({ key: "", cursors: [undefined] }),
     [token, setInputToken] = useState("");
@@ -655,7 +659,8 @@ export default function App() {
                     {estateMapReady(s) ? (
                       <MapView
                         key={s.selected[0]}
-                        productionHighlights={productionHighlights}
+                        productionHighlights={dashboardTab==='analytics'?noHighlights:productionHighlights}
+                        analyticsHighlights={dashboardTab==='analytics'&&analyticsHighlights?.estateId===s.selected[0]?analyticsHighlights:null}
                         rows={displayRows}
                         pageOffset={(pageCursors.length - 1) * 100}
                         requestedRecord={
@@ -718,17 +723,22 @@ export default function App() {
                     onKeyDown={e=>{
                       if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key)) return;
                       e.preventDefault();
-                      const order=['production','operations','wages'];
-                      const next=e.key==='Home'?order[0]:e.key==='End'?order[2]:order[(order.indexOf(dashboardTab)+(e.key==='ArrowRight'?1:2))%3];
+                      const order=dashboardTabs;
+                      const next=e.key==='Home'?order[0]:e.key==='End'?order.at(-1):order[(order.indexOf(dashboardTab)+(e.key==='ArrowRight'?1:order.length-1))%order.length];
                       setDashboardTab(next);
                       document.getElementById('dashboard-tab-'+next)?.focus();
                     }}>
-                    {['production','operations','wages'].map(tab=><button key={tab} type="button" role="tab" id={'dashboard-tab-'+tab}
+                    {dashboardTabs.map(tab=><button key={tab} type="button" role="tab" id={'dashboard-tab-'+tab}
                       aria-selected={dashboardTab===tab} aria-controls={'dashboard-panel-'+tab} tabIndex={dashboardTab===tab?0:-1}
-                      onClick={()=>setDashboardTab(tab)}>{tab==='production'?'Production':tab==='operations'?'Operations':'Wages'}</button>)}
+                      onClick={()=>setDashboardTab(tab)}>{tab==='production'?'Production':tab==='operations'?'Operations':tab==='wages'?'Wages':'Analytics'}</button>)}
                   </div>
                   <div className="map-dashboard-panel" id="dashboard-panel-production" role="tabpanel" aria-labelledby="dashboard-tab-production" hidden={dashboardTab!=='production'}>
                     <ProductionDashboard key={"production-"+s.selected[0]} estateId={s.selected[0]} selection={s.selectedBlock || (s.block !== 'all'?s.block:null)} offline={s.data.offline} onHighlights={setProductionHighlights} onData={()=>setSearchParams({view:'data',tab:'monthly'})}/>
+                  </div>
+                  <div className="map-dashboard-panel" id="dashboard-panel-analytics" role="tabpanel" aria-labelledby="dashboard-tab-analytics" hidden={dashboardTab!=='analytics'}>
+                    <AnalyticsDashboard key={'analytics-'+s.selected[0]} estateId={s.selected[0]} boundary={estates[0]?.boundary} enabled={dashboardTab==='analytics'} offline={s.data.offline} selection={s.selectedBlock} onHighlights={setAnalyticsHighlights}
+                      onSelect={code=>{dispatch(patch({selectedBlock:`${s.selected[0]}::${code}`,block:`${s.selected[0]}::${code}`}));document.getElementById('estateMap')?.scrollIntoView({behavior:'smooth',block:'center'});}}
+                      onMap={()=>{dispatch(patch({block:'all',selectedBlock:null}));document.getElementById('estateMap')?.scrollIntoView({behavior:'smooth',block:'center'});}}/>
                   </div>
                   <div className="map-dashboard-panel" id="dashboard-panel-operations" role="tabpanel" aria-labelledby="dashboard-tab-operations" hidden={dashboardTab!=='operations'}>
                     {dashboardTab==='operations'&&<Timeline key={s.selected[0]} />}
