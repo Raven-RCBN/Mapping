@@ -4,12 +4,12 @@ import {displayNumber,receiptLabel} from './ProductionTables';
 import {monthlySeries,annualSeries} from '../../../../packages/shared/production-charts.js';
 const colors=['#1c6749','#326bad','#a6601c','#7c5295','#246f78','#a83e52'];
 const months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-function LineChart({title,labels,series,unit}){
+function LineChart({title,labels,series,unit,controls}){
   const host=useRef(),[width,setWidth]=useState(560),[point,setPoint]=useState(null);
   useEffect(()=>{const observer=new ResizeObserver(([entry])=>setWidth(Math.max(280,entry.contentRect.width)));observer.observe(host.current);return()=>observer.disconnect();},[]);
   const h=250,left=58,right=38,top=22,bottom=42,w=width,ys=series.flatMap(s=>s.values).filter(Number.isFinite),max=Math.max(1,...ys)*1.12;
   const x=i=>left+i*(w-left-right)/Math.max(1,labels.length-1),y=v=>h-bottom-v/max*(h-top-bottom);
-  return <section className="production-chart" ref={host}><h3>{title}</h3><p className="chart-unit">{unit} · gaps indicate unavailable or not received data</p>
+  return <section className="production-chart" ref={host}><h3>{title}</h3>{controls}<p className="chart-unit">{unit} · gaps indicate unavailable or not received data</p>
     <div className="production-chart-key">{series.map((s,i)=><span key={s.key}><i style={{background:colors[i%colors.length]}}/>{s.label}{s.previous?' (dashed)':''}</span>)}</div>
     {ys.length?<svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} role="img" aria-label={`${title}. ${unit}. Exact values in the table below.`}>
       {[0,1,2,3,4].map(i=><g key={i}><line x1={left} x2={w-right} y1={y(max*i/4)} y2={y(max*i/4)} stroke="#e2e8df"/><text x={left-9} y={y(max*i/4)+4} textAnchor="end" fontSize="11" fill="#566354">{displayNumber(max*i/4)}</text></g>)}
@@ -22,6 +22,7 @@ function LineChart({title,labels,series,unit}){
 }
 export default function ProductionDashboard({estateId,selection,offline,onHighlights,onData}){
   const [meta,setMeta]=useState(null),[period,setPeriod]=useState(''),[metric,setMetric]=useState('mt'),[monthly,setMonthly]=useState([]),[annual,setAnnual]=useState([]),[current,setCurrent]=useState(null),[error,setError]=useState(''),[busy,setBusy]=useState(false),[highlight,setHighlight]=useState(true),[source,setSource]=useState('all');
+  const [chartYear,setChartYear]=useState(''),[comparisonYear,setComparisonYear]=useState(null);
   const code=selection?.startsWith(estateId+'::')?selection.split('::')[1]:null;
   useEffect(()=>{let active=true;onHighlights([]);if(offline)return;api.get('/production/meta',{params:{estateId}}).then(({data})=>{if(active){setMeta(data);setPeriod(data.latestReceived||data.months[0]||'');}}).catch(e=>active&&setError(e.response?.data?.error||e.message));return()=>{active=false;};},[estateId,offline]);
   useEffect(()=>{setSource('all');},[code]);
@@ -30,6 +31,12 @@ export default function ProductionDashboard({estateId,selection,offline,onHighli
   const linked=(meta?.names||[]).filter(n=>n.mapBlockCode===code),rows=(current?.items||[]).filter(r=>r.mapBlockCode===code&&(source==='all'||r.sourceBlockId===source));
   const chartMonthly=monthly.filter(r=>source==='all'||r.sourceBlockId===source),chartAnnual=annual.filter(r=>source==='all'||r.sourceBlockId===source),units={mt:'MT',bunches:'bunches',abw:'kg / bunch',yieldPerHa:'MT / ha',bunchesPerHa:'bunches / ha',bunchesPerPalm:'bunches / palm'};
   const annualChart=annualSeries(chartAnnual,metric);
+  const years=[...new Set([...(meta?.months||[]),...monthly.map(r=>r.month),period].filter(Boolean).map(month=>month.slice(0,4)))].sort((a,b)=>Number(b)-Number(a));
+  const selectedYear=chartYear||period.slice(0,4);
+  const requestedComparison=comparisonYear??(years.includes(String(Number(selectedYear)-1))?String(Number(selectedYear)-1):'');
+  const compareYear=requestedComparison===selectedYear?'':requestedComparison;
+  const yearOptions=[...new Set([...years,selectedYear].filter(Boolean))].sort((a,b)=>Number(b)-Number(a));
+  const comparisonOptions=[...new Set([...yearOptions,compareYear].filter(y=>y&&y!==selectedYear))].sort((a,b)=>Number(b)-Number(a));
   return <section className="production-dashboard" aria-label="Production dashboard"><div className="production-heading"><div><div className="eyebrow">BLOCK PRODUCTION</div><h2>{code?`Production · ${code}`:'Production dashboard'}</h2><p>{code?'Original block names and their production stay separate.':'Click a block on the map to explore its monthly and yearly production.'}</p></div><button className="button" onClick={onData}>Open production tables</button></div>
     {offline?<p>Production tables require a connection. Offline field activities remain available.</p>:<>
     <div className="production-controls"><label>Reporting month<input type="month" value={period} onChange={e=>setPeriod(e.target.value)}/></label><label>Chart metric<select value={metric} onChange={e=>setMetric(e.target.value)}>{[['mt','FFB tonnage'],['bunches','Bunches'],['abw','Average bunch weight'],['yieldPerHa','Yield per hectare'],['bunchesPerHa','Bunches per hectare'],['bunchesPerPalm','Bunches per palm']].map(([v,l])=><option key={v} value={v}>{l}</option>)}</select></label>{code&&<label>Original name / group<select value={source} onChange={e=>setSource(e.target.value)}><option value="all">All separate source series</option>{linked.map(n=><option key={n.id} value={n.id}>{n.sourceBlockCode} · {n.division}</option>)}</select></label>}<label className="check-label"><input type="checkbox" checked={highlight} onChange={e=>setHighlight(e.target.checked)}/>Highlight palm differences on map</label></div>
@@ -38,7 +45,7 @@ export default function ProductionDashboard({estateId,selection,offline,onHighli
     {code&&period&&<><div className="production-name-history">{linked.map(n=><span key={n.id}><b>{n.sourceBlockCode}</b> · {n.division} → {n.mapBlockCode}<small>Observed {n.firstMonth} to {n.lastMonth}</small></span>)}</div>
     <div className="production-block-cards">{rows.map(r=><article key={r.id}><h3>{r.sourceBlockCode} <small>· {r.division}</small></h3><span className={'receipt '+(r.receiptStatus!=='received'?'pending':'')}>{receiptLabel(r.receiptStatus)}</span><dl><div><dt>FFB</dt><dd>{displayNumber(r.mt)} <small>MT</small></dd></div><div><dt>Bunches</dt><dd>{displayNumber(r.bunches)}</dd></div><div><dt>Average bunch weight</dt><dd>{displayNumber(r.abw)} <small>kg</small></dd></div><div><dt>Harvesting days</dt><dd>{displayNumber(r.harvestingDays)}</dd></div></dl><small>GPS {displayNumber(r.gpsHa)} ha · effective {displayNumber(r.effectiveHa)} ha · yield denominator {displayNumber(r.yieldAreaHa)} ha</small></article>)}</div>
     {!busy&&!rows.length&&<p>No monthly record for this map block in {period}. Historical records, if available, remain below.</p>}
-    <div className="production-charts"><LineChart title={`Monthly comparison · ${period.slice(0,4)} and ${Number(period.slice(0,4))-1}`} labels={months} series={monthlySeries(chartMonthly,period.slice(0,4),metric)} unit={units[metric]}/><LineChart title="Yearly source comparison" labels={annualChart.labels} series={annualChart.series} unit={units[metric]}/></div>
+    <div className="production-charts"><LineChart key={`${code}-${selectedYear}-${compareYear}-${metric}-${source}`} title={`Monthly comparison · ${selectedYear}${compareYear?` and ${compareYear}`:''}`} controls={<div className="production-controls"><label>Chart year<select value={selectedYear} onChange={e=>{setChartYear(e.target.value);setComparisonYear(null);}}>{yearOptions.map(year=><option key={year} value={year}>{year}</option>)}</select></label><label>Compare with<select value={compareYear} onChange={e=>setComparisonYear(e.target.value)}><option value="">No comparison</option>{comparisonOptions.map(year=><option key={year} value={year}>{year}</option>)}</select></label></div>} labels={months} series={monthlySeries(chartMonthly,selectedYear,metric,compareYear)} unit={units[metric]}/><LineChart title="Yearly source comparison" labels={annualChart.labels} series={annualChart.series} unit={units[metric]}/></div>
     <p className="table-note">Imported 2026 annual figures cover Jan–Jul YTD. Imported August–December zeros mean not received; charts omit any records still marked not received. Yield uses each record’s supplied area basis; review area warnings before comparing. Annual source totals are independent of subsequent monthly edits.</p>
     </>}
     </>}
