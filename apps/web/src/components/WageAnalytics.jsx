@@ -47,8 +47,10 @@ export default function WageAnalytics({estateId,boundary,enabled,offline,selecti
         <label>Activity<select value={activity} disabled={metaBusy} onChange={change(setActivity)}><option value="">All activities</option>{(meta?.activities||[]).map(a=><option key={a}>{a}</option>)}</select></label>
         <label>Allocated cost<select value={operator} onChange={change(setOperator)}><option value="gt">Above (&gt;)</option><option value="lt">Below (&lt;)</option></select></label>
         <label>Threshold (NGN)<input type="number" min="0" step="0.01" value={threshold} onChange={change(setThreshold)} required/></label>
+        <div className="analytics-form-actions">
         <button className="button primary" type="submit" disabled={!valid||loading||!!error||!!metaError||!rows.length||!mapCodes.length}>Show matching blocks</button>
         {applied&&<button className="button" type="button" onClick={()=>setApplied(null)}>Clear highlights</button>}
+        </div>
       </form>
       {loading&&<p role="status">Loading allocated costs…</p>}{(error||metaError)&&<p role="alert" className="production-warning">{error||metaError}</p>}
       {!loading&&!error&&!metaError&&!rows.length&&<p>No allocated costs available for this selection.</p>}

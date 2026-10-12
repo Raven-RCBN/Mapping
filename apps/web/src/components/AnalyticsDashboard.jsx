@@ -36,8 +36,10 @@ function YieldAnalytics({estateId,boundary,enabled,offline,selection,onHighlight
         <label>Analytics year<select value={year} disabled={busy||!years.length} onChange={change(setYear)}>{!years.length&&<option value="">No years available</option>}{years.map(y=><option key={y} value={y}>{y}{rows.some(r=>r.year===y&&r.periodLabel!=='Full year')?' · YTD / partial':''}</option>)}</select></label>
         <label>Production per hectare<select value={operator} onChange={change(setOperator)}><option value="gt">Above (&gt;)</option><option value="lt">Below (&lt;)</option></select></label>
         <label>Threshold (Ton/Ha)<input type="number" min="0" step="any" value={threshold} onChange={change(setThreshold)} required/></label>
+        <div className="analytics-form-actions">
         <button className="button primary" type="submit" disabled={!valid||busy||!rows.length||!mapCodes.length}>Show matching blocks</button>
         {applied&&<button className="button" type="button" onClick={()=>setApplied(null)}>Clear highlights</button>}
+        </div>
       </form>
       {busy&&<p role="status">Loading annual production…</p>}{error&&<p role="alert" className="production-warning">{error}</p>}
       {!busy&&!error&&!rows.length&&<p>No annual production records available.</p>}
