@@ -32,3 +32,25 @@ test('main map layer preserves zero/missing distinctions and carries all block v
  assert.equal(fertiliserColour(layer.values.MISSING,100),'#e7e9ec');assert.equal(fertiliserColour(100,100),'#095b46');
  assert.match(layer.label,/2025/);
 });
+
+test('man-day weights allocate per activity, reconcile kobo and exclude missing weights and other years',async()=>{
+ const {allocateActivityWages}=await import('./hts-analysis.js');
+ const rows=[{period:'2025-03',task:'UPKEEP',activity:'SECURITY',amountMinor:101,manDays:8},
+ {period:'2024-03',task:'UPKEEP',activity:'SECURITY',amountMinor:999,manDays:8},
+ {period:'2025-03',task:'MILL',activity:'MILL',amountMinor:900,manDays:10},
+ {period:'2025-03',task:'UPKEEP',activity:'MISSING',amountMinor:900,manDays:10}];
+ const weight=(code,units)=>({year:2025,mapBlockCode:code,task:'UPKEEP',activity:'SECURITY',mandayUnits:units});
+ const weights=[weight('A',1e6),weight('B',3e6),weight('A',1e6),weight('OUT',100e6),weight('ZERO',0)];
+ const get=block=>allocateActivityWages(rows,weights,['A','B','ZERO'],block);
+ const a=get('A'),b=get('B'),all=get('');
+ assert.equal(all.rows.length,1);assert.equal(a.rows[0].amountMinor+b.rows[0].amountMinor,101);
+ assert.equal(a.rows[0].manDays,2);assert.equal(b.rows[0].manDays,6);
+ assert.equal(all.rows[0].amountMinor,101);assert.equal(get('OUT').rows.length,0);
+ assert.equal(get('ZERO').rows.length,0);assert.equal(rows[0].amountMinor,101);
+ assert.equal(wageAnalysis(a.rows,{year:2025,month:'2025-03'}).monthly[2].amountMinor,25);
+ assert.equal(allocateActivityWages(rows,weights,[]).rows.length,0);
+ assert.equal(allocateActivityWages(rows,[],['A']).rows.length,0);
+ const other=[...weights,{...weight('A',3e6),activity:'OTHER'},{...weight('B',1e6),activity:'OTHER'}];
+ const result=allocateActivityWages([...rows,{...rows[0],activity:'OTHER',amountMinor:100}],other,['A','B'],'A');
+ assert.deepEqual(result.rows.map(r=>r.amountMinor),[25,75]);
+});

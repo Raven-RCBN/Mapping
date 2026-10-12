@@ -12,6 +12,10 @@ export function installHtsAnalysis(api,models,config){
     try{snapshot=JSON.parse(await fs.readFile(path.join(config.dataDir,'hts-analysis',estateId+'.json'),'utf8'));}
     catch(e){if(e.code==='ENOENT')throw new QueryError('HTS analysis has not been prepared for this estate',404);throw e;}
     if(snapshot.estateId!==estateId)throw new QueryError('HTS snapshot estate mismatch',409);
+    const blockMandays=models.BlockManday?await models.BlockManday.find({estateId,year:2025})
+      .select('year mapBlockCode task activity mandayUnits -_id').limit(50001).lean():[];
+    if(blockMandays.length>50000)throw new QueryError('Too many block man-day records',413);
+    snapshot.blockMandays=blockMandays;
     res.set('Cache-Control','private, no-store').json(snapshot);
   });
 }

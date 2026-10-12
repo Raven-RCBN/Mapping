@@ -1,3 +1,4 @@
+import {allocateMinor} from './wages.js';
 // These observed activity wages are a separate source basis from block allocations.
 export const sum = (rows,key) => rows.reduce((n,r)=>n+(Number.isFinite(r[key])?r[key]:0),0);
 export function wageAnalysis(rows,{year='2025',month='',task='',activity=''}={}) {
@@ -51,4 +52,31 @@ export function fertiliserMapLayer(analysis,{estateId,year,division='',productLa
   return {kind:'fertiliser',estateId,values,blockCodes:analysis.blocks.map(b=>b.mapBlockCode),
     max:Math.max(0,...analysis.blocks.map(b=>b.value??0)),unit,
     label:`${year} · ${division||'All divisions'} · ${productLabel}`};
+}
+
+// Annual block man-days determine each activity's share of monthly estate payroll.
+export function allocateActivityWages(rows,mandays,mapCodes,block=''){
+  const codes=new Set(mapCodes), groups=new Map(), available=new Set();
+  for(const r of mandays||[]){
+    if(r.year!==2025||!codes.has(r.mapBlockCode)||!Number.isSafeInteger(r.mandayUnits)||r.mandayUnits<=0)continue;
+    const key=JSON.stringify([r.task,r.activity]);
+    if(!groups.has(key))groups.set(key,new Map());
+    // The imported annual table has one record per block/task/activity.
+    if(!groups.get(key).has(r.mapBlockCode))groups.get(key).set(r.mapBlockCode,{_id:r.mapBlockCode,mapHa:r.mandayUnits});
+    available.add(r.mapBlockCode);
+  }
+  const items=[];
+  for(const r of rows){
+    if(!r.period.startsWith('2025-')||!['HARVESTING','UPKEEP','LAND DEVELOPMENT'].includes(r.task))continue;
+    const weights=[...(groups.get(JSON.stringify([r.task,r.activity]))?.values()||[])].sort((a,b)=>a._id.localeCompare(b._id));
+    const totalUnits=sum(weights,'mapHa'),index=weights.findIndex(w=>w._id===block);
+    if(!totalUnits||(block&&index<0))continue;
+    const share=block?weights[index].mapHa/totalUnits:1;
+    items.push({period:r.period,task:r.task,activity:r.activity,sourceSerial:r.sourceSerial,
+      sourceFile:r.sourceFile,sourceSheet:r.sourceSheet,sourceRow:r.sourceRow,
+      mapBlockCode:block||'All mapped blocks',allocationBasis:'2025 block man-days',allocationShare:share,
+      amountMinor:block?allocateMinor(r.amountMinor,weights)[index]:r.amountMinor,
+      manDays:Number.isFinite(r.manDays)?r.manDays*share:null});
+  }
+  return {rows:items,blockCodes:[...available].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))};
 }
