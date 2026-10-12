@@ -37,7 +37,7 @@ export default function WageAnalytics({estateId,boundary,enabled,offline,selecti
   const valid=year!==''&&threshold.trim()!==''&&Number.isFinite(Number(threshold))&&Number(threshold)>=0;
   const loading=busy||metaBusy;
   const selectedCode=selection?.startsWith(estateId+'::')?selection.slice(estateId.length+2):null;
-  return <section className="production-dashboard analytics-dashboard" aria-label="Activity cost analytics">
+  return <section className="production-dashboard analytics-dashboard wage-analytics" aria-label="Activity cost analytics">
     <div className="production-heading"><div><h2>Activity cost analytics</h2><p>Find mapped blocks by allocated wage cost · NGN.</p></div><button className="button" disabled={loading||offline} onClick={()=>{setApplied(null);setRefresh(v=>v+1);}}>Refresh data</button></div>
     {offline?<p>Connect to load wage costs for map analytics.</p>:<>
       <form className="production-controls" onSubmit={e=>{e.preventDefault();if(valid&&!loading&&!error&&!metaError)setApplied({operator,threshold});}}>

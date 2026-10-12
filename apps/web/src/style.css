@@ -378,7 +378,7 @@ h1 {
 }
 .workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 310px;
+  grid-template-columns: minmax(0, 1fr) 240px;
   gap: 20px;
 }
 .map-workspace {
@@ -1058,7 +1058,7 @@ dialog::backdrop {
     padding: 24px 20px;
   }
   .workspace {
-    grid-template-columns: minmax(0, 1fr) 275px;
+    grid-template-columns: minmax(0, 1fr) 220px;
     gap: 14px;
   }
   .stats article {
@@ -3287,4 +3287,23 @@ button:disabled {
   .block-comments { padding: 18px 12px; }
   .block-comments label { flex-wrap: wrap; }
   .block-comment-text { min-width: 0; }
+}
+
+/* Compact desktop sidebar leaves room for a single row of cost filters. */
+.map-workspace { container-type: inline-size; container-name: map-workspace; }
+@media (min-width: 951px) and (max-width: 1400px) {
+  .workspace { grid-template-columns: minmax(0, 1fr) 220px; gap: 16px; }
+}
+@media (min-width: 951px) {
+  .activity-header { padding-inline: 12px; gap: 6px; }
+  .activity-header h2 { font-size: 17px; }
+  .activity-filter { margin-inline: 12px; gap: 6px; }
+  .activity-filter select { min-width: 0; max-width: 100%; }
+  .activity-status { padding-inline: 12px; gap: 12px; }
+}
+@container map-workspace (min-width: 900px) {
+  .wage-analytics .production-controls {
+    grid-template-columns: 72px minmax(0,1.4fr) minmax(0,1.1fr) minmax(0,1.6fr) 110px 120px;
+    column-gap: 10px;
+  }
 }
