@@ -149,6 +149,25 @@ export default function MapView({
     if(!choropleth&&fitChanged&&!isEmpty(source.getExtent()))map.getView().fit(source.getExtent(),{padding:[65,65,65,65],maxZoom:16,duration:200});
     return()=>{map.removeLayer(layer);layer.dispose();source.dispose();};
   },[analyticsHighlights,data.estates,data.offline,state.selectedBlock,state.showBoundaries,state.showLabels]);
+  // Keep selection above thematic/GIS layers without rebuilding imagery or refitting.
+  useEffect(() => {
+    const map=mapRef.current;
+    if(!map||!state.selectedBlock)return;
+    const features=featuresOf({type:'FeatureCollection',features:data.estates
+      .filter(estate=>selected.includes(estate.id))
+      .flatMap(estate=>(estate.boundary?.features||[])
+        .filter(feature=>`${estate.id}::${feature.properties?.blockName||feature.properties?.Block_No}`===state.selectedBlock)
+        .map(feature=>({...feature,properties:{...feature.properties,
+          blockName:feature.properties?.blockName||feature.properties?.Block_No,estateId:estate.id}})))});
+    if(!features.length)return;
+    const source=new VectorSource({features});
+    const layer=new VectorLayer({source,zIndex:40,style:[
+      new Style({stroke:new Stroke({color:'#ffffff',width:7})}),
+      new Style({stroke:new Stroke({color:'#7c3aed',width:4}),fill:new Fill({color:'rgba(124,58,237,0.20)'})}),
+    ]});
+    map.addLayer(layer);
+    return()=>{map.removeLayer(layer);layer.dispose();source.dispose();};
+  },[state.selectedBlock,data.estates,selected]);
   useEffect(() => {
     roadRef.current?.setVisible(base === "road" && !data.offline);
   }, [base, data.offline]);
