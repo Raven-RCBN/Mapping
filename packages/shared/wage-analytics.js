@@ -1,17 +1,26 @@
 // Summarize the complete allocation, before detail-row pagination. Source bases
 // and task/activity filters are applied by the allocation endpoint first.
-export function summarizeAllocatedBlocks(items) {
-  const blocks=new Map();
+export function summarizeAllocatedBlocks(items, mandays=[]) {
+  const blocks=new Map(), daysByKey=new Map(mandays.map(r=>[JSON.stringify([r.mapBlockCode,r.division,r.task,r.activity]),r.mandayUnits]));
   for(const row of items) {
     if(!row.mapBlockCode)continue;
     if(!blocks.has(row.mapBlockCode))blocks.set(row.mapBlockCode,{
       mapBlockCode:row.mapBlockCode,division:row.division,mapHa:row.blockHa,
-      amountMinor:0,periods:new Set(),
+      amountMinor:0,periods:new Set(),mandayKeys:new Set(),mandayUnits:0,hasMandays:false,mandaysComplete:true,
     });
     const block=blocks.get(row.mapBlockCode);
     block.amountMinor+=row.amountMinor;block.periods.add(row.period);
+    const key=JSON.stringify([row.mapBlockCode,row.division,row.task,row.activity]);
+    if(!block.mandayKeys.has(key)) {
+      block.mandayKeys.add(key);
+      const units=daysByKey.get(key);
+      if(Number.isFinite(units)){block.mandayUnits+=units;block.hasMandays=true;}
+      else if(row.amountMinor!==0)block.mandaysComplete=false;
+    } else if(!daysByKey.has(key)&&row.amountMinor!==0)block.mandaysComplete=false;
   }
-  return [...blocks.values()].map(({periods,...block})=>({...block,
+  return [...blocks.values()].map(({periods,mandayKeys,mandayUnits,hasMandays,mandaysComplete,...block})=>({...block,
+    mandays:hasMandays?mandayUnits/1e6:null,
+    costPerMandayMinor:mandaysComplete&&mandayUnits>0?block.amountMinor/(mandayUnits/1e6):null,
     periods:[...periods].sort(),rateMinorPerHa:block.mapHa>0?block.amountMinor/block.mapHa:null,
   })).sort((a,b)=>a.mapBlockCode.localeCompare(b.mapBlockCode,undefined,{numeric:true}));
 }

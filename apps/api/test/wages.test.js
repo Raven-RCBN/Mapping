@@ -83,3 +83,13 @@ test('block analytics covers every page, respects task/activity/year/basis and e
   for(const filters of [{basis:'annual_summary'},{year:'2024'},{task:'HARVESTING'}])assert.deepEqual((await request(app).get('/wages/allocation').query({...query,...filters}).expect(200)).body.byBlock,[]);
   await request(app).get('/wages/allocation').query({...query,estateId:'estate-b'}).expect(403);
 });
+
+test('annual block mandays reach analytics without leaking another estate or year',async()=>{
+  await m.BlockManday.create([
+    {_id:'md-a',estateId:'estate-a',year:2025,mapBlockCode:'G4',division:'RO',task:'UPKEEP',activity:'PRUNING',mandayUnits:2000000,mapHa:20,divisionHa:50,sourceSystem:'test',sourceKey:'a'},
+    {_id:'md-b',estateId:'estate-b',year:2025,mapBlockCode:'G4',division:'RO',task:'UPKEEP',activity:'PRUNING',mandayUnits:999000000,mapHa:20,divisionHa:50,sourceSystem:'test',sourceKey:'b'},
+  ]);
+  const r=await request(app).get('/wages/allocation').query({estateId:'estate-a',year:'2025',mapBlockCode:'G4',task:'UPKEEP',activity:'PRUNING'}).expect(200);
+  assert.equal(r.body.byBlock[0].mandays,2);
+  assert.equal(r.body.byBlock[0].costPerMandayMinor,r.body.byBlock[0].amountMinor/2);
+});

@@ -214,6 +214,16 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
   });
   ensureIndex(Wage,{estateId:1,sourceSystem:1,sourceKey:1},{unique:true});
   ensureIndex(Wage,{estateId:1,basis:1,period:1,mapBlockCode:1});
+  const BlockManday=model('MappingBlockManday',{
+    _id:String,estateId:{type:String,required:true,index:true},year:{type:Number,required:true},
+    mapBlockCode:{type:String,required:true},division:{type:String,required:true},
+    task:{type:String,required:true},activity:{type:String,required:true},
+    mandayUnits:{type:Number,required:true,min:0},mapHa:{type:Number,required:true,min:0},
+    divisionHa:{type:Number,required:true,min:0},sourceSystem:{type:String,required:true},
+    sourceKey:{type:String,required:true},sourceFile:String,sourceHash:String,
+    revision:{type:Number,default:0},updatedBy:String,history:[Schema.Types.Mixed],
+  });
+  ensureIndex(BlockManday,{estateId:1,year:1,mapBlockCode:1,task:1,activity:1},{unique:true});
   const WageArea=model('MappingWageArea',{
     _id:String,estateId:{type:String,required:true,index:true},year:{type:Number,required:true},
     sourceBlockId:String,sourceBlockCode:String,division:String,mapBlockCode:{type:String,default:null},
@@ -290,6 +300,7 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     YearlyProduction,
     Wage,
     WageArea,
+    BlockManday,
   };
 }
 export const {
@@ -307,4 +318,5 @@ export const {
   YearlyProduction,
   Wage,
   WageArea,
+  BlockManday,
 } = createModels();

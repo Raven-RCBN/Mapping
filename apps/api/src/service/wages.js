@@ -29,7 +29,7 @@ export function wageTotals(rows){
     byPeriod:group('period').sort((a,b)=>a.name.localeCompare(b.name)),byDivision:group('division').sort((a,b)=>b.amountMinor-a.amountMinor)};
 }
 export function installWages(api,models){
-  const {Estate,Block,Wage,WageArea}=models;if(!Wage)return;
+  const {Estate,Block,Wage,WageArea,BlockManday}=models;if(!Wage)return;
   const scope=async req=>{const estateId=id.parse(req.query.estateId||req.body?.estateId);
     if(!canAccess(req,estateId))throw new QueryError('Estate access denied',403);
     if(!await Estate.exists({_id:estateId}))throw new QueryError('Estate not found',404);return estateId;};
@@ -79,14 +79,15 @@ export function installWages(api,models){
   api.get('/wages/allocation',async(req,res)=>{
     const estateId=await scope(req),q=z.object({year:z.string().regex(/^\d{4}$/),basis:z.enum(['monthly','annual_summary']).default('monthly'),
       mapBlockCode:z.string().max(200).optional(),task:z.string().max(200).optional(),activity:z.string().max(200).optional(),division:z.string().max(200).optional(),q:z.string().max(200).default(''),page:z.coerce.number().int().min(0).max(10000).default(0)}).parse(req.query);
-    const [wages,areas]=await Promise.all([
+    const [wages,areas,mandays]=await Promise.all([
       Wage.find({estateId,basis:q.basis,period:{$gte:q.year,$lt:String(Number(q.year)+1)},...(q.task?{task:q.task}:{}),...(q.activity?{activity:q.activity}:{}),...(q.division?{division:q.division}:{})}).select('-history').limit(50001).lean(),
       WageArea.find({estateId,year:Number(q.year)}).select('-history').limit(5001).lean(),
+      BlockManday?BlockManday.find({estateId,year:Number(q.year)}).select('mapBlockCode division task activity mandayUnits').limit(50001).lean():[],
     ]);
-    if(wages.length>50000||areas.length>5000)throw new QueryError('Too many allocation records',413);
+    if(wages.length>50000||areas.length>5000||mandays.length>50000)throw new QueryError('Too many allocation records',413);
     const {sources,...allocation}=allocateWages(wages,areas,q.mapBlockCode),items=allocation.items.filter(r=>!q.q||[r.mapBlockCode,r.task,r.activity,r.division].join(' ').toLowerCase().includes(q.q.toLowerCase())).sort((a,b)=>a.period.localeCompare(b.period)||a.sourceBlockCode.localeCompare(b.sourceBlockCode)||a.task.localeCompare(b.task)||a.activity.localeCompare(b.activity));
     const totals=wageTotals(items);
-    res.json({...allocation,...totals,byBlock:summarizeAllocatedBlocks(items),items:items.slice(q.page*25,(q.page+1)*25),count:items.length,
+    res.json({...allocation,...totals,byBlock:summarizeAllocatedBlocks(items,mandays),items:items.slice(q.page*25,(q.page+1)*25),count:items.length,
       selectedAreas:areas.filter(a=>a.mapBlockCode===q.mapBlockCode),unknownDivisionBlocks:areas.filter(a=>a.division==='DIVISION NOT SET').map(a=>a.mapBlockCode)});
   });
   api.get('/wages/meta',async(req,res)=>{
