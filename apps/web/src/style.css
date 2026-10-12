@@ -3346,3 +3346,6 @@ button:disabled {
  .activity-timeline .production-controls select { font-size:16px; }
  .activity-timeline .button { min-height:44px; }
 }
+
+/* Operations alone needs the field-activity sidebar. */
+.workspace.workspace-wide { grid-template-columns: minmax(0, 1fr); }

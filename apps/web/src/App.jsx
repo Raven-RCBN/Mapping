@@ -604,7 +604,7 @@ export default function App() {
               {s.mapLoading && (
                 <p role="status">Loading selected activity window…</p>
               )}
-              <div className="workspace" id="workspace">
+              <div className={'workspace'+(dashboardTab==='operations'?'':' workspace-wide')} id="workspace">
                 <section className="map-workspace">
                   <div className="map-topbar">
                     <div className="tabs">
@@ -749,7 +749,7 @@ export default function App() {
                     {dashboardTab==='wages'&&<WagesDashboard key={'wages-'+s.selected[0]} estateId={s.selected[0]} selection={s.selectedBlock || (s.block !== 'all'?s.block:null)} offline={s.data.offline} onData={()=>setSearchParams({view:'data',tab:'wages'})}/>}
                   </div>
                 </section>
-                <aside className="activity-panel">
+                {dashboardTab==='operations'&&<aside className="activity-panel">
                   <div className="activity-header">
                     <div>
                       <div className="eyebrow">FIELD OPERATIONS</div>
@@ -949,7 +949,7 @@ export default function App() {
                       </>
                     )}
                   </div>
-                </aside>
+                </aside>}
               </div>
             </div>
           )}
