@@ -1,6 +1,7 @@
 import { installMosaic } from "./service/mosaic.js";
 import { installProduction } from "./service/production.js";
 import { installWages } from "./service/wages.js";
+import { installHtsAnalysis } from "./service/hts-analysis.js";
 import express from "express";
 import { renderQgisCgi } from "./service/qgis.js";
 import cors from "cors";
@@ -141,6 +142,7 @@ export async function createApp(config) {
   installStorage(api, models, config);
   installProduction(api, models);
   installWages(api, models);
+  installHtsAnalysis(api, models, config);
   const snapshot = async (req) => {
     const q = selection(req),
       scope = q.scope;

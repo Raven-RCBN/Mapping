@@ -3,6 +3,7 @@ import {api} from '../api';
 import {displayNumber} from './ProductionTables';
 import WageAnalytics from './WageAnalytics';
 import ActivityTimeline from './ActivityTimeline';
+import HTSAnalysis from './HTSAnalysis';
 import {analyseYield} from '../../../../packages/shared/production-analytics.js';
 
 function YieldAnalytics({estateId,boundary,enabled,offline,selection,onHighlights,onSelect,onMap}) {
@@ -59,7 +60,7 @@ function YieldAnalytics({estateId,boundary,enabled,offline,selection,onHighlight
 export default function AnalyticsDashboard(props) {
   const [query,setQuery]=useState('yield');
   return <>
-    <div className="analytics-query-control"><label>Analytics query<select value={query} onChange={e=>{props.onHighlights(null);setQuery(e.target.value);}}><option value="yield">Production per hectare</option><option value="cost">Activity cost</option><option value="timeline">Activity timeline</option></select></label></div>
-    {query==='yield'?<YieldAnalytics {...props}/>:query==='cost'?<WageAnalytics {...props}/>:<ActivityTimeline {...props}/>}
+    <div className="analytics-query-control"><label>Analytics query<select value={query} onChange={e=>{props.onHighlights(null);setQuery(e.target.value);}}><option value="yield">Production per hectare</option><option value="cost">Activity cost</option><option value="timeline">Activity timeline</option><option value="fertiliser">Annual block fertiliser</option><option value="wages">Monthly activity wages</option></select></label></div>
+    {query==='yield'?<YieldAnalytics {...props}/>:query==='cost'?<WageAnalytics {...props}/>:query==='timeline'?<ActivityTimeline {...props}/>:<HTSAnalysis {...props} mode={query}/>}
   </>;
 }
