@@ -23,3 +23,12 @@ test('wage filters retain task identity; comparison uses same payroll month and 
  a=wageAnalysis(rows,{year:2025});assert.equal(a.activities.length,2);assert.equal(a.amountMinor,1000);assert.equal(a.monthly[0].amountMinor,700);
  assert.equal(a.monthly[2].available,false);assert.equal('rate' in a,false);
 });
+
+test('main map layer preserves zero/missing distinctions and carries all block values',async()=>{
+ const {fertiliserMapLayer,fertiliserColour}=await import('./hts-analysis.js');
+ const layer=fertiliserMapLayer({blocks:[{mapBlockCode:'A',value:0},{mapBlockCode:'B',value:100},{mapBlockCode:'C',value:null}]},{estateId:'e',year:2025,productLabel:'NPK',unit:'kg'});
+ assert.equal(layer.kind,'fertiliser');assert.equal(layer.max,100);assert.equal(layer.values.A,0);
+ assert.equal(fertiliserColour(layer.values.A,100),'#ffffff');assert.equal(fertiliserColour(layer.values.C,100),'#e7e9ec');
+ assert.equal(fertiliserColour(layer.values.MISSING,100),'#e7e9ec');assert.equal(fertiliserColour(100,100),'#095b46');
+ assert.match(layer.label,/2025/);
+});

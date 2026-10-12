@@ -31,6 +31,7 @@ import {
   spreadPositions,
 } from "../../../../packages/shared/map-placement.js";
 import { gisLayerTypes, gisStyle } from "../map/gisLayers.js";
+import {fertiliserColour,fertiliserColours} from '../../../../packages/shared/hts-analysis.js';
 const geo = new GeoJSON();
 const featuresOf = (json) =>
   geo.readFeatures(json, {
@@ -56,6 +57,7 @@ export default function MapView({
     popupElement = useMemo(() => document.createElement("div"), []),
     [popup, setPopup] = useState(null),
     fitRef = useRef(""),
+    analyticsFitRef = useRef(null),
     [notice, setNotice] = useState(""),
     [split, setSplit] = useState(50),
     [collapsed, setCollapsed] = useState(innerWidth < 600),
@@ -127,15 +129,26 @@ export default function MapView({
   }, []);
   useEffect(() => {
     const map=mapRef.current;
+    const previous=analyticsFitRef.current;
+    const fitChanged=!previous||previous.highlights!==analyticsHighlights||previous.estates!==data.estates||previous.offline!==data.offline;
+    analyticsFitRef.current={highlights:analyticsHighlights,estates:data.estates,offline:data.offline};
     if(!map||!analyticsHighlights||data.offline)return;
+    const choropleth=analyticsHighlights.kind==='fertiliser';
     const codes=new Set(analyticsHighlights.blockCodes);
-    const features=featuresOf({type:'FeatureCollection',features:data.estates.filter(e=>e.id===analyticsHighlights.estateId).flatMap(e=>(e.boundary?.features||[]).filter(f=>codes.has(f.properties?.blockName||f.properties?.Block_No)).map(f=>({...f,properties:{...f.properties,blockName:f.properties?.blockName||f.properties?.Block_No,estateId:e.id,estateName:e.name}})))});
+    const features=featuresOf({type:'FeatureCollection',features:data.estates.filter(e=>e.id===analyticsHighlights.estateId).flatMap(e=>(e.boundary?.features||[]).filter(f=>choropleth||codes.has(f.properties?.blockName||f.properties?.Block_No)).map(f=>({...f,properties:{...f.properties,blockName:f.properties?.blockName||f.properties?.Block_No,estateId:e.id,estateName:e.name}})))});
     const source=new VectorSource({features});
-    const layer=new VectorLayer({source,zIndex:25,style:new Style({stroke:new Stroke({color:'#6d28d9',width:3}),fill:new Fill({color:'rgba(124,58,237,0.32)'})})});
+    const layer=new VectorLayer({source,zIndex:25,style:choropleth?f=>{
+      const code=f.get('blockName'),chosen=state.selectedBlock===`${f.get('estateId')}::${code}`;
+      return new Style({
+        stroke:state.showBoundaries?new Stroke({color:chosen?'#e0951c':'#456b59',width:chosen?4:1}):undefined,
+        fill:state.showBoundaries?new Fill({color:fertiliserColour(analyticsHighlights.values[code],analyticsHighlights.max)+'dd'}):undefined,
+        text:state.showLabels?new Text({text:code,font:'12px sans-serif',fill:new Fill({color:'#173f2d'}),stroke:new Stroke({color:'#fff6db',width:3})}):undefined,
+      });
+    }:new Style({stroke:new Stroke({color:'#6d28d9',width:3}),fill:new Fill({color:'rgba(124,58,237,0.32)'})})});
     map.addLayer(layer);
-    if(!isEmpty(source.getExtent()))map.getView().fit(source.getExtent(),{padding:[65,65,65,65],maxZoom:16,duration:200});
+    if(!choropleth&&fitChanged&&!isEmpty(source.getExtent()))map.getView().fit(source.getExtent(),{padding:[65,65,65,65],maxZoom:16,duration:200});
     return()=>{map.removeLayer(layer);layer.dispose();source.dispose();};
-  },[analyticsHighlights,data.estates,data.offline]);
+  },[analyticsHighlights,data.estates,data.offline,state.selectedBlock,state.showBoundaries,state.showLabels]);
   useEffect(() => {
     roadRef.current?.setVisible(base === "road" && !data.offline);
   }, [base, data.offline]);
@@ -211,7 +224,7 @@ export default function MapView({
                         .padStart(2, "0"),
                   })
                 : undefined,
-              text: state.showLabels
+              text: state.showLabels && analyticsHighlights?.kind !== 'fertiliser'
                 ? new Text({
                     text: f.get("blockName"),
                     font: "12px sans-serif",
@@ -584,6 +597,7 @@ export default function MapView({
     state.block,
     pageOffset,
     productionHighlights,
+    analyticsHighlights?.kind,
   ]);
   return (
     <div className="map-stage">
@@ -763,8 +777,12 @@ export default function MapView({
           />
         </div>
       )}
-      <div className="map-legend">
-        {analyticsHighlights&&<span className="analytics-map-key"><i style={{background:'#7c3aed'}}/>{analyticsHighlights.label} · {analyticsHighlights.blockCodes.length} blocks</span>}
+      <div className={'map-legend'+(analyticsHighlights?.kind==='fertiliser'?' fertiliser-legend':'')}>
+        {analyticsHighlights?.kind==='fertiliser'?<div className="fertiliser-map-key" aria-label="Fertiliser map legend">
+          <strong>{analyticsHighlights.label} · {analyticsHighlights.unit}</strong>
+          <div><span><i style={{background:'#e7e9ec'}}/>No record</span><span><i style={{background:'#fff'}}/>0</span>
+          {analyticsHighlights.max>0&&fertiliserColours.map((color,i)=><span key={color}><i style={{background:color}}/>{(analyticsHighlights.max*i/5).toLocaleString(undefined,{maximumFractionDigits:1})}–{(analyticsHighlights.max*(i+1)/5).toLocaleString(undefined,{maximumFractionDigits:1})}</span>)}</div>
+        </div>:analyticsHighlights&&<span className="analytics-map-key"><i style={{background:'#7c3aed'}}/>{analyticsHighlights.label} · {analyticsHighlights.blockCodes.length} blocks</span>}
         {Object.entries(types)
           .filter(([t]) =>
             rows.some((r) => selected.includes(r.estateId) && r.type === t)

@@ -41,3 +41,14 @@ export function fertiliserAnalysis(data,{year=2025,division='',block='',product=
   });
   return {rows,mapped,unmapped,blocks,annual,quantity:blocks.length&&blocks.every(b=>Number.isFinite(b.quantity))?sum(blocks,'quantity'):null,area:sum(blocks,'mapHa')};
 }
+
+export const fertiliserColours=['#e7f2ee','#b6d9cc','#72b7a0','#2e8f72','#095b46'];
+export function fertiliserColour(value,max){
+  return !Number.isFinite(value)?'#e7e9ec':value===0?'#ffffff':fertiliserColours[Math.min(4,Math.max(0,Math.floor(value/(max||1)*5)))];
+}
+export function fertiliserMapLayer(analysis,{estateId,year,division='',productLabel,unit}){
+  const values=Object.fromEntries(analysis.blocks.map(b=>[b.mapBlockCode,b.value]));
+  return {kind:'fertiliser',estateId,values,blockCodes:analysis.blocks.map(b=>b.mapBlockCode),
+    max:Math.max(0,...analysis.blocks.map(b=>b.value??0)),unit,
+    label:`${year} · ${division||'All divisions'} · ${productLabel}`};
+}
