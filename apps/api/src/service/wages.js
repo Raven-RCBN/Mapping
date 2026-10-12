@@ -3,6 +3,7 @@ import {z} from 'zod';
 import {canAccess, requireWrite} from './auth.js';
 import {QueryError} from './performance.js';
 import {summarizeAllocatedBlocks} from '../../../../packages/shared/wage-analytics.js';
+import {buildWageTimeline} from '../../../../packages/shared/wage-timeline.js';
 import {allocateWages} from '../../../../packages/shared/wages.js';
 
 const id=z.string().regex(/^[a-zA-Z0-9-]{1,100}$/);
@@ -89,6 +90,21 @@ export function installWages(api,models){
     const totals=wageTotals(items);
     res.json({...allocation,...totals,byBlock:summarizeAllocatedBlocks(items,mandays),items:items.slice(q.page*25,(q.page+1)*25),count:items.length,
       selectedAreas:areas.filter(a=>a.mapBlockCode===q.mapBlockCode),unknownDivisionBlocks:areas.filter(a=>a.division==='DIVISION NOT SET').map(a=>a.mapBlockCode)});
+  });
+  api.get('/wages/timeline',async(req,res)=>{
+    const estateId=await scope(req),q=z.object({year:z.string().regex(/^\d{4}$/),mapBlockCode:label}).parse(req.query);
+    if(!(await polygons(estateId)).includes(q.mapBlockCode))throw new QueryError('Choose an existing map block',400);
+    const areas=await WageArea.find({estateId,year:Number(q.year)}).select('-history').limit(5001).lean();
+    if(areas.length>5000)throw new QueryError('Too many area records',413);
+    const area=areas.find(a=>a.mapBlockCode===q.mapBlockCode);
+    if(!area)return res.json({year:q.year,mapBlockCode:q.mapBlockCode,items:[]});
+    const [wages,mandays]=await Promise.all([
+      Wage.find({estateId,basis:'monthly',division:area.division,period:{$gte:q.year+'-01',$lte:q.year+'-12'}}).select('-history').limit(50001).lean(),
+      BlockManday.find({estateId,year:Number(q.year),mapBlockCode:q.mapBlockCode}).select('mapBlockCode division task activity mandayUnits').limit(5001).lean(),
+    ]);
+    if(wages.length>50000||mandays.length>5000)throw new QueryError('Too many timeline records',413);
+    const allocated=allocateWages(wages,areas,q.mapBlockCode).items.filter(r=>r.mapBlockCode===q.mapBlockCode);
+    res.json({year:q.year,mapBlockCode:q.mapBlockCode,items:buildWageTimeline(allocated,mandays,q.year)});
   });
   api.get('/wages/meta',async(req,res)=>{
     const estateId=await scope(req),year=z.string().regex(/^\d{4}$/).default('2025').parse(req.query.year);

@@ -93,3 +93,14 @@ test('annual block mandays reach analytics without leaking another estate or yea
   assert.equal(r.body.byBlock[0].mandays,2);
   assert.equal(r.body.byBlock[0].costPerMandayMinor,r.body.byBlock[0].amountMinor/2);
 });
+
+test('timeline is scoped by block/year and does not combine annual source wages',async()=>{
+ const r=await request(app).get('/wages/timeline').query({estateId:'estate-a',year:'2025',mapBlockCode:'G4'}).expect(200);
+ const row=r.body.items.find(r=>r.task==='UPKEEP'&&r.activity==='PRUNING');
+ assert.equal(row.mandays,2);assert.ok(row.months.every(m=>m.period.startsWith('2025-')));
+ const allocation=await request(app).get('/wages/allocation').query({estateId:'estate-a',year:'2025',mapBlockCode:'G4'}).expect(200);
+ assert.equal(r.body.items.reduce((n,r)=>n+r.amountMinor,0),allocation.body.amountMinor);
+ await request(app).get('/wages/timeline').query({estateId:'estate-b',year:'2025',mapBlockCode:'G4'}).expect(403);
+ await request(app).get('/wages/timeline').query({estateId:'estate-a',year:'2025',mapBlockCode:'FAKE'}).expect(400);
+ const empty=await request(app).get('/wages/timeline').query({estateId:'estate-a',year:'2024',mapBlockCode:'G4'}).expect(200);assert.deepEqual(empty.body.items,[]);
+});

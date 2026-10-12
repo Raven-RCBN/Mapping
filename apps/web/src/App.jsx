@@ -738,6 +738,7 @@ export default function App() {
                   </div>
                   <div className="map-dashboard-panel" id="dashboard-panel-analytics" role="tabpanel" aria-labelledby="dashboard-tab-analytics" hidden={dashboardTab!=='analytics'}>
                     <AnalyticsDashboard key={'analytics-'+s.selected[0]} estateId={s.selected[0]} boundary={estates[0]?.boundary} enabled={dashboardTab==='analytics'} offline={s.data.offline} selection={s.selectedBlock} onHighlights={setAnalyticsHighlights}
+                      onBlockChange={code=>dispatch(patch({selectedBlock:code?`${s.selected[0]}::${code}`:null,block:code?`${s.selected[0]}::${code}`:'all'}))}
                       onSelect={code=>{dispatch(patch({selectedBlock:`${s.selected[0]}::${code}`,block:`${s.selected[0]}::${code}`}));document.getElementById('estateMap')?.scrollIntoView({behavior:'smooth',block:'center'});}}
                       onMap={()=>{dispatch(patch({block:'all',selectedBlock:null}));document.getElementById('estateMap')?.scrollIntoView({behavior:'smooth',block:'center'});}}/>
                   </div>
