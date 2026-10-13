@@ -1,3 +1,5 @@
+import {fertiliserYield} from '../../../../packages/shared/fertiliser-yield.js';
+import FertiliserYieldChart from './FertiliserYieldChart';
 import {useEffect,useMemo,useState} from 'react';
 import {api} from '../api';
 import {fertiliserAnalysis,wageAnalysis,fertiliserMapLayer,allocateActivityWages} from '../../../../packages/shared/hts-analysis.js';
@@ -23,6 +25,10 @@ function Fertiliser({data,estateId,selection,onBlockChange,onSelect,onHighlights
   const [year,setYear]=useState('2025'),[division,setDivision]=useState(''),[product,setProduct]=useState('solids'),[metric,setMetric]=useState('quantity');
   const block=selection?.startsWith(estateId+'::')?selection.slice(estateId.length+2):'';
   const a=useMemo(()=>fertiliserAnalysis(data,{year,division,block,product,metric}),[data,year,division,block,product,metric]);
+ const [production,setProduction]=useState(null),[error,setError]=useState('');
+ useEffect(()=>{const c=new AbortController();setProduction(null);setError('');api.get('/production/yearly',{params:{estateId},signal:c.signal}).then(({data})=>setProduction(data.items)).catch(e=>{if(e.code!=='ERR_CANCELED')setError(e.response?.data?.error||e.message);});return()=>c.abort();},[estateId]);
+ const comparison=useMemo(()=>fertiliserYield(data,production||[],{division,block,product}),[data,production,division,block,product]);
+ const selectedYield=comparison.rows.find(r=>String(r.year)===String(year));
   // Keep the estate/division overview visible while a block's history is inspected.
   const overview=useMemo(()=>fertiliserAnalysis(data,{year,division,product,metric}),[data,year,division,product,metric]);
   const divisions=[...new Set(data.fertiliser.map(r=>r.division))].sort();
@@ -43,8 +49,11 @@ function Fertiliser({data,estateId,selection,onBlockChange,onSelect,onHighlights
       <label>Product<select value={product} onChange={e=>{setProduct(e.target.value);setMetric('quantity');}}><option value="solids">All solid fertilisers</option>{data.products.map((p,i)=><option key={p.name} value={i}>{p.name} ({p.unit})</option>)}</select></label>
       <label>Measure<select value={metric} onChange={e=>setMetric(e.target.value)}><option value="quantity">Quantity ({baseUnit})</option>{baseUnit==='kg'&&<option value="bags">50 kg bag equivalents</option>}<option value="perHa">{baseUnit} per mapped hectare</option></select></label>
     </div>
-    <div className="hts-kpis fertiliser-kpis"><article><span>Mapped quantity · {baseUnit==='kg'?'provisional kg':'L'}</span><strong>{n(a.quantity)} {baseUnit}</strong></article>{baseUnit==='kg'&&<article><span>50 kg bag equivalents</span><strong>{n(a.quantity==null?null:a.quantity/50)}</strong></article>}{baseUnit==='kg'&&<article><span>Kg/Palm</span><strong>{n(a.kgPerPalm)}</strong></article>}<article><span>Polygons with records</span><strong>{a.blocks.length}</strong></article><article><span>Mapped area of those polygons</span><strong>{n(a.area)} ha</strong></article></div>
+    <div className="hts-kpis fertiliser-kpis"><article><span>Mapped quantity · {baseUnit==='kg'?'provisional kg':'L'}</span><strong>{n(a.quantity)} {baseUnit}</strong></article>{baseUnit==='kg'&&<article><span>50 kg bag equivalents</span><strong>{n(a.quantity==null?null:a.quantity/50)}</strong></article>}{baseUnit==='kg'&&<article><span>Kg/Palm</span><strong>{n(a.kgPerPalm)}</strong></article>}<article><span>MT/Ha</span><strong>{n(selectedYield?.mtPerHa)}</strong></article><article><span>Polygons with records</span><strong>{a.blocks.length}</strong></article><article><span>Mapped area of those polygons</span><strong>{n(a.area)} ha</strong></article></div>
+    <div className="fertiliser-history-grid">
     <div className="hts-annual-history"><Bars rows={a.annual} valueKey="value" labelKey="year" format={v=>v==null?'No record':`${n(v)} ${unit}`} onSelect={setYear} selected={year} caption={`${block||division||'Mapped estate'} · annual history`}/></div>
+    <FertiliserYieldChart data={data} division={division} block={block} product={product} year={year} onYear={setYear} production={production} error={error} a={comparison}/>
+    </div>
     <div className="data-table-scroll"><table><caption>{year} · {block||'Mapped block quantities'}</caption><thead><tr><th>Map block</th><th>Source block / division</th><th>{unit}</th><th>Map ha</th></tr></thead><tbody>{a.blocks.map(b=><tr key={b.mapBlockCode}><td><button className="analytics-block-link" onClick={()=>choose(b.mapBlockCode)}>{b.mapBlockCode}</button></td><td>{b.sourceBlocks.join(' + ')} / {b.divisions.join(', ')}</td><td>{n(b.value)}</td><td>{n(b.mapHa)}</td></tr>)}</tbody></table>{!a.blocks.length&&<p>No block records for this selection.</p>}</div>
     <details className="analytics-method"><summary>Units, coverage and source records</summary><p>{data.unitBasis}</p><p>Liquids stay in litres. Hectares are current map area, not treated area. Shared source blocks on one polygon are summed once per year; the polygon area is counted once. Grey means no source record, not zero. Map colours follow the current year's scale.</p><p>{overview.unmapped.length} source block-year records in this year/division have no confirmed map link and are excluded from map totals.</p>{overview.unmapped.length>0&&<button className="button" onClick={()=>download(overview.unmapped,'oban-unmapped-fertiliser.csv')}>Export unmatched records</button>}<p>Source: {data.sources[0].file} · prepared {data.asOf}.</p><p>Annual quantities only; application dates, material costs and treated hectares are unavailable.</p></details>
   </section>;
