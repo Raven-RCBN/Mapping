@@ -1,8 +1,8 @@
-import AllocatedProductionReport from './AllocatedProductionReport';
+import RecordedProductionReport from './RecordedProductionReport';
 import {useEffect,useState} from 'react';
 import {api} from '../api';
 export const displayNumber=v=>v==null?'—':typeof v==='number'?v.toLocaleString(undefined,{maximumFractionDigits:2}):String(v);
-const decimalFields=new Set(['mt','divisionMt','effectiveHa','yieldAreaHa','gpsHa','gisAreaHa','yieldPerHa','abw','bunchesPerHa','bunchesPerPalm']);
+const decimalFields=new Set(['mt','divisionMt','effectiveHa','yieldAreaHa','gpsHa','gisAreaHa','yieldPerHa','abw','bunchesPerHa','bunchesPerPalm','palmsPerEffectiveHa']);
 export const productionNumber=(v,key='mt')=>typeof v==='number'&&decimalFields.has(key)?v.toLocaleString(undefined,{minimumFractionDigits:3,maximumFractionDigits:3}):displayNumber(v);
 export const productionCsvNumber=(v,key)=>typeof v==='number'&&decimalFields.has(key)?v.toFixed(3):v;
 export const receiptLabel=s=>({received:'Received',not_received:'Production not yet received',unavailable:'Unavailable'}[s]||s);
@@ -53,7 +53,7 @@ function SourceProductionTables({estateId,role,view,onMap}) {
 }
 
 export default function ProductionTables(props){
- const [basis,setBasis]=useState('palms');
+ const [basis,setBasis]=useState('recorded');
  const production=['monthly','yearly'].includes(props.view);
- return <>{production&&<div className="production-controls"><label>Production basis<select value={basis} onChange={e=>setBasis(e.target.value)}><option value="palms">Palm-allocated tonnage</option><option value="source">Original source records</option></select></label></div>}{production&&basis==='palms'?<AllocatedProductionReport {...props}/>:<SourceProductionTables {...props}/>}</>;
+ return <>{production&&<div className="production-controls"><label>Production basis<select value={basis} onChange={e=>setBasis(e.target.value)}><option value="recorded">Recorded block tonnage</option><option value="source">Original source records</option></select></label></div>}{production&&basis==='recorded'?<RecordedProductionReport {...props}/>:<SourceProductionTables {...props}/>}</>;
 }

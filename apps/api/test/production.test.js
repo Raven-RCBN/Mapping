@@ -93,3 +93,14 @@ test('palm allocation is estate-scoped and block filtering preserves the whole d
  await request(app).get('/production/allocated').query({estateId:'estate-b'}).expect(403);
  await request(app).get('/production/allocated').query({estateId:'estate-a',frequency:'bad'}).expect(400);
 });
+
+test('recorded block production keeps source tonnes and uses only effective hectares',async()=>{
+ const view=productionView({...record,mt:271.79,effectiveHa:13.00625,yieldAreaHa:99}, {sourceBlockCode:'B02',mapBlockCode:'B2'}, {totalPalms:2081});
+ assert.equal(view.mt,271.79);assert.equal(view.yieldPerHa,271.79/13.00625);assert.equal(view.palmsPerEffectiveHa,160);
+ for(const effectiveHa of [null,0,undefined])assert.equal(productionView({...record,effectiveHa},null,null).yieldPerHa,null);
+ const r=await request(app).get('/production/recorded').query({estateId:'estate-a',mapBlockCode:'E-4'}).expect(200);
+ const actual=r.body.items.find(x=>x.year===2025);assert.equal(actual.mt,120);assert.equal(actual.yieldPerHa,60);
+ const month=await request(app).get('/production/recorded').query({estateId:'estate-a',frequency:'monthly',mapBlockCode:'E-4'}).expect(200);
+ assert.equal(month.body.items.find(x=>x.month==='2026-07').mt,7);
+ await request(app).get('/production/recorded').query({estateId:'estate-b'}).expect(403);
+});

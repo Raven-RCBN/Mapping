@@ -32,17 +32,20 @@ export const monthlyId = (estateId, sourceBlockId, period) => 'mp-'+createHash('
 export function productionView(r, name, block) {
   const shared = name?.linkMethod === 'shared_polygon';
   const comparable = !shared && r.workbookPalms != null && block?.totalPalms != null;
+  const effectiveHa = Number.isFinite(r.effectiveHa) && r.effectiveHa > 0 ? r.effectiveHa : null;
   const received = r.receiptStatus === 'received';
   return {...r, id:r._id, sourceBlockCode:name?.sourceBlockCode, division:name?.division,
     mapBlockCode:name?.mapBlockCode ?? null, linkMethod:name?.linkMethod ?? 'unmapped',
+    totalPalms:block?.totalPalms ?? null, yieldAreaHa:effectiveHa,
+    palmsPerEffectiveHa:effectiveHa && Number.isFinite(block?.totalPalms) ? block.totalPalms/effectiveHa : null,
     gisPalms:block?.totalPalms ?? null, gisSurveyDate:block?.surveyDate ?? null,
     gisAreaHa:block?.gisAreaHa ?? null,
     palmDifference:comparable ? r.workbookPalms-block.totalPalms : null,
     palmStatus:shared ? 'Shared polygon — counts not comparable' : !comparable ? 'Count unavailable' :
       r.workbookPalms===block.totalPalms ? 'Agrees' : 'Palm count differs',
     abw:received && r.bunches>0 && r.mt!=null ? r.mt*1000/r.bunches : null,
-    yieldPerHa:received && r.yieldAreaHa>0 && r.mt!=null ? r.mt/r.yieldAreaHa : null,
-    bunchesPerHa:received && r.yieldAreaHa>0 && r.bunches!=null ? r.bunches/r.yieldAreaHa : null,
+    yieldPerHa:received && effectiveHa>0 && r.mt!=null ? r.mt/effectiveHa : null,
+    bunchesPerHa:received && effectiveHa>0 && r.bunches!=null ? r.bunches/effectiveHa : null,
     bunchesPerPalm:received && r.workbookPalms>0 && r.bunches!=null ? r.bunches/r.workbookPalms : null,
   };
 }
@@ -80,6 +83,16 @@ export function installProduction(api, models) {
     ]);
     res.json({months:months.sort().reverse(),latestReceived:latest?.month||null,
       names:inventory.names.map(n=>({...n,id:n._id})),mapBlocks:inventory.blocks.filter(b=>b.mapBlockNames?.length).map(b=>b.blockCode).sort()});
+  });
+  api.get('/production/recorded',async(req,res)=>{
+    const estateId=await scope(req);
+    const q=z.object({frequency:z.enum(['monthly','yearly']).default('yearly'),mapBlockCode:z.string().max(100).optional()}).parse(req.query);
+    const {names,blocks}=await namesAndBlocks(estateId);
+    const nm=new Map(names.map(n=>[n._id,n])),bm=new Map(blocks.map(b=>[b.blockCode,b]));
+    const annual=q.frequency==='yearly',Model=annual?YearlyProduction:MonthlyProduction,limit=annual?5000:60000;
+    const raw=await Model.find({estateId,...(q.mapBlockCode?{sourceBlockId:{$in:names.filter(n=>n.mapBlockCode===q.mapBlockCode).map(n=>n._id)}}:{})}).select('-history').limit(limit+1).maxTimeMS(10000).lean();
+    if(raw.length>limit)throw new QueryError('Too many production records',413);
+    res.set('Cache-Control','private, no-store').json({items:raw.map(r=>{const n=nm.get(r.sourceBlockId);return productionView(r,n,bm.get(n?.mapBlockCode));})});
   });
   api.get('/production/allocated',async(req,res)=>{
     const estateId=await scope(req);
