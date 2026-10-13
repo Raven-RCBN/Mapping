@@ -40,7 +40,13 @@ export function fertiliserAnalysis(data,{year=2025,division='',block='',product=
     const areas=new Map(rs.map(r=>[r.mapBlockCode,r.mapHa]));const area=[...areas.values()].reduce((a,b)=>a+(b||0),0);
     return {year:y,count:rs.length,value:quantity===null?null:metric==='bags'?quantity/50:metric==='perHa'?(area>0?quantity/area:null):quantity};
   });
-  return {rows,mapped,unmapped,blocks,annual,quantity:blocks.length&&blocks.every(b=>Number.isFinite(b.quantity))?sum(blocks,'quantity'):null,area:sum(blocks,'mapHa')};
+  const quantity=blocks.length&&blocks.every(b=>Number.isFinite(b.quantity))?sum(blocks,'quantity'):null;
+  const palmsByBlock=new Map((data.blockPalms||[]).map(b=>[b.blockCode,b.totalPalms]));
+  const counts=blocks.map(b=>palmsByBlock.get(b.mapBlockCode));
+  const totalPalms=counts.length&&counts.every(p=>Number.isFinite(p)&&p>=0)?counts.reduce((a,b)=>a+b,0):null;
+  const kilograms=product==='solids'||data.products[Number(product)]?.unit==='kg';
+  const kgPerPalm=kilograms&&quantity!==null&&totalPalms>0?quantity/totalPalms:null;
+  return {rows,mapped,unmapped,blocks,annual,quantity,area:sum(blocks,'mapHa'),totalPalms,kgPerPalm};
 }
 
 export const fertiliserColours=['#e7f2ee','#b6d9cc','#72b7a0','#2e8f72','#095b46'];

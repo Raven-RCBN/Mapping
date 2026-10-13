@@ -54,3 +54,24 @@ test('man-day weights allocate per activity, reconcile kobo and exclude missing 
  const result=allocateActivityWages([...rows,{...rows[0],activity:'OTHER',amountMinor:100}],other,['A','B'],'A');
  assert.deepEqual(result.rows.map(r=>r.amountMinor),[25,75]);
 });
+
+test('Kg/Palm uses weighted block inventory counts once per shared polygon and respects filters',()=>{
+ const data={products:[{unit:'kg'},{unit:'L'}],fertiliserSections:[{year:2025}],blockPalms:[{blockCode:'A',totalPalms:10},{blockCode:'B',totalPalms:30}],fertiliser:[
+ {year:2025,division:'D',mapBlockCode:'A',mapHa:1,quantities:[100,5]},
+ {year:2025,division:'D',mapBlockCode:'A',mapHa:1,quantities:[50,5]},
+ {year:2025,division:'E',mapBlockCode:'B',mapHa:3,quantities:[50,10]},
+ {year:2025,division:'D',mapBlockCode:null,quantities:[900,10]}]};
+ const a=fertiliserAnalysis(data);
+ assert.equal(a.totalPalms,40);assert.equal(a.kgPerPalm,5);
+ assert.equal(fertiliserAnalysis(data,{block:'A'}).kgPerPalm,15);
+ assert.equal(fertiliserAnalysis(data,{division:'E'}).kgPerPalm,50/30);
+ assert.equal(fertiliserAnalysis(data,{metric:'bags',block:'A'}).kgPerPalm,15);
+ assert.equal(fertiliserAnalysis(data,{product:'1'}).kgPerPalm,null);
+ assert.equal(fertiliserAnalysis(data,{year:2024}).kgPerPalm,null);
+ data.blockPalms[0].totalPalms=null;assert.equal(fertiliserAnalysis(data).kgPerPalm,null);
+ data.blockPalms[0].totalPalms=0;assert.equal(fertiliserAnalysis(data,{block:'A'}).kgPerPalm,null);
+ data.blockPalms[0].totalPalms=10;data.fertiliser[0].quantities[0]=null;
+ assert.equal(fertiliserAnalysis(data).kgPerPalm,null);
+ data.fertiliser[0].quantities[0]=0;data.fertiliser[1].quantities[0]=0;
+ assert.equal(fertiliserAnalysis(data,{block:'A'}).kgPerPalm,0);
+});

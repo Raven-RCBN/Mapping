@@ -3,3 +3,5 @@
 .hts-annual-history{max-width:720px;margin:20px 0}.fertiliser-map-key{background:#fffffff2;border:1px solid #cadbd1;border-radius:6px;padding:7px 10px;color:#244334;max-width:100%;font-size:11px}.fertiliser-map-key strong{display:block;font-size:11px;margin-bottom:4px}.fertiliser-map-key>div{display:flex;flex-wrap:wrap;gap:5px 10px}.fertiliser-map-key span{display:inline-flex;align-items:center;gap:4px}.fertiliser-map-key i{border:1px solid #88978f;width:12px;height:12px;display:inline-block}@media(max-width:600px){.fertiliser-map-key{font-size:9px;padding:5px;max-width:100%}.fertiliser-map-key strong{font-size:10px}}
 
 .map-legend.fertiliser-legend{background:transparent;border:0;padding:0;max-width:calc(100% - 32px);flex-wrap:wrap}.map-legend .fertiliser-map-key i{width:12px;height:12px;border-radius:0}
+
+@media(min-width:851px){.hts-kpis.fertiliser-kpis{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}}

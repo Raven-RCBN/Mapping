@@ -16,6 +16,10 @@ export function installHtsAnalysis(api,models,config){
       .select('year mapBlockCode task activity mandayUnits -_id').limit(50001).lean():[];
     if(blockMandays.length>50000)throw new QueryError('Too many block man-day records',413);
     snapshot.blockMandays=blockMandays;
+    const blockPalms=models.Block?await models.Block.find({estateId})
+      .select('blockCode totalPalms -_id').limit(5001).lean():[];
+    if(blockPalms.length>5000)throw new QueryError('Too many block palm records',413);
+    snapshot.blockPalms=blockPalms;
     res.set('Cache-Control','private, no-store').json(snapshot);
   });
 }
