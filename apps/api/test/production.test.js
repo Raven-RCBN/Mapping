@@ -80,3 +80,16 @@ test('monthly harvesting days retain real zero separately from blanks',async()=>
  assert.equal(a.body.items.find(r=>r.month==='2026-06').harvestingDays,0);
  assert.equal(a.body.items.find(r=>r.month==='2026-07').harvestingDays,undefined);
 });
+
+test('palm allocation is estate-scoped and block filtering preserves the whole division denominator',async()=>{
+ await m.Block.updateOne({_id:'block-a'},{$set:{division:'2022',palmsPerHectare:75}});
+ await m.Block.create({_id:'block-shared',estateId:'estate-a',blockCode:'F8+F9A',division:'2022',totalPalms:450,palmsPerHectare:150});
+ await m.YearlyProduction.create({_id:'annual-palm',estateId:'estate-a',sourceBlockId:'name-a',month:'2025-12',year:2025,periodLabel:'Full year',receiptStatus:'received',mt:120,effectiveHa:2});
+ const r=await request(app).get('/production/allocated').query({estateId:'estate-a',mapBlockCode:'E-4'}).expect(200);
+ const a=r.body.items.find(x=>x.year===2025);assert.equal(a.mt,30);assert.equal(a.divisionPalms,600);assert.equal(a.effectiveHa,2);assert.equal(a.yieldPerHa,15);
+ const all=await request(app).get('/production/allocated').query({estateId:'estate-a'}).expect(200);assert.equal(all.body.items.filter(x=>x.year===2025).reduce((n,x)=>n+x.mt,0),120);
+ const monthly=await request(app).get('/production/allocated').query({estateId:'estate-a',frequency:'monthly',month:'2026-07',mapBlockCode:'E-4'}).expect(200);assert.equal(monthly.body.items[0].mt,1.75);
+ assert.equal((await m.YearlyProduction.findById('annual-palm')).mt,120);
+ await request(app).get('/production/allocated').query({estateId:'estate-b'}).expect(403);
+ await request(app).get('/production/allocated').query({estateId:'estate-a',frequency:'bad'}).expect(400);
+});

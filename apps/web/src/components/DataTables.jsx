@@ -151,7 +151,7 @@ export default function DataTables({
     };
   }, [remoteKey, !!server]);
   const tabs = [
-    ...(!popup&&productionEstateId?[["monthly","Monthly production",0],["parameters","Monthly parameters",0],["names","Block-name history",0],["yearly","Yearly source totals",0],["wages","Wages",0],["comments","Block comments",0]]:[]),
+    ...(!popup&&productionEstateId?[["monthly","Monthly production",0],["parameters","Monthly parameters",0],["names","Block-name history",0],["yearly","Yearly production",0],["wages","Wages",0],["comments","Block comments",0]]:[]),
     ["blocks", "Block details", blocks.length],
     [
       "harvesting",

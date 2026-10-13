@@ -1,3 +1,4 @@
+import AllocatedProductionReport from './AllocatedProductionReport';
 import {useEffect,useState} from 'react';
 import {api} from '../api';
 export const displayNumber=v=>v==null?'—':typeof v==='number'?v.toLocaleString(undefined,{maximumFractionDigits:2}):String(v);
@@ -6,7 +7,7 @@ const numericFields=[['mt','FFB (MT)'],['bunches','Bunches'],['workbookPalms','W
 const allowed=['sourceBlockId','month','receiptStatus',...numericFields.map(x=>x[0]),'plantingYear','parameterNote','note','sourceFile','sourceSheet','sourceRow','sourceSystem','sourceKey','sourceHash','sourceCells','issues'];
 export const writableRecord=r=>Object.fromEntries(allowed.filter(k=>r[k]!==undefined).map(k=>[k,r[k]]));
 const errorText=e=>e.response?.data?.error||e.message;
-export default function ProductionTables({estateId,role,view,onMap}) {
+function SourceProductionTables({estateId,role,view,onMap}) {
   const [meta,setMeta]=useState(null),[period,setPeriod]=useState(''),[allMonths,setAllMonths]=useState(false),[q,setQ]=useState(''),[match,setMatch]=useState('all'),[page,setPage]=useState(0),[result,setResult]=useState(null),[busy,setBusy]=useState(false),[error,setError]=useState(''),[refresh,setRefresh]=useState(0),[edit,setEdit]=useState(null),[saving,setSaving]=useState(false),[history,setHistory]=useState(null),[upload,setUpload]=useState(null),[message,setMessage]=useState('');
   const canWrite=['admin','manager'].includes(role),namesView=view==='names',annual=view==='yearly';
   useEffect(()=>{let active=true;setMeta(null);api.get('/production/meta',{params:{estateId}}).then(({data})=>{if(active){setMeta(data);setPeriod(p=>p||data.latestReceived||data.months[0]||new Date().toISOString().slice(0,7));}}).catch(e=>active&&setError(errorText(e)));return()=>{active=false;};},[estateId,refresh]);
@@ -46,4 +47,10 @@ export default function ProductionTables({estateId,role,view,onMap}) {
     {history&&<div className="production-editor"><h3>Saved changes · {history.row.sourceBlockCode} · {history.row.month}</h3><button className="button" onClick={()=>setHistory(null)}>Close history</button>{history.items.length?history.items.map((h,i)=><p key={i}>{new Date(h.at).toLocaleString()} · {h.by} · previous FFB {displayNumber(h.previous.mt)} MT, bunches {displayNumber(h.previous.bunches)}, palms {displayNumber(h.previous.workbookPalms)}</p>):<p>No manual revisions. Original imported record.</p>}</div>}
     <div className="table-pagination"><button className="button" disabled={!page||busy} onClick={()=>setPage(p=>p-1)}>Previous</button><span>Page {page+1} of {Math.max(1,Math.ceil(count/25))}</span><button className="button" disabled={busy||(page+1)*25>=count} onClick={()=>setPage(p=>p+1)}>Next</button></div>
   </section>;
+}
+
+export default function ProductionTables(props){
+ const [basis,setBasis]=useState('palms');
+ const production=['monthly','yearly'].includes(props.view);
+ return <>{production&&<div className="production-controls"><label>Production basis<select value={basis} onChange={e=>setBasis(e.target.value)}><option value="palms">Palm-allocated tonnage</option><option value="source">Original source records</option></select></label></div>}{production&&basis==='palms'?<AllocatedProductionReport {...props}/>:<SourceProductionTables {...props}/>}</>;
 }

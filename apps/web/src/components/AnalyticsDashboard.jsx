@@ -12,7 +12,7 @@ function YieldAnalytics({estateId,boundary,enabled,offline,selection,onHighlight
   useEffect(()=>{
     if(!enabled||offline)return;
     const c=new AbortController();setBusy(true);setError('');setRows([]);setApplied(null);
-    api.get('/production/yearly',{params:{estateId},signal:c.signal}).then(({data})=>{
+    api.get('/production/allocated',{params:{estateId},signal:c.signal}).then(({data})=>{
       setRows(data.items);
       const years=[...new Set(data.items.map(r=>r.year))].sort((a,b)=>b-a);
       const complete=years.find(y=>data.items.some(r=>r.year===y&&r.receiptStatus==='received')&&data.items.filter(r=>r.year===y&&r.receiptStatus==='received').every(r=>r.periodLabel==='Full year'));
@@ -30,7 +30,6 @@ function YieldAnalytics({estateId,boundary,enabled,offline,selection,onHighlight
   const change=setter=>e=>{setter(e.target.value);setApplied(null);};
   const valid=year!==''&&threshold.trim()!==''&&Number.isFinite(Number(threshold))&&Number(threshold)>=0;
   const selectedCode=selection?.startsWith(estateId+'::')?selection.slice(estateId.length+2):null;
-  const shared=analysis&&new Set(analysis.selected.map(r=>r.mapBlockCode)).size<analysis.selected.length;
   return <section className="production-dashboard analytics-dashboard" aria-label="Yield analytics">
     <div className="production-heading"><div><h2>Yield analytics</h2><p>Find mapped blocks by annual production per hectare.</p></div><button className="button" disabled={busy||offline} onClick={()=>setRefresh(v=>v+1)}>Refresh data</button></div>
     {offline?<p>Connect to load annual production for map analytics.</p>:<>
@@ -49,9 +48,8 @@ function YieldAnalytics({estateId,boundary,enabled,offline,selection,onHighlight
         <div className="analytics-result-summary" role="status"><span className="analytics-swatch"/><strong>{analysis.blockCodes.length} matching blocks</strong><span>{description}</span><button className="button" onClick={onMap}>View on map</button></div>
         <p>{analysis.eligibleBlocks} of {mapCodes.length} mapped blocks have usable yield data for {applied.year}. {analysis.missingBlocks.length} without yield data are excluded.</p>
         {analysis.selected.some(r=>r.periodLabel!=='Full year')&&<p>Partial-year records are labelled by their reporting period below.</p>}
-        {shared&&<p>Shared polygons highlight when any separate source record matches. Source records are not combined.</p>}
-        {analysis.matches.length?<div className="data-table-scroll"><table className="analytics-results"><caption>Matching source records · {description}</caption><thead><tr><th>Map block</th><th>Original name / group</th><th>Ton/Ha</th><th>FFB (MT)</th><th>Yield area (ha)</th><th>Period</th></tr></thead><tbody>{analysis.matches.map(r=><tr key={r.id||`${r.sourceBlockId}-${r.year}`} aria-selected={r.mapBlockCode===selectedCode}><td><button className="analytics-block-link" onClick={()=>onSelect(r.mapBlockCode)}>{r.mapBlockCode}</button></td><td>{r.sourceBlockCode} · {r.division}</td><td>{displayNumber(r.yieldPerHa)}</td><td>{displayNumber(r.mt)}</td><td>{displayNumber(r.yieldAreaHa)}</td><td>{r.periodLabel}</td></tr>)}</tbody></table></div>:<p>No blocks match this threshold. Try another year or value.</p>}
-        <details className="analytics-method"><summary>Yield basis and coverage</summary><p>Ton/Ha = annual FFB tonnage ÷ each source record’s yield area, matching the production charts. Thresholds use unrounded values; “above” and “below” exclude values exactly equal to the threshold.</p>{analysis.missingBlocks.length>0&&<p>Without usable yield: {analysis.missingBlocks.join(', ')}.</p>}</details>
+        {analysis.matches.length?<div className="data-table-scroll"><table className="analytics-results"><caption>Matching blocks · {description}</caption><thead><tr><th>Map block</th><th>Division</th><th>Ton/Ha</th><th>Allocated FFB (MT)</th><th>Effective ha</th><th>Period</th></tr></thead><tbody>{analysis.matches.map(r=><tr key={r.id||`${r.sourceBlockId}-${r.year}`} aria-selected={r.mapBlockCode===selectedCode}><td><button className="analytics-block-link" onClick={()=>onSelect(r.mapBlockCode)}>{r.mapBlockCode}</button></td><td>{r.division}</td><td>{displayNumber(r.yieldPerHa)}</td><td>{displayNumber(r.mt)}</td><td>{displayNumber(r.yieldAreaHa)}</td><td>{r.periodLabel}</td></tr>)}</tbody></table></div>:<p>No blocks match this threshold. Try another year or value.</p>}
+        <details className="analytics-method"><summary>Yield basis and coverage</summary><p>Block tonnes = division tonnes × block palms ÷ division palms. Ton/Ha = allocated block tonnes ÷ recorded effective hectares. Thresholds use unrounded values; “above” and “below” exclude values exactly equal to the threshold.</p>{analysis.missingBlocks.length>0&&<p>Without usable yield: {analysis.missingBlocks.join(', ')}.</p>}</details>
       </>}
     </>}
   </section>;

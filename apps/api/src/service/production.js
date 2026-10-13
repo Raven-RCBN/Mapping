@@ -1,3 +1,4 @@
+import {allocateProduction} from '../../../../packages/shared/production-allocation.js';
 import {installProductionComments} from './production-comments.js';
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
@@ -79,6 +80,20 @@ export function installProduction(api, models) {
     ]);
     res.json({months:months.sort().reverse(),latestReceived:latest?.month||null,
       names:inventory.names.map(n=>({...n,id:n._id})),mapBlocks:inventory.blocks.filter(b=>b.mapBlockNames?.length).map(b=>b.blockCode).sort()});
+  });
+  api.get('/production/allocated',async(req,res)=>{
+    const estateId=await scope(req);
+    const q=z.object({frequency:z.enum(['monthly','yearly']).default('yearly'),month:month.optional(),mapBlockCode:z.string().max(100).optional()}).parse(req.query);
+    const {names,blocks}=await namesAndBlocks(estateId);
+    const estate=await Estate.findById(estateId).select('boundary').lean();
+    const codes=[...new Set((estate.boundary?.features||[]).map(f=>f.properties?.blockName||f.properties?.Block_No).filter(Boolean))];
+    const annual=q.frequency==='yearly',Model=annual?YearlyProduction:MonthlyProduction,limit=annual?5000:60000;
+    const raw=await Model.find({estateId,...(!annual&&q.month?{month:q.month}:{})}).select('sourceBlockId month year periodLabel receiptStatus mt bunches harvestingDays effectiveHa').limit(limit+1).maxTimeMS(10000).lean();
+    if(raw.length>limit)throw new QueryError('Too many production records',413);
+    const result=allocateProduction(raw,names,blocks,codes,{annual});
+    // Apply selection only after calculating complete division totals and palm weights.
+    if(q.mapBlockCode)result.items=result.items.filter(r=>r.mapBlockCode===q.mapBlockCode);
+    res.set('Cache-Control','private, no-store').json(result);
   });
   api.get('/production/monthly',async(req,res)=>{
     const estateId=await scope(req), q=z.object({month:month.optional(),year:z.string().regex(/^\d{4}$/).optional(),
