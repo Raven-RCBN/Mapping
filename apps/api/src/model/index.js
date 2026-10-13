@@ -285,6 +285,18 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     workDate: -1,
     _id: -1,
   });
+  const AnnualRainfall=model('MappingAnnualRainfall',{
+    _id:String, estateId:{type:String,required:true,index:true},
+    year:{type:Number,required:true,min:1900,max:2200},
+    mm:{type:Number,required:true,min:0},
+    fromMonth:{type:Number,required:true,min:1,max:12},
+    toMonth:{type:Number,required:true,min:1,max:12},
+    partial:{type:Boolean,required:true},period:String,
+    sourceId:{type:String,required:true},sourceName:String,sourceFile:String,
+    active:{type:Boolean,default:true},
+  });
+  ensureIndex(AnnualRainfall,{estateId:1,year:1,sourceId:1},{unique:true});
+  ensureIndex(AnnualRainfall,{estateId:1,year:1},{unique:true,partialFilterExpression:{active:true}});
   return {
     Estate,
     Asset,
@@ -301,6 +313,7 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     Wage,
     WageArea,
     BlockManday,
+    AnnualRainfall,
   };
 }
 export const {
@@ -319,4 +332,5 @@ export const {
   Wage,
   WageArea,
   BlockManday,
+  AnnualRainfall,
 } = createModels();

@@ -1,0 +1,64 @@
+{
+  "estateId": "f7b09538-fd0c-4ac3-b3ba-b6bf90e400ae",
+  "sourceId": "jb-farms-rainfall-20261014",
+  "sourceName": "JB Farms monthly rainfall records",
+  "sourceFile": "Screenshot 2026-10-14 at 4.24.21 AM.png",
+  "records": [
+    {
+      "year": 2015,
+      "mm": 3305.3,
+      "fromMonth": 1,
+      "toMonth": 12,
+      "partial": false,
+      "period": "Reported annual total"
+    },
+    {
+      "year": 2016,
+      "mm": 1672.3,
+      "fromMonth": 5,
+      "toMonth": 12,
+      "partial": true,
+      "period": "May\u2013Dec supplied"
+    },
+    {
+      "year": 2017,
+      "mm": 2029.9,
+      "fromMonth": 1,
+      "toMonth": 12,
+      "partial": false,
+      "period": "Reported annual total"
+    },
+    {
+      "year": 2018,
+      "mm": 3621.1,
+      "fromMonth": 1,
+      "toMonth": 12,
+      "partial": false,
+      "period": "Reported annual total"
+    },
+    {
+      "year": 2019,
+      "mm": 4904.5,
+      "fromMonth": 1,
+      "toMonth": 12,
+      "partial": false,
+      "period": "Reported annual total"
+    },
+    {
+      "year": 2020,
+      "mm": 3726.8,
+      "fromMonth": 1,
+      "toMonth": 12,
+      "partial": false,
+      "period": "Reported annual total"
+    },
+    {
+      "year": 2021,
+      "mm": 1377.2,
+      "fromMonth": 1,
+      "toMonth": 6,
+      "partial": true,
+      "period": "Jan\u2013Jun supplied"
+    }
+  ]
+}

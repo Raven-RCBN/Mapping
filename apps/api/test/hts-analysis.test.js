@@ -10,10 +10,11 @@ test('HTS snapshots require estate scope, do not expose paths, and reject mismat
  const dir=await fs.mkdtemp(path.join(os.tmpdir(),'hts-test-'));await fs.mkdir(path.join(dir,'hts-analysis'));
  try{
  const app=express();app.use((req,res,next)=>{req.access={estateIds:['a','missing','wrong'],role:'viewer'};next();});
- let queries=0,palmQueries=0;
+ let queries=0,palmQueries=0,rainQueries=0;
+ const rainfall=[{year:2021,mm:1377.2,partial:true}];
  const blockPalms=[{blockCode:"A",totalPalms:100}];
  const blockMandays=[{year:2025,mapBlockCode:'A',task:'UPKEEP',activity:'SECURITY',mandayUnits:1e6}];
- installHtsAnalysis(app,{Estate:{exists:async()=>true},BlockManday:{find:query=>{
+ installHtsAnalysis(app,{AnnualRainfall:{find:query=>{rainQueries++;assert.deepEqual(query,{estateId:'a',active:true});return {select:()=>({sort:order=>{assert.deepEqual(order,{year:1});return {limit:n=>{assert.equal(n,501);return {lean:async()=>rainfall};}};}})};}},Estate:{exists:async()=>true},BlockManday:{find:query=>{
    queries++;assert.deepEqual(query,{estateId:'a',year:2025});
    return {select:fields=>{assert.equal(fields,'year mapBlockCode task activity mandayUnits -_id');return {limit:n=>{assert.equal(n,50001);return {lean:async()=>blockMandays};}};}};
  }},Block:{find:query=>{
@@ -24,6 +25,7 @@ test('HTS snapshots require estate scope, do not expose paths, and reject mismat
  await fs.writeFile(path.join(dir,'hts-analysis/a.json'),JSON.stringify({estateId:'a',wages:[{amountMinor:123}]}));
  await fs.writeFile(path.join(dir,'hts-analysis/wrong.json'),JSON.stringify({estateId:'a'}));
  const result=(await request(app).get('/hts-analysis?estateId=a').expect(200)).body;
+ assert.deepEqual(result.rainfall,rainfall);assert.equal(rainQueries,1);
  assert.equal(result.wages[0].amountMinor,123);assert.deepEqual(result.blockMandays,blockMandays);assert.deepEqual(result.blockPalms,blockPalms);
  await request(app).get('/hts-analysis?estateId=b').expect(403);
  await request(app).get('/hts-analysis?estateId=../a').expect(400);
