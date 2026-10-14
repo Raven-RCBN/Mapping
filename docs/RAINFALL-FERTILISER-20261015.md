@@ -17,3 +17,7 @@ Rollback: restore the previous API link and backed-up frontend entry files, rest
 ## Compact comparison chart follow-up
 
 The yearly comparison card is capped at 1,120 px, with shorter aligned plots, DM Sans labels, lighter gridlines, smaller markers, clean axis intervals and a concise summary. Partial-year markers and source values are preserved, including decimal precision in the older rainfall records. Longer source checks remain available in the details disclosure. This is a frontend-only update; payroll allocations and rainfall records are unchanged. Frontend rollback files are under `/home/deploy_mapping/backups/20261015-before-compact-charts`.
+
+## Monthly rainfall chart follow-up
+
+Monthly rainfall now uses the same compact 1,120 px card and DM Sans typography as the yearly comparison. Slimmer muted-blue bars, lighter gridlines, clean 250 mm ticks for 2026 and smaller numeric labels reduce visual weight. The YTD badge, missing-month markers, year selector, monthly table and source discrepancy notices are retained. The source data is unchanged. Frontend rollback files are under `/home/deploy_mapping/backups/20261015-before-monthly-rainfall-style`.
