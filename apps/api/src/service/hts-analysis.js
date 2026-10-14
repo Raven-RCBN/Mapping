@@ -21,7 +21,7 @@ export function installHtsAnalysis(api,models,config){
     if(blockPalms.length>5000)throw new QueryError('Too many block palm records',413);
     snapshot.blockPalms=blockPalms;
     snapshot.rainfall=models.AnnualRainfall?await models.AnnualRainfall.find({estateId,active:true})
-      .select('year mm fromMonth toMonth partial period sourceId sourceName sourceFile -_id').sort({year:1}).limit(501).lean():[];
+      .select('year mm fromMonth toMonth partial period rainDays monthly monthlySumMm monthlySumRainDays sourceId sourceName sourceFile -_id').sort({year:1}).limit(501).lean():[];
     if(snapshot.rainfall.length>500)throw new QueryError('Too many rainfall records',413);
     res.set('Cache-Control','private, no-store').json(snapshot);
   });

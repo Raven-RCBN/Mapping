@@ -292,6 +292,8 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     fromMonth:{type:Number,required:true,min:1,max:12},
     toMonth:{type:Number,required:true,min:1,max:12},
     partial:{type:Boolean,required:true},period:String,
+    rainDays:Number,monthlySumMm:Number,monthlySumRainDays:Number,
+    monthly:[{_id:false,month:{type:Number,min:1,max:12},mm:{type:Number,min:0,default:null},rainDays:{type:Number,min:0,max:31,default:null},status:{type:String,enum:["recorded","NR","not_supplied"]}}],
     sourceId:{type:String,required:true},sourceName:String,sourceFile:String,
     active:{type:Boolean,default:true},
   });
