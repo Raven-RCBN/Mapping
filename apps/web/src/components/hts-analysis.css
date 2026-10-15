@@ -15,10 +15,10 @@
 @media(max-width:600px){.fertiliser-yield{padding:12px}.fertiliser-yield h3{font-size:.9rem}.fertiliser-yield-summary{gap:6px 14px}.fertiliser-yield-plots{min-width:680px}}
 
 
-.fertiliser-history-grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:24px;margin:22px 0;align-items:start}
+.fertiliser-history-grid{display:grid;grid-template-columns:minmax(0,.75fr) minmax(0,1.25fr);gap:24px;margin:22px 0;align-items:start}
 .fertiliser-history-grid>.hts-annual-history{max-width:none;margin:0}
-.fertiliser-history-grid>.fertiliser-yield{min-width:0;margin:0}
-@media(max-width:1100px){.fertiliser-history-grid{grid-template-columns:1fr}}
+.fertiliser-history-grid>.fertiliser-yield,.fertiliser-history-grid>.rainfall-monthly{min-width:0;max-width:none;margin:0}
+@media(max-width:1100px){.fertiliser-history-grid{grid-template-columns:1fr}.fertiliser-history-grid>.hts-annual-history{order:0}.fertiliser-history-grid>.fertiliser-wage-history{order:1}.fertiliser-history-grid>.fertiliser-yield{order:2}.fertiliser-history-grid>.rainfall-monthly{order:3}}
 
 .rainfall-monthly{border:1px solid #dce5df;border-radius:10px;padding:16px;background:#fff;min-width:0}.fertiliser-wage-subtitle,.fertiliser-wage-note{font-size:.8rem;color:#52645b;line-height:1.5;margin:8px 0}.fertiliser-wage-total{background:#f3f7f4;border-radius:6px;padding:10px 12px;margin:12px 0;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;font-size:.85rem}.fertiliser-wage-history details,.rainfall-monthly details{font-size:.8rem}.rainfall-monthly{margin:22px 0}.rainfall-heading{display:flex;justify-content:space-between;align-items:start;gap:16px;flex-wrap:wrap}.rainfall-heading p{font-size:.85rem;color:#52645b}.rainfall-heading label{font-size:.8rem;display:grid;gap:5px}.rainfall-heading select{padding:8px;border:1px solid #cadbd1;border-radius:5px;background:white}.rainfall-monthly .production-warning{font-size:.8rem;padding:10px;background:#fff8e8;border-radius:5px}@media(max-width:500px){.rainfall-monthly{padding:10px}}
 
@@ -30,3 +30,10 @@
 .rainfall-heading p{font-size:.72rem;color:#63756a;margin:0;display:flex;align-items:baseline;gap:6px}.rainfall-heading p strong{font-weight:600;color:#244b38}.rainfall-heading p>span{margin:0 4px;color:#9aa69e}.rainfall-heading label{font-size:.7rem;color:#697b70;gap:4px}.rainfall-heading select{padding:6px 10px;font-size:.78rem;min-height:32px;color:#244b38;font-family:inherit}
 .rainfall-monthly-plot{display:block;width:100%;height:auto;min-width:620px;font-family:"DM Sans",Arial,sans-serif}.rainfall-monthly-note,.rainfall-monthly details{font-size:.73rem;color:#697b70;line-height:1.5}.rainfall-monthly-note{margin:10px 0 6px}.rainfall-monthly details summary{cursor:pointer;font-weight:500;color:#456452}
 @media(max-width:600px){.rainfall-monthly{padding:12px}.rainfall-heading h3{font-size:.9rem}.rainfall-heading h3>small{margin-left:6px}.rainfall-heading{gap:10px}}
+
+/* All four analytics panels use the same card surface. */
+.fertiliser-history-grid>.hts-annual-history,.fertiliser-history-grid>.fertiliser-wage-history{background:#fff;border:1px solid #dce5df;border-radius:10px;padding:18px 20px;font-family:"DM Sans",Arial,sans-serif}
+.fertiliser-history-grid>.hts-annual-history figcaption,.fertiliser-history-grid>.fertiliser-wage-history h3{font-family:"DM Sans",Arial,sans-serif;font-size:.95rem;font-weight:650;line-height:1.4;letter-spacing:-.015em}
+@media(max-width:600px){.fertiliser-history-grid>.hts-annual-history,.fertiliser-history-grid>.fertiliser-wage-history{padding:12px}}
+
+.fertiliser-wage-heading{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:start;margin-bottom:14px}.fertiliser-wage-heading h3{margin:0}.fertiliser-wage-heading label{display:grid;gap:4px;font-size:.7rem;color:#697b70}.fertiliser-wage-heading select{padding:6px 8px;border:1px solid #cadbd1;border-radius:5px;background:white;color:#244b38;font-size:.78rem;font-family:inherit;max-width:140px;min-height:32px}
