@@ -75,3 +75,18 @@ test('Kg/Palm uses weighted block inventory counts once per shared polygon and r
  data.fertiliser[0].quantities[0]=0;data.fertiliser[1].quantities[0]=0;
  assert.equal(fertiliserAnalysis(data,{block:'A'}).kgPerPalm,0);
 });
+
+ test('kg/palm map ranges follow selected-year quantities with missing records in the lightest band',async()=>{
+ const {fertiliserPalmBands,fertiliserColour,fertiliserMapLayer}=await import('./hts-analysis.js');
+ const data={products:[{unit:'kg'}],fertiliserSections:[{year:2024},{year:2025}],blockPalms:[{blockCode:'A',totalPalms:100},{blockCode:'B',totalPalms:0}],fertiliser:[{year:2024,mapBlockCode:'A',mapHa:1,quantities:[100]},{year:2025,mapBlockCode:'A',mapHa:1,quantities:[275]},{year:2025,mapBlockCode:'B',mapHa:1,quantities:[20]}]};
+ const layer=year=>fertiliserMapLayer(fertiliserAnalysis(data,{year,metric:'perPalm'}),{year,unit:'kg/palm'});
+ const a=layer(2024),b=layer(2025);
+ assert.equal(a.values.A,1);assert.equal(b.values.A,2.75);assert.equal(b.values.B,null);
+ const bands=fertiliserPalmBands(4);
+ assert.deepEqual(bands.map(r=>[r.min,r.max]),[[0,1.5],[1.5,2],[2,2.5],[2.5,3],[3,3.5],[3.5,4],[4,4.5]]);
+ assert.equal(fertiliserColour(null,4,bands),bands[0].color);assert.equal(fertiliserColour(0,4,bands),bands[0].color);
+ for(const [i,band] of bands.entries())assert.equal(fertiliserColour(band.min,4,bands),bands[i].color);
+ assert.notEqual(fertiliserColour(a.values.A,a.max,a.bands),fertiliserColour(b.values.A,b.max,b.bands));
+ assert.equal(a.bands[0].color,b.bands[0].color);
+ assert.equal(fertiliserColour(undefined,b.max,b.bands),b.bands[0].color);
+ });

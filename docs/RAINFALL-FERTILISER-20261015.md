@@ -35,3 +35,9 @@ Yield analytics has a Year of planting dropdown with All planting years and the 
 Validation: 15 API/shared tests passed, including inventory metadata, estate isolation, unknown years, shared polygons, missing yield and strict thresholds. The local browser returned 17 matching blocks for 2025 / planted 2017 / above 20 Ton/Ha, compared with 27 across all planting years. The source values and yield calculations are unchanged. API release: `/home/deploy_mapping/app/releases/20261015-planting-year`; rollback: `/home/deploy_mapping/backups/20261015-before-planting-year`.
 
 Published on 15 October 2026 with the Mapping API healthy. Both public domains serve HTML, JavaScript and CSS matching the tested build. Authenticated filter behavior was verified in the local preview. No production data was changed.
+
+## Fertiliser map range legend
+
+Solid fertiliser map shading now uses selected-year kg per palm from summed block quantities divided by block inventory palms. The right-side legend uses 0–1.5, then 0.5 kg/palm ranges. Boundaries are lower-inclusive and upper-exclusive. Colours stay consistent across years; the displayed scale extends to cover the selected year. Missing quantities or palm counts share the lightest range without changing underlying null values. Zero uses that range too. Liquid product maps retain their selected units. The compact scrollable legend clears zoom controls on desktop and phone. Per user preference, it shows ranges without a missing-record note.
+
+Validation: 12 shared analytics tests, production build and root/service-worker checks passed. Local map preview verified 2024/2025 year changes and responsive placement. Frontend release: `/home/deploy_mapping/releases/20261015-fertiliser-legend`; rollback: `/home/deploy_mapping/backups/20261015-before-fertiliser-legend`.

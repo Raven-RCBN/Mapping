@@ -141,7 +141,7 @@ export default function MapView({
       const code=f.get('blockName'),chosen=state.selectedBlock===`${f.get('estateId')}::${code}`;
       return new Style({
         stroke:state.showBoundaries?new Stroke({color:chosen?'#e0951c':'#456b59',width:chosen?4:1}):undefined,
-        fill:state.showBoundaries?new Fill({color:fertiliserColour(analyticsHighlights.values[code],analyticsHighlights.max)+'dd'}):undefined,
+        fill:state.showBoundaries?new Fill({color:fertiliserColour(analyticsHighlights.values[code],analyticsHighlights.max,analyticsHighlights.bands)+'dd'}):undefined,
         text:state.showLabels?new Text({text:code,font:'12px sans-serif',fill:new Fill({color:'#173f2d'}),stroke:new Stroke({color:'#fff6db',width:3})}):undefined,
       });
     }:new Style({stroke:new Stroke({color:'#6d28d9',width:3}),fill:new Fill({color:'rgba(124,58,237,0.32)'})})});
@@ -799,8 +799,8 @@ export default function MapView({
       <div className={'map-legend'+(analyticsHighlights?.kind==='fertiliser'?' fertiliser-legend':'')}>
         {analyticsHighlights?.kind==='fertiliser'?<div className="fertiliser-map-key" aria-label="Fertiliser map legend">
           <strong>{analyticsHighlights.label} · {analyticsHighlights.unit}</strong>
-          <div><span><i style={{background:'#e7e9ec'}}/>No record</span><span><i style={{background:'#fff'}}/>0</span>
-          {analyticsHighlights.max>0&&fertiliserColours.map((color,i)=><span key={color}><i style={{background:color}}/>{(analyticsHighlights.max*i/5).toLocaleString(undefined,{maximumFractionDigits:1})}–{(analyticsHighlights.max*(i+1)/5).toLocaleString(undefined,{maximumFractionDigits:1})}</span>)}</div>
+          <div>{analyticsHighlights.bands?analyticsHighlights.bands.map(band=><span key={band.min}><i style={{background:band.color}}/>{band.label} kg/palm</span>):<><span><i style={{background:'#e7e9ec'}}/>No record</span><span><i style={{background:'#fff'}}/>0</span>
+          {analyticsHighlights.max>0&&fertiliserColours.map((color,i)=><span key={color}><i style={{background:color}}/>{(analyticsHighlights.max*i/5).toLocaleString(undefined,{maximumFractionDigits:1})}–{(analyticsHighlights.max*(i+1)/5).toLocaleString(undefined,{maximumFractionDigits:1})}</span>)}</>}</div>
         </div>:analyticsHighlights&&<span className="analytics-map-key"><i style={{background:'#7c3aed'}}/>{analyticsHighlights.label} · {analyticsHighlights.blockCodes.length} blocks</span>}
         {Object.entries(types)
           .filter(([t]) =>
