@@ -23,3 +23,18 @@ test('empty years and invalid thresholds never create highlights',()=>{
  for(const threshold of ['',-1,'abc',Infinity])assert.equal(analyseYield(rows,['A'],{year:2025,operator:'gt',threshold}).matches.length,0);
  assert.equal(analyseYield(rows,['A'],{year:2026,operator:'gt',threshold:20}).matches.length,0);
 });
+test('planting year scopes matches, coverage and missing data to the block inventory',()=>{
+ const rows=[row('A',30,{division:'2019A',plantingYear:'2020'}),row('B',25),row('C',null)];
+ const inventory=[{mapBlockCode:'A',plantingYear:'2017'},{mapBlockCode:'B',plantingYear:'2018'},{mapBlockCode:'C',plantingYear:'2017'},{mapBlockCode:'D',plantingYear:'2017'},{mapBlockCode:'outside',plantingYear:'2017'}];
+ const result=analyseYield(rows,['A','B','C','D'],{year:2025,plantingYear:'2017',operator:'gt',threshold:20},inventory);
+ assert.deepEqual(result.blockCodes,['A']);assert.equal(result.cohortBlocks,3);assert.equal(result.eligibleBlocks,1);assert.deepEqual(result.missingBlocks,['C','D']);assert.equal(result.matches[0].mapPlantingYear,'2017');
+ assert.deepEqual(analyseYield(rows,['A','B','C','D'],{year:2025,plantingYear:'',operator:'gt',threshold:20},inventory).blockCodes,['A','B']);
+});
+test('unknown planting years remain in all years and never infer a year from division or production',()=>{
+ const rows=[row('A',30,{division:'2017',plantingYear:'2017'}),row('B',24,{sourceBlockId:'b1'}),row('B',28,{sourceBlockId:'b2'})];
+ const inventory=[{mapBlockCode:'A',plantingYear:null},{mapBlockCode:'B',plantingYear:'2017'}];
+ const selected=analyseYield(rows,['A','B'],{year:2025,plantingYear:2017,operator:'gt',threshold:20},inventory);
+ assert.deepEqual(selected.blockCodes,['B']);assert.equal(selected.matches.length,2);assert.equal(selected.cohortBlocks,1);
+ assert.deepEqual(analyseYield(rows,['A','B'],{year:2025,operator:'gt',threshold:20},inventory).blockCodes,['A','B']);
+ assert.equal(analyseYield(rows,['A','B'],{year:2025,plantingYear:'2022',operator:'gt',threshold:20},inventory).cohortBlocks,0);
+});

@@ -92,7 +92,7 @@ export function installProduction(api, models) {
     const annual=q.frequency==='yearly',Model=annual?YearlyProduction:MonthlyProduction,limit=annual?5000:60000;
     const raw=await Model.find({estateId,...(q.mapBlockCode?{sourceBlockId:{$in:names.filter(n=>n.mapBlockCode===q.mapBlockCode).map(n=>n._id)}}:{})}).select('-history').limit(limit+1).maxTimeMS(10000).lean();
     if(raw.length>limit)throw new QueryError('Too many production records',413);
-    res.set('Cache-Control','private, no-store').json({items:raw.map(r=>{const n=nm.get(r.sourceBlockId);return productionView(r,n,bm.get(n?.mapBlockCode));})});
+    res.set('Cache-Control','private, no-store').json({items:raw.map(r=>{const n=nm.get(r.sourceBlockId);return productionView(r,n,bm.get(n?.mapBlockCode));}),plantingInventory:blocks.map(b=>({mapBlockCode:b.blockCode,plantingYear:/^\d{4}$/.test(String(b.plantingYear??'').trim())?String(b.plantingYear).trim():null}))});
   });
   api.get('/production/allocated',async(req,res)=>{
     const estateId=await scope(req);

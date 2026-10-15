@@ -11,7 +11,7 @@ before(async()=>{
   m=createModels(mongoose,'ProductionTest');
   await Promise.all(Object.values(m).map(x=>x.createIndexes()));
   await m.Estate.create([{_id:'estate-a',name:'Test',boundary:{features:[{properties:{blockName:'F8+F9A'}},{properties:{blockName:'E-4'}}]}},{_id:'estate-b',name:'Other'}]);
-  await m.Block.create({_id:'block-a',estateId:'estate-a',blockCode:'E-4',mapBlockNames:['E-4'],totalPalms:150,surveyDate:'2023-10-31'});
+  await m.Block.create({_id:'block-a',estateId:'estate-a',blockCode:'E-4',plantingYear:'2022',mapBlockNames:['E-4'],totalPalms:150,surveyDate:'2023-10-31'});
   await m.ProductionName.create([{_id:'name-a',estateId:'estate-a',sourceBlockCode:'E4',division:'2022',mapBlockCode:'E-4',linkMethod:'confirmed_alias',firstMonth:'2026-01',lastMonth:'2026-12'},
     {_id:'name-b',estateId:'estate-b',sourceBlockCode:'E4',division:'2022',mapBlockCode:null,linkMethod:'unmapped'}]);
   app=express();app.use(express.json());app.use((req,res,next)=>{req.access={subject:'test-manager',role:req.get('x-role')||'manager',estateIds:['estate-a']};next();});installProduction(app,m);app.use((err,req,res,next)=>res.status(err.status||400).json({error:err.message}));
@@ -99,6 +99,8 @@ test('recorded block production keeps source tonnes and uses only effective hect
  assert.equal(view.mt,271.79);assert.equal(view.yieldPerHa,271.79/13.00625);assert.equal(view.palmsPerEffectiveHa,160);
  for(const effectiveHa of [null,0,undefined])assert.equal(productionView({...record,effectiveHa},null,null).yieldPerHa,null);
  const r=await request(app).get('/production/recorded').query({estateId:'estate-a',mapBlockCode:'E-4'}).expect(200);
+ assert.equal(r.body.plantingInventory.find(b=>b.mapBlockCode==='E-4').plantingYear,'2022');
+ assert.equal(r.body.plantingInventory.find(b=>b.mapBlockCode==='F8+F9A').plantingYear,null);
  const actual=r.body.items.find(x=>x.year===2025);assert.equal(actual.mt,120);assert.equal(actual.yieldPerHa,60);
  const month=await request(app).get('/production/recorded').query({estateId:'estate-a',frequency:'monthly',mapBlockCode:'E-4'}).expect(200);
  assert.equal(month.body.items.find(x=>x.month==='2026-07').mt,7);
