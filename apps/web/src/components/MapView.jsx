@@ -62,10 +62,11 @@ export default function MapView({
     [notice, setNotice] = useState(""),
     [split, setSplit] = useState(50),
     [collapsed, setCollapsed] = useState(innerWidth < 600),
-    [sample, setSample] = useState(null);
+    [sample, setSample] = useState(null),
+    [blockDetailsOpen,setBlockDetailsOpen]=useState(true);
   const { data, selected, date, base, terrain, override, compare } = state;
   const blockSelection=state.selectedBlock||(state.block!=="all"?state.block:null);
-  const closeBlock=()=>dispatch(patch({selectedBlock:null,block:"all"}));
+  const closeBlock=()=>setBlockDetailsOpen(false);
   const images = imagesAt(
       state.data.paged ? state.mapAssets || [] : data.assets,
       selected,
@@ -178,22 +179,22 @@ export default function MapView({
   useEffect(() => {
     roadRef.current?.setVisible(base === "road" && !data.offline);
   }, [base, data.offline]);
-  useEffect(()=>{setPopup(null);},[blockSelection]);
+  useEffect(()=>{setPopup(null);setBlockDetailsOpen(true);},[blockSelection]);
   useEffect(()=>{
-    if(!blockSelection||popup)return;
-    const dismiss=e=>{if(e.key==='Escape')dispatch(patch({selectedBlock:null,block:'all'}));};
+    if(!blockSelection||!blockDetailsOpen||popup)return;
+    const dismiss=e=>{if(e.key==='Escape')setBlockDetailsOpen(false);};
     window.addEventListener('keydown',dismiss);
     return()=>window.removeEventListener('keydown',dismiss);
-  },[blockSelection,popup,dispatch]);
+  },[blockSelection,blockDetailsOpen,popup]);
   useEffect(() => {
     let coordinate=popup?.coordinate;
-    if(!coordinate&&blockSelection){
+    if(!coordinate&&blockSelection&&blockDetailsOpen){
       const [estateId,code]=blockSelection.split('::');
       const features=featuresOf({type:'FeatureCollection',features:(data.estates.find(e=>e.id===estateId)?.boundary?.features||[]).filter(f=>(f.properties?.blockName||f.properties?.Block_No)===code)});
       if(features.length)coordinate=getCenter(features[0].getGeometry().getExtent());
     }
     overlayRef.current?.setPosition(coordinate);
-  }, [popup,blockSelection,data.estates]);
+  }, [popup,blockSelection,blockDetailsOpen,data.estates]);
   useEffect(() => {
     if (!requestedRecord || !state.showActivities) return;
     const point = pointsRef.current.find(
@@ -583,7 +584,8 @@ export default function MapView({
       const feature = map.forEachFeatureAtPixel(e.pixel, (f) =>
         f.get("blockName") ? f : undefined
       );
-      if (feature)
+      if (feature){
+        setBlockDetailsOpen(true);
         dispatch(
           patch({
             selectedBlock: `${feature.get("estateId")}::${feature.get(
@@ -591,6 +593,7 @@ export default function MapView({
             )}`,
           })
         );
+      }
       if (base !== "topography") return;
       const [lon, lat] = toLonLat(e.coordinate);
       for (const g of grids) {
@@ -650,7 +653,7 @@ export default function MapView({
           />,
           popupElement
         )}
-      {!popup&&blockSelection&&createPortal(
+      {!popup&&blockSelection&&blockDetailsOpen&&createPortal(
         <div className="map-block-popup" role="dialog" aria-label="Block details" onKeyDown={e=>{if(e.key==='Escape')closeBlock();}}>
           <BlockInformation blocks={data.blocks||[]} estates={estates} selection={blockSelection} onClose={closeBlock} offline={data.offline} compact/>
         </div>,popupElement)}

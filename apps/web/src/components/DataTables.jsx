@@ -55,7 +55,7 @@ export function BlockInformation({ blocks, selection, estates, onClose, offline,
         <strong>
           ▱ {code} <small>· {estate?.name}</small>
         </strong>
-        <button aria-label="Clear block information" onClick={onClose}>
+        <button aria-label={compact?"Hide block information":"Clear block information"} onClick={onClose}>
           ×
         </button>
       </div>
