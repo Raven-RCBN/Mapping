@@ -35,7 +35,7 @@ const format = (value, key) =>
     : ["workDate", "plantedDate"].includes(key)
     ? label(value)
     : String(value);
-export function BlockInformation({ blocks, selection, estates, onClose, offline }) {
+export function BlockInformation({ blocks, selection, estates, onClose, offline, compact=false }) {
   if (!selection)
     return (
       <div className="block-info-hint">
@@ -50,7 +50,7 @@ export function BlockInformation({ blocks, selection, estates, onClose, offline 
   );
   const estate = estates.find((e) => e.id === estateId);
   return (
-    <><BlockComments key={selection} estateId={estateId} code={code} offline={offline}/><section className="block-info" aria-label="Selected block information">
+    <>{!compact&&<BlockComments key={selection} estateId={estateId} code={code} offline={offline}/>}<section className="block-info" aria-label="Selected block information">
       <div className="block-info-heading">
         <strong>
           ▱ {code} <small>· {estate?.name}</small>
@@ -66,7 +66,7 @@ export function BlockInformation({ blocks, selection, estates, onClose, offline 
               ([key, title]) => (
                 <div key={key}>
                   <dt>{title}</dt>
-                  <dd>{format(b[key], key)}</dd>
+                  <dd>{compact&&typeof b[key]==='number'?b[key].toLocaleString(undefined,{maximumFractionDigits:2}):format(b[key], key)}</dd>
                 </div>
               )
             )}
@@ -81,6 +81,7 @@ export function BlockInformation({ blocks, selection, estates, onClose, offline 
       {!matches.length && (
         <p>No block-detail record is linked to this map polygon.</p>
       )}
+      {compact&&<details className="map-block-comments"><summary>Block comments</summary><BlockComments key={selection} estateId={estateId} code={code} offline={offline}/></details>}
     </section></>
   );
 }

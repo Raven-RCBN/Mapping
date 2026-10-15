@@ -1,6 +1,7 @@
 import { createPortal } from "react-dom";
 import Overlay from "ol/Overlay";
 import MapActivityPopup from "./MapActivityPopup";
+import {BlockInformation} from "./DataTables";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import Map from "ol/Map";
@@ -63,6 +64,8 @@ export default function MapView({
     [collapsed, setCollapsed] = useState(innerWidth < 600),
     [sample, setSample] = useState(null);
   const { data, selected, date, base, terrain, override, compare } = state;
+  const blockSelection=state.selectedBlock||(state.block!=="all"?state.block:null);
+  const closeBlock=()=>dispatch(patch({selectedBlock:null,block:"all"}));
   const images = imagesAt(
       state.data.paged ? state.mapAssets || [] : data.assets,
       selected,
@@ -106,6 +109,7 @@ export default function MapView({
     mapRef.current = map;
     const overlay = new Overlay({
       element: popupElement,
+      className: "ol-overlay-container ol-selectable map-detail-overlay",
       positioning: "bottom-center",
       offset: [0, -22],
       autoPan: { animation: { duration: 160 }, margin: 16 },
@@ -118,7 +122,10 @@ export default function MapView({
         overlay.panIntoView({ animation: { duration: 160 }, margin: 16 });
     });
     popupResize.observe(popupElement);
-    const ro = new ResizeObserver(() => map.updateSize());
+    const ro = new ResizeObserver(() => {
+      map.updateSize();
+      if(overlay.getPosition())overlay.panIntoView({animation:{duration:160},margin:16});
+    });
     ro.observe(host.current);
     return () => {
       ro.disconnect();
@@ -171,9 +178,22 @@ export default function MapView({
   useEffect(() => {
     roadRef.current?.setVisible(base === "road" && !data.offline);
   }, [base, data.offline]);
+  useEffect(()=>{setPopup(null);},[blockSelection]);
+  useEffect(()=>{
+    if(!blockSelection||popup)return;
+    const dismiss=e=>{if(e.key==='Escape')dispatch(patch({selectedBlock:null,block:'all'}));};
+    window.addEventListener('keydown',dismiss);
+    return()=>window.removeEventListener('keydown',dismiss);
+  },[blockSelection,popup,dispatch]);
   useEffect(() => {
-    overlayRef.current?.setPosition(popup?.coordinate);
-  }, [popup]);
+    let coordinate=popup?.coordinate;
+    if(!coordinate&&blockSelection){
+      const [estateId,code]=blockSelection.split('::');
+      const features=featuresOf({type:'FeatureCollection',features:(data.estates.find(e=>e.id===estateId)?.boundary?.features||[]).filter(f=>(f.properties?.blockName||f.properties?.Block_No)===code)});
+      if(features.length)coordinate=getCenter(features[0].getGeometry().getExtent());
+    }
+    overlayRef.current?.setPosition(coordinate);
+  }, [popup,blockSelection,data.estates]);
   useEffect(() => {
     if (!requestedRecord || !state.showActivities) return;
     const point = pointsRef.current.find(
@@ -619,7 +639,7 @@ export default function MapView({
     analyticsHighlights?.kind,
   ]);
   return (
-    <div className="map-stage">
+    <div className="map-stage map-expanded">
       <div ref={host} id="estateMap" />
       {popup &&
         createPortal(
@@ -630,6 +650,10 @@ export default function MapView({
           />,
           popupElement
         )}
+      {!popup&&blockSelection&&createPortal(
+        <div className="map-block-popup" role="dialog" aria-label="Block details" onKeyDown={e=>{if(e.key==='Escape')closeBlock();}}>
+          <BlockInformation blocks={data.blocks||[]} estates={estates} selection={blockSelection} onClose={closeBlock} offline={data.offline} compact/>
+        </div>,popupElement)}
       <div className={"map-layer-panel " + (collapsed ? "collapsed" : "")}>
         <h3>
           Map layers{" "}
@@ -799,7 +823,7 @@ export default function MapView({
       <div className={'map-legend'+(analyticsHighlights?.kind==='fertiliser'?' fertiliser-legend':'')}>
         {analyticsHighlights?.kind==='fertiliser'?<div className="fertiliser-map-key" aria-label="Fertiliser map legend">
           <strong>{analyticsHighlights.label} · {analyticsHighlights.unit}</strong>
-          <div>{analyticsHighlights.bands?analyticsHighlights.bands.map(band=><span key={band.min}><i style={{background:band.color}}/>{band.label} kg/palm</span>):<><span><i style={{background:'#e7e9ec'}}/>No record</span><span><i style={{background:'#fff'}}/>0</span>
+          <div>{analyticsHighlights.bands?analyticsHighlights.bands.map(band=><span key={band.min}><i style={{background:band.color}}/>{band.label}</span>):<><span><i style={{background:'#e7e9ec'}}/>No record</span><span><i style={{background:'#fff'}}/>0</span>
           {analyticsHighlights.max>0&&fertiliserColours.map((color,i)=><span key={color}><i style={{background:color}}/>{(analyticsHighlights.max*i/5).toLocaleString(undefined,{maximumFractionDigits:1})}–{(analyticsHighlights.max*(i+1)/5).toLocaleString(undefined,{maximumFractionDigits:1})}</span>)}</>}</div>
         </div>:analyticsHighlights&&<span className="analytics-map-key"><i style={{background:'#7c3aed'}}/>{analyticsHighlights.label} · {analyticsHighlights.blockCodes.length} blocks</span>}
         {Object.entries(types)

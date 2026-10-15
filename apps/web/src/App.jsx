@@ -46,7 +46,7 @@ const MapView = lazy(loadMapView);
 import Timeline from "./components/Timeline";
 import Dialogs from "./components/Dialogs";
 import Storage from "./components/Storage";
-import DataTables, { BlockInformation } from "./components/DataTables";
+import DataTables from "./components/DataTables";
 import ProductionDashboard from './components/ProductionDashboard';
 import WagesDashboard from './components/WagesDashboard';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
@@ -636,17 +636,6 @@ export default function App() {
                       </button>
                     </div>
                   </div>
-                  <BlockInformation
-                    offline={s.data.offline}
-                    blocks={s.data.blocks || []}
-                    estates={estates}
-                    selection={
-                      s.selectedBlock || (s.block !== "all" ? s.block : null)
-                    }
-                    onClose={() =>
-                      dispatch(patch({ selectedBlock: null, block: "all" }))
-                    }
-                  />
                   <Suspense
                     fallback={
                       <div

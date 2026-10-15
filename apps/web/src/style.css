@@ -3350,3 +3350,19 @@ button:disabled {
 
 /* Operations alone needs the field-activity sidebar. */
 .workspace.workspace-wide { grid-template-columns: minmax(0, 1fr); }
+
+/* Keep block inspection inside the larger map rather than above its viewport. */
+.map-stage.map-expanded{height:clamp(620px,78vh,900px)}
+.map-block-popup{width:min(360px,calc(100vw - 64px));max-height:420px;max-height:min(420px,56vh);overflow-y:auto;overscroll-behavior:contain;background:#fff;border:1px solid #d6e1d8;border-radius:12px;box-shadow:0 8px 32px #163d2c30;font-family:"DM Sans",Arial,sans-serif;color:#244b38}
+.map-block-popup .block-info{padding:14px 16px;background:#fff;border:0}
+.map-block-popup .block-info-heading{position:sticky;top:-14px;z-index:1;background:#fff;padding:4px 0 8px;border-bottom:1px solid #e7ede8;gap:8px;font-size:14px}
+.map-block-popup .block-info-heading button{width:32px;height:32px;flex:none;border-radius:6px;line-height:1}
+.map-block-popup .block-info-heading button:hover{background:#edf4ef}
+.map-block-popup .block-info-heading small{font-size:11px}
+.map-block-popup .block-facts{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;margin:14px 0}
+.map-block-popup .block-facts dt{font-size:10px;line-height:1.4;color:#6b7f70}
+.map-block-popup .block-facts dd{font-size:12px;line-height:1.4;overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+.map-block-popup small{font-size:10px}.map-block-comments{margin-top:12px;border-top:1px solid #e7ede8;padding-top:10px;font-size:12px}.map-block-comments summary{cursor:pointer}.map-block-popup .block-comments{margin:10px 0 0;padding:0;border:0}.map-block-popup .production-heading{gap:8px}.map-block-popup .production-heading h3{font-size:12px;margin:0}.map-block-popup .production-heading label{font-size:10px}.map-block-popup .block-comments p{font-size:11px}
+@media(max-width:600px){.map-stage.map-expanded{height:78svh;min-height:560px}.map-block-popup{max-height:min(380px,53svh);width:min(330px,calc(100vw - 48px))}}
+
+.map-stage .map-detail-overlay{z-index:2}
