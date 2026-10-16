@@ -16,7 +16,7 @@ const server=http.createServer(async(req,res)=>{
  if(url.pathname==='/api/production/recorded')data={items};
  if(url.pathname==='/api/hts-analysis')data={...hts,blockPalms:gis.blocks.map(b=>({blockCode:b.blockCode,totalPalms:b.totalPalms})),rainfall:rainfall.records};
  if(url.pathname==='/api/production/yearly')data={items:production.yearly.map(r=>({...r,mapBlockCode:names.get(r.sourceBlockId)?.mapBlockCode}))};
- if(url.pathname==='/api/yield-model'){try{data=await load('yield-models/'+hts.estateId+'.json');}catch{data={status:'unavailable',message:'Model training has not completed yet.'};}}
+ if(url.pathname==='/api/yield-model'){try{data=await load('yield-models/'+hts.estateId+'.json');try{data.experimental=await load('yield-models/'+hts.estateId+'.experimental.json');}catch{}}catch{data={status:'unavailable',message:'Model training has not completed yet.'};}}
  if(url.pathname==='/api/decision-weather')data={status:'not_configured',message:'Local preview: no weather provider is connected.'};
  if(url.pathname==='/api/wages/meta')data={years:[...new Set(payroll.records.map(r=>r.period.slice(0,4)))]};
  if(url.pathname==='/api/wages/allocation'){

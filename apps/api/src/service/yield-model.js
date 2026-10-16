@@ -12,6 +12,10 @@ export function installYieldModel(api,models,config){
   let data;try{data=JSON.parse(await fs.readFile(path.join(config.dataDir,'yield-models',estateId+'.json'),'utf8'));}
   catch(e){if(e.code==='ENOENT')return res.json({status:'unavailable',message:'A trained yield model is not available for this estate yet.'});throw e;}
   if(data.estateId!==estateId||data.version!==1||!Array.isArray(data.forecasts)||!Array.isArray(data.horizons))throw new QueryError('Model snapshot could not be verified',409);
+  try{
+   const experiment=JSON.parse(await fs.readFile(path.join(config.dataDir,'yield-models',estateId+'.experimental.json'),'utf8'));
+   if(experiment.version===1&&experiment.estateId===estateId&&experiment.status==='experimental'&&experiment.horizonMonths===1&&Array.isArray(experiment.forecasts))data.experimental=experiment;
+  }catch(e){if(e.code!=='ENOENT')console.error('Experimental yield snapshot unavailable');}
   res.json(data);
  });
 }

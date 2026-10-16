@@ -15,5 +15,12 @@ test('model snapshots require estate access and matching identity',async()=>{
   assert.equal((await request(app).get('/yield-model?estateId=a').expect(200)).body.status,'unavailable');
   await fs.writeFile(path.join(dataDir,'yield-models/a.json'),JSON.stringify({estateId:'b',version:1,forecasts:[],horizons:[]}));await request(app).get('/yield-model?estateId=a').expect(409);
   await fs.writeFile(path.join(dataDir,'yield-models/a.json'),JSON.stringify({estateId:'a',version:1,status:'pilot',forecasts:[],horizons:[]}));assert.equal((await request(app).get('/yield-model?estateId=a').expect(200)).body.status,'pilot');
+  const experimental={estateId:'b',version:1,status:'experimental',horizonMonths:1,forecasts:[]};
+  await fs.writeFile(path.join(dataDir,'yield-models/a.experimental.json'),JSON.stringify(experimental));
+  assert.equal((await request(app).get('/yield-model?estateId=a').expect(200)).body.experimental,undefined);
+  experimental.estateId='a';await fs.writeFile(path.join(dataDir,'yield-models/a.experimental.json'),JSON.stringify(experimental));
+  assert.equal((await request(app).get('/yield-model?estateId=a').expect(200)).body.experimental.status,'experimental');
+  await fs.writeFile(path.join(dataDir,'yield-models/a.experimental.json'),'invalid json');
+  assert.equal((await request(app).get('/yield-model?estateId=a').expect(200)).body.status,'pilot');
  }finally{await fs.rm(dataDir,{recursive:true,force:true});}
 });

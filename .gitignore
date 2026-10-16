@@ -39,3 +39,6 @@ apps/mobile/assets/viewer.json
 __pycache__/
 *.pyc
 Mapping-Deployment-Access.md
+
+# Private model experiments and source-derived research artifacts
+research/
