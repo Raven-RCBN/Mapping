@@ -20,7 +20,7 @@ def score(rs,key):
  if not g:return None
  actual=sum(v[0] for v in g.values());err=sum(abs(a-p) for a,p in g.values())
  return {'months':len(g),'wapePercent':100*err/actual if actual else None,'maeTonnes':err/len(g),'biasPercent':100*sum(p-a for a,p in g.values())/actual if actual else None,'withinTwoPercent':int(sum(abs(p-a)<=.02*a for a,p in g.values() if a>0))}
-def run(weather_csv=None):
+def run(weather_csv=None, *, dataset_only=False):
  out=ROOT/'research/yield-20261016/residual-experiment';out.mkdir(parents=True,exist_ok=True)
  paths=[ROOT/'data/production/oban-production.json',ROOT/'data/rainfall/oban-rainfall-through-sep2026.json',ROOT/'data/hts-analysis/oban.json']
  hashes={str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
@@ -65,6 +65,8 @@ def run(weather_csv=None):
  for r in rows:
   f=features(r['sourceBlockId'],r['month'])
   if f is not None:samples.append({**f,'actual':r['mt'],'residual':(r['mt']-f['seasonal'])/f['area']})
+ if dataset_only:
+  return {'samples':samples,'rows':rows,'names':names,'index':idx,'latest':latest,'earliest':earliest,'features':features,'featureNames':feature_names,'hashes':hashes}
  X=lambda rs:np.array([r['x'] for r in rs]);Y=lambda rs:np.array([r['residual'] for r in rs])
  predictions=[];origins=sorted({r['origin'] for r in samples if r['month']>='2024-01'})+[latest]
  for origin in sorted(set(origins)):
