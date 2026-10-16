@@ -1,0 +1,22 @@
+import {useMemo} from 'react';
+import {predictionChart} from '../../../../packages/shared/prediction-chart.js';
+const n=v=>Number.isFinite(v)?v.toLocaleString(undefined,{maximumFractionDigits:1}):'No data';
+export default function PredictionChart({report,production,block}){
+ const chart=useMemo(()=>predictionChart(report,production,{block}),[report,production,block]);
+ const width=900,height=330,left=65,top=30,bottom=65,plot=height-top-bottom,step=(width-left-20)/6;
+ const max=Math.max(1,...chart.points.flatMap(p=>[p.actual,p.model,p.baseline,p.upper]).filter(Number.isFinite))*1.12;
+ const y=v=>top+plot-v/max*plot;
+ return <figure className="prediction-chart"><figcaption><strong>Recorded production & prediction</strong><p>{block||'Selected estate sources'} · FFB tonnes · {chart.sources} source record(s) common to all three forecast horizons</p></figcaption>
+ <div className="prediction-legend"><span><i style={{background:'#246b4a'}}/>Recorded production</span><span><i style={{background:'#3678c9'}}/>Model prediction</span><span><i style={{background:'#c48a20'}}/>Seasonal baseline</span></div>
+ {!chart.sources?<p>No common forecast sources are available for this selection.</p>:<div className="prediction-scroll"><svg viewBox={`0 0 ${width} ${height}`} role="img" aria-label="Recorded monthly production in green, model predictions in blue and seasonal baseline in gold. Exact values are in the table below.">
+ <rect x={left+3*step} y={top} width={3*step} height={plot} fill="#eef4fc"/>
+ {[0,1,2,3,4].map(i=>{const value=max*i/4;return <g key={i}><line x1={left} x2={width-20} y1={y(value)} y2={y(value)} stroke="#dbe2dc"/><text x={left-10} y={y(value)+4} textAnchor="end" fontSize="12" fill="#53665a">{n(value)}</text></g>;})}
+ <text x={left} y={16} fontSize="12" fill="#53665a">FFB tonnes</text><text x={left+3*step+12} y={16} fontSize="12" fill="#38638c">Prediction period · based on {report.asOf}</text>
+ <line x1={left+3*step} x2={left+3*step} y1={top} y2={top+plot} stroke="#7a91ae" strokeDasharray="5 4"/>
+ {chart.points.map((p,i)=>{const center=left+step*(i+.5);return <g key={p.month}>{[['actual',-16,32,'#246b4a'],['model',-33,29,'#3678c9'],['baseline',4,29,'#c48a20']].map(([key,offset,w,color])=>Number.isFinite(p[key])?<rect key={key} x={center+offset} y={y(p[key])} width={w} height={Math.max(0,plot-(y(p[key])-top))} fill={color} opacity={key==='model'&&!p.accepted&&p.forecast?0.75:1}><title>{p.month} · {key}: {n(p[key])} tonnes{key==='model'&&!p.accepted?' · experimental; baseline retained':''}</title></rect>:null)}
+ {Number.isFinite(p.lower)&&Number.isFinite(p.upper)&&<g stroke="#184c8c" strokeWidth="2"><line x1={center-18} x2={center-18} y1={y(p.lower)} y2={y(p.upper)}/><line x1={center-24} x2={center-12} y1={y(p.upper)} y2={y(p.upper)}/><line x1={center-24} x2={center-12} y1={y(p.lower)} y2={y(p.lower)}/></g>}
+ <text x={center} y={top+plot+23} textAnchor="middle" fontSize="13" fill="#294738">{p.month}</text><text x={center} y={top+plot+43} textAnchor="middle" fontSize="11" fill="#53665a">{p.forecast?(p.accepted?'Model preferred':'Baseline retained'):(p.actual===null?'Incomplete records':'Recorded')}</text></g>;})}
+ </svg></div>}
+ <p className="ds-note">Blue bars are estimates, not recorded production. {chart.sources===1?'Whiskers show the model’s empirical 80% error range.':'Ranges are omitted for totals because source-level bounds cannot be added into an estate confidence interval.'} The seasonal baseline repeats the same month last year. Historical bars use the same forecast cohort; missing observations are not plotted as zero.</p>
+ <details><summary>Chart values and forecast status</summary><div className="data-table-scroll"><table><thead><tr><th>Month</th><th>Recorded tonnes</th><th>Model tonnes</th><th>Baseline tonnes</th><th>Status</th></tr></thead><tbody>{chart.points.map(p=><tr key={p.month}><td>{p.month}</td><td>{n(p.actual)}</td><td>{n(p.model)}</td><td>{n(p.baseline)}</td><td>{p.forecast?(p.accepted?'Model preferred · pilot':'Model experimental · baseline retained'):'Recorded history'}</td></tr>)}</tbody></table></div></details></figure>;
+}

@@ -34,3 +34,8 @@ apps/mobile/assets/viewer.json
 
 *.xlsx
 !apps/web/public/branding/minor-logo.png
+
+# Local model training caches and deployment access notes
+__pycache__/
+*.pyc
+Mapping-Deployment-Access.md

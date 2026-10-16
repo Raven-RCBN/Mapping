@@ -50,7 +50,8 @@ import DataTables from "./components/DataTables";
 import ProductionDashboard from './components/ProductionDashboard';
 import WagesDashboard from './components/WagesDashboard';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
-const dashboardTabs=['production','operations','wages','analytics'];
+import DecisionSupport from './components/DecisionSupport';
+const dashboardTabs=['production','operations','wages','analytics','decisions'];
 const noHighlights=[];
 import {
   activityName,
@@ -649,8 +650,8 @@ export default function App() {
                     {estateMapReady(s) ? (
                       <MapView
                         key={s.selected[0]}
-                        productionHighlights={dashboardTab==='analytics'?noHighlights:productionHighlights}
-                        analyticsHighlights={dashboardTab==='analytics'&&analyticsHighlights?.estateId===s.selected[0]?analyticsHighlights:null}
+                        productionHighlights={['analytics','decisions'].includes(dashboardTab)?noHighlights:productionHighlights}
+                        analyticsHighlights={['analytics','decisions'].includes(dashboardTab)&&analyticsHighlights?.estateId===s.selected[0]?analyticsHighlights:null}
                         rows={displayRows}
                         pageOffset={(pageCursors.length - 1) * 100}
                         requestedRecord={
@@ -720,7 +721,7 @@ export default function App() {
                     }}>
                     {dashboardTabs.map(tab=><button key={tab} type="button" role="tab" id={'dashboard-tab-'+tab}
                       aria-selected={dashboardTab===tab} aria-controls={'dashboard-panel-'+tab} tabIndex={dashboardTab===tab?0:-1}
-                      onClick={()=>setDashboardTab(tab)}>{tab==='production'?'Production':tab==='operations'?'Operations':tab==='wages'?'Wages':'Analytics'}</button>)}
+                      onClick={()=>setDashboardTab(tab)}>{tab==='production'?'Production':tab==='operations'?'Operations':tab==='wages'?'Wages':tab==='decisions'?'Decision Support':'Analytics'}</button>)}
                   </div>
                   <div className="map-dashboard-panel" id="dashboard-panel-production" role="tabpanel" aria-labelledby="dashboard-tab-production" hidden={dashboardTab!=='production'}>
                     <ProductionDashboard key={"production-"+s.selected[0]} estateId={s.selected[0]} selection={s.selectedBlock || (s.block !== 'all'?s.block:null)} offline={s.data.offline} onHighlights={setProductionHighlights} onData={()=>setSearchParams({view:'data',tab:'monthly'})}/>
@@ -730,6 +731,11 @@ export default function App() {
                       onBlockChange={code=>dispatch(patch({selectedBlock:code?`${s.selected[0]}::${code}`:null,block:code?`${s.selected[0]}::${code}`:'all'}))}
                       onSelect={code=>{dispatch(patch({selectedBlock:`${s.selected[0]}::${code}`,block:`${s.selected[0]}::${code}`}));document.getElementById('estateMap')?.scrollIntoView({behavior:'smooth',block:'center'});}}
                       onMap={()=>{dispatch(patch({block:'all',selectedBlock:null}));document.getElementById('estateMap')?.scrollIntoView({behavior:'smooth',block:'center'});}}/>
+                  </div>
+                  <div className="map-dashboard-panel" id="dashboard-panel-decisions" role="tabpanel" aria-labelledby="dashboard-tab-decisions" hidden={dashboardTab!=='decisions'}>
+                    {dashboardTab==='decisions'&&<DecisionSupport key={'decisions-'+s.selected[0]} estateId={s.selected[0]} selection={s.selectedBlock} offline={s.data.offline} onHighlights={setAnalyticsHighlights}
+                      onBlockChange={code=>dispatch(patch({selectedBlock:code?`${s.selected[0]}::${code}`:null,block:code?`${s.selected[0]}::${code}`:'all'}))}
+                      onSelect={code=>{dispatch(patch({selectedBlock:`${s.selected[0]}::${code}`,block:`${s.selected[0]}::${code}`}));document.getElementById('estateMap')?.scrollIntoView({behavior:'smooth',block:'center'});}}/>}
                   </div>
                   <div className="map-dashboard-panel" id="dashboard-panel-operations" role="tabpanel" aria-labelledby="dashboard-tab-operations" hidden={dashboardTab!=='operations'}>
                     {dashboardTab==='operations'&&<Timeline key={s.selected[0]} />}

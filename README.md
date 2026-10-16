@@ -83,3 +83,27 @@ Terrain is Copernicus GLO-30 surface elevation, including vegetation, at approxi
 ## Hosted MapIntel
 
 Open [EstateAtlas](https://agrinexus.digitalpalm.ai/EstateAtlas/) using your AgriNexus sign-in. The existing `/mapping` page is preserved. Hosted assets and offline caches are scoped to `/EstateAtlas/`, and the isolated API is `/api/EstateAtlas`. See [deployment details](docs/DEPLOYMENT.md) for release, storage, QGIS and rollback information.
+
+### Decision Support
+
+A new tab beside Analytics provides monthly source-level performance screening,
+a validated-comparison yield pilot with seasonal fallbacks, rainfall comparisons, fertiliser
+history, and review alerts. Thresholds and alert ownership/status are held only
+while the Decision Support component is open; they are not shared assignments
+or background notifications. The seasonal baseline remains available for comparison. Missing observations are
+not converted to zero; model results and limitations are reported explicitly.
+
+Set `OPEN_METEO_API_KEY` in the API server environment to enable the commercial
+Open-Meteo seven-day weather connection. The key stays server-side. Forecasts
+use the estate boundary bounding-box centre, are cached for 30 minutes, and
+are estate-area estimates, not block rain-gauge observations or official warnings.
+No provider key is included in this repository.
+
+Read-only fixture preview: `node scripts/preview-decision-support.mjs`, then open
+`http://127.0.0.1:4199/fertiliser-preview.html?view=decisions`.
+A trained local yield pilot now powers Yield outlook: gradient boosting is compared
+against a seasonal baseline, with held-out errors and empirical source-level ranges.
+The initial snapshot uses production through July 2026 and is marked historical.
+See `scripts/model/README.md` and `scripts/model/evaluation.ipynb` for retraining,
+evaluation and limitations. Persistent alert workflows and external notifications
+remain subsequent work.

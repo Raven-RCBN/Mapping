@@ -1,3 +1,5 @@
+import { installYieldModel } from "./service/yield-model.js";
+import { installDecisionWeather } from "./service/decision-weather.js";
 import { installMosaic } from "./service/mosaic.js";
 import { installProduction } from "./service/production.js";
 import { installWages } from "./service/wages.js";
@@ -143,6 +145,8 @@ export async function createApp(config) {
   installProduction(api, models);
   installWages(api, models);
   installHtsAnalysis(api, models, config);
+  installDecisionWeather(api, models);
+  installYieldModel(api, models, config);
   const snapshot = async (req) => {
     const q = selection(req),
       scope = q.scope;

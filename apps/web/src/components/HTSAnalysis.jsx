@@ -96,5 +96,6 @@ export default function HTSAnalysis({estateId,boundary,selection,onBlockChange,o
   if(offline)return <p>Connect to load HTS analysis.</p>;
   if(error)return <p role="alert">{error}</p>;
   if(!data)return <p role="status">Loading HTS analysis…</p>;
+  if(!Array.isArray(data.fertiliser)||!Array.isArray(data.fertiliserSections)||!Array.isArray(data.products)||!Array.isArray(data.wages))return <p role="alert">The analysis data is incomplete. Refresh the page or reconnect to the estate data service.</p>;
   return mode==='wages'?<Wages data={data} estateId={estateId} boundary={boundary} selection={selection} onBlockChange={onBlockChange}/>:<Fertiliser data={data} estateId={estateId} selection={selection} onBlockChange={onBlockChange} onSelect={onSelect} onHighlights={onHighlights} enabled={enabled} offline={offline}/>;
 }
