@@ -1,4 +1,4 @@
-export default function SummaryCards({ state, scope, offline, onReview }) {
+export default function SummaryCards({ state, scope, offline, onReview, showEmptyMessage = false }) {
   const { summary, status } = state;
   const n = (key) => (summary ? summary[key].toLocaleString() : "—");
   const waiting =
@@ -70,7 +70,7 @@ export default function SummaryCards({ state, scope, offline, onReview }) {
           Unable to load totals. Reload the page to retry.
         </p>
       )}
-      {summary?.count === 0 && (
+      {showEmptyMessage && summary?.count === 0 && (
         <p className="summary-note" role="status">
           No activity records match these dates and filters. Adjust the timeline
           dates or activity checkboxes to see other records.

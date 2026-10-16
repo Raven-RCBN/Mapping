@@ -597,6 +597,7 @@ export default function App() {
           {!dataView && !storageView && (
             <div>
               <SummaryCards
+                showEmptyMessage={dashboardTab === "operations"}
                 state={cardState}
                 scope={scope}
                 offline={s.data.offline}
