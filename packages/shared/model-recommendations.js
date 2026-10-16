@@ -7,7 +7,8 @@ export function modelRecommendations(report,{block='',currentMonth=new Date().to
  if(stale)recommendations.push({id:'model-freshness',severity:'Data needed',title:'Update production before operational planning',detail:`The model uses production through ${report.asOf}. Import subsequent actual production and retrain before assigning workers or transport from this outlook.`,action:'Update monthly production and rerun the model.'});
  const summaries=report.horizons.map(h=>{
   const selected=rows.filter(r=>r.horizon===h.monthsAhead);
-  return {horizon:h.monthsAhead,month:shiftMonth(report.asOf,h.monthsAhead),sources:selected.length,modelTonnes:selected.length?selected.reduce((s,r)=>s+r.predictionTonnes,0):null,baselineTonnes:selected.length?selected.reduce((s,r)=>s+r.baselineTonnes,0):null,beatsBaseline:h.beatsBaseline,method:h.recommendedMethod};
+  const effectiveHa=selected.length&&new Set(selected.map(r=>r.sourceBlockId)).size===selected.length&&selected.every(r=>Number.isFinite(r.effectiveHa)&&r.effectiveHa>0)?selected.reduce((sum,r)=>sum+r.effectiveHa,0):null;
+  return {effectiveHa,horizon:h.monthsAhead,month:shiftMonth(report.asOf,h.monthsAhead),sources:selected.length,modelTonnes:selected.length?selected.reduce((s,r)=>s+r.predictionTonnes,0):null,baselineTonnes:selected.length?selected.reduce((s,r)=>s+r.baselineTonnes,0):null,beatsBaseline:h.beatsBaseline,method:h.recommendedMethod};
  });
  if(report.horizons.some(h=>!h.beatsBaseline))recommendations.push({id:'model-baseline',severity:'Model validation',title:'Retain the seasonal baseline where it performs better',detail:'One or more forecast horizons did not improve held-out mean absolute error by at least 5%. Those model estimates remain experimental.',action:'Use the indicated baseline for those horizons after checking data freshness.'});
  const missingArea=rows.filter(r=>r.horizon===1&&!(r.effectiveHa>0)).length;

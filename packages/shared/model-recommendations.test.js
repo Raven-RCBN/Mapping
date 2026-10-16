@@ -12,3 +12,9 @@ test('fresh forecasts only flag well-supported reductions on accepted horizon; m
 test('no model and unrepresented blocks do not invent predictions',()=>{
  assert.equal(modelRecommendations(null).rows.length,0);assert.equal(modelRecommendations(report,{block:'C'}).summaries[0].modelTonnes,null);
 });
+test('summary yield area requires every source and uses summed hectares',()=>{
+ assert.equal(modelRecommendations(report).summaries[0].effectiveHa,null);
+ const valid={...report,forecasts:report.forecasts.map(r=>({...r,effectiveHa:r.sourceBlockId==='a'?1:3}))};
+ const s=modelRecommendations(valid).summaries[0];assert.equal(s.effectiveHa,4);assert.equal(s.modelTonnes/s.effectiveHa,2);
+ assert.equal(modelRecommendations(valid,{block:'C'}).summaries[0].effectiveHa,null);
+});

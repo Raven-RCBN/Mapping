@@ -10,3 +10,11 @@ test('single source keeps range; duplicate observations cannot inflate history',
  const r={sourceBlockId:'a',month:'2026-07',receiptStatus:'received',mt:5};const c=predictionChart(report,[r,r],{block:'a'});assert.equal(c.points[2].actual,null);assert.equal(c.points[3].upper,17);
 });
 test('no forecasts means no invented chart values',()=>{const c=predictionChart(report,[],{block:'missing'});assert.equal(c.sources,0);assert.ok(c.points.every(p=>p.actual===null&&p.model===null));});
+test('yield uses total tonnes divided by effective hectares and scales source intervals',()=>{
+ const withArea={...report,forecasts:report.forecasts.map(r=>({...r,effectiveHa:r.sourceBlockId==='a'?2:8}))};
+ const history=[{sourceBlockId:'a',month:'2026-07',receiptStatus:'received',mt:5,effectiveHa:1},{sourceBlockId:'b',month:'2026-07',receiptStatus:'received',mt:15,effectiveHa:4}];
+ const c=predictionChart(withArea,history,{perHa:true});assert.equal(c.points[2].actual,4);assert.equal(c.points[3].model,2);assert.equal(c.points[3].baseline,2.4);
+ const single=predictionChart(withArea,history,{block:'a',perHa:true});assert.equal(single.points[3].lower,1.5);assert.equal(single.points[3].upper,8.5);
+ const missing=predictionChart(report,history,{perHa:true});assert.equal(missing.points[3].model,null);
+ const partial=predictionChart(withArea,[{...history[0],effectiveHa:0},history[1]],{perHa:true});assert.equal(partial.points[2].actual,null);
+});
