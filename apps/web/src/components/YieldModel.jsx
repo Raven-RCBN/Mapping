@@ -1,6 +1,5 @@
 import {useEffect,useMemo,useState} from 'react';
 import PredictionChart from './PredictionChart';
-import ExperimentalYield from './ExperimentalYield';
 import AnnualYieldReference from './AnnualYieldReference';
 import {usePagination,PageControls} from './Pagination';
 import {api} from '../api';
@@ -19,7 +18,6 @@ export default function YieldModel({estateId,block,onSelect,refresh=0,production
  if(report?.status!=='pilot')return <p>{report?.message||'No trained model is available.'}</p>;
  return <section aria-label="Trained yield model"><div className="ds-heading"><div><h3>Three-month yield forecast</h3><p>Trained on this estate’s recorded FFB production and historical inputs.</p></div><span className="ds-tag">{analysis.stale?'Historical outlook · update required':'Pilot forecast'}</span></div>
  <div className="ds-banner"><strong>Production observed through {report.asOf}</strong><p>{analysis.stale?'This snapshot is out of date for operational scheduling. Forecast months below are anchored to the last observed production, not today.':'Pilot estimates require field confirmation before resource changes.'} Generated {new Date(report.generatedAt).toLocaleDateString()}.</p></div>
- <ExperimentalYield report={report.experimental} block={block}/>
  <AnnualYieldReference estateId={estateId} block={block} asOf={report.asOf} refresh={refresh}/>
  <div className="ds-metrics">{analysis.summaries.map(s=><article key={s.horizon}><span>{s.month} · {s.horizon} month(s) ahead</span><strong>{n(s.beatsBaseline?s.modelTonnes:s.baselineTonnes)} <small>tonnes / month</small></strong><strong>{yieldN(s.effectiveHa>0?(s.beatsBaseline?s.modelTonnes:s.baselineTonnes)/s.effectiveHa:null)} <small>tonnes/ha/month</small></strong><small>{s.beatsBaseline?'Model estimate':'Baseline retained'} · {s.sources} source records</small><span>Model: {n(s.modelTonnes)} t · baseline: {n(s.baselineTonnes)} t</span><span>Model: {yieldN(s.effectiveHa>0?s.modelTonnes/s.effectiveHa:null)} · baseline: {yieldN(s.effectiveHa>0?s.baselineTonnes/s.effectiveHa:null)} tonnes/ha/month</span><small>{s.effectiveHa>0?`${s.effectiveHa.toLocaleString(undefined,{maximumFractionDigits:4})} effective hectares · latest observed area`:"Yield unavailable · effective hectares missing"}</small></article>)}</div>
  <PredictionChart report={report} production={production} block={block}/>
