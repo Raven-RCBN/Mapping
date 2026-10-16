@@ -12,6 +12,7 @@ const items=production.monthly.map(r=>({...r,sourceBlockCode:names.get(r.sourceB
 const vite=await createServer({root:path.join(root,'apps/web'),server:{middlewareMode:true,hmr:false},appType:'mpa'});
 const server=http.createServer(async(req,res)=>{
  const url=new URL(req.url,'http://localhost');let data;
+ if(url.pathname==='/api/production/decision-support'){const latest=items.filter(r=>r.receiptStatus==='received'&&Number.isFinite(r.mt)&&r.mt>=0&&r.month<new Date().toISOString().slice(0,7)).map(r=>r.month).sort().at(-1);const [y,m]=latest.split('-').map(Number);const start=new Date(Date.UTC(y,m-15,1)).toISOString().slice(0,7);data={items:items.filter(r=>r.month>=start&&r.month<=latest).map(({sourceBlockId,month,receiptStatus,mt,effectiveHa,plantingYear,sourceBlockCode,mapBlockCode})=>({sourceBlockId,month,receiptStatus,mt,effectiveHa,plantingYear,sourceBlockCode,mapBlockCode})),rainfall:rainfall.records};}
  if(url.pathname==='/api/production/recorded')data={items};
  if(url.pathname==='/api/hts-analysis')data={...hts,blockPalms:gis.blocks.map(b=>({blockCode:b.blockCode,totalPalms:b.totalPalms})),rainfall:rainfall.records};
  if(url.pathname==='/api/production/yearly')data={items:production.yearly.map(r=>({...r,mapBlockCode:names.get(r.sourceBlockId)?.mapBlockCode}))};

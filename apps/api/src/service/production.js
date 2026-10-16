@@ -84,6 +84,21 @@ export function installProduction(api, models) {
     res.json({months:months.sort().reverse(),latestReceived:latest?.month||null,
       names:inventory.names.map(n=>({...n,id:n._id})),mapBlocks:inventory.blocks.filter(b=>b.mapBlockNames?.length).map(b=>b.blockCode).sort()});
   });
+  // Bounded, projected evidence for decision support; full history stays in Analytics.
+  api.get('/production/decision-support',async(req,res)=>{
+    const estateId=await scope(req),asOf=new Date().toISOString().slice(0,7);
+    const latest=await MonthlyProduction.findOne({estateId,month:{$lt:asOf},receiptStatus:'received',mt:{$gte:0}}).sort({month:-1}).select('month').maxTimeMS(10000).lean();
+    const [year,monthNumber]=(latest?.month||asOf).split('-').map(Number);
+    const start=new Date(Date.UTC(year,monthNumber-15,1)).toISOString().slice(0,7);
+    const [raw,names,rainfall]=await Promise.all([
+      MonthlyProduction.find({estateId,month:{$gte:start,$lte:latest?.month||asOf}}).select('sourceBlockId month receiptStatus mt effectiveHa plantingYear -_id').limit(75001).maxTimeMS(10000).lean(),
+      ProductionName.find({estateId}).select('sourceBlockCode mapBlockCode').limit(5001).maxTimeMS(10000).lean(),
+      models.AnnualRainfall?models.AnnualRainfall.find({estateId,active:true}).select('year monthly -_id').sort({year:1}).limit(501).maxTimeMS(10000).lean():[],
+    ]);
+    if(raw.length>75000||names.length>5000||rainfall.length>500)throw new QueryError('Decision support exceeds the supported estate size',413);
+    const nm=new Map(names.map(n=>[n._id,n]));
+    res.set('Cache-Control','private, no-store').json({items:raw.map(r=>({...r,sourceBlockCode:nm.get(r.sourceBlockId)?.sourceBlockCode,mapBlockCode:nm.get(r.sourceBlockId)?.mapBlockCode??null})),rainfall,fromMonth:start,latest:latest?.month||null});
+  });
   api.get('/production/recorded',async(req,res)=>{
     const estateId=await scope(req);
     const q=z.object({frequency:z.enum(['monthly','yearly']).default('yearly'),mapBlockCode:z.string().max(100).optional()}).parse(req.query);

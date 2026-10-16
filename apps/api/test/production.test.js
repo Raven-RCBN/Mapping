@@ -106,3 +106,19 @@ test('recorded block production keeps source tonnes and uses only effective hect
  assert.equal(month.body.items.find(x=>x.month==='2026-07').mt,7);
  await request(app).get('/production/recorded').query({estateId:'estate-b'}).expect(403);
 });
+test('decision support bounds and projects evidence while retaining baseline and estate isolation',async()=>{
+ const current=new Date().toISOString().slice(0,7);const [y,mo]=current.split('-').map(Number);
+ const monthAt=offset=>new Date(Date.UTC(y,mo-1+offset,1)).toISOString().slice(0,7);
+ await m.MonthlyProduction.create([
+  {_id:'ds-latest',estateId:'estate-a',sourceBlockId:'name-a',month:monthAt(-1),receiptStatus:'received',mt:11,effectiveHa:2,sourceFile:'private-detail.xlsx'},
+  {_id:'ds-baseline',estateId:'estate-a',sourceBlockId:'name-a',month:monthAt(-13),receiptStatus:'received',mt:12,effectiveHa:2},
+  {_id:'ds-old',estateId:'estate-a',sourceBlockId:'name-a',month:monthAt(-30),receiptStatus:'received',mt:99},
+  {_id:'ds-future',estateId:'estate-a',sourceBlockId:'name-a',month:monthAt(1),receiptStatus:'received',mt:99},
+  {_id:'ds-other',estateId:'estate-b',sourceBlockId:'name-b',month:monthAt(-1),receiptStatus:'received',mt:99},
+ ]);
+ const {body}=await request(app).get('/production/decision-support').query({estateId:'estate-a'}).expect(200);
+ assert.equal(body.latest,monthAt(-1));assert.ok(body.items.some(r=>r.month===monthAt(-13)));
+ assert.ok(body.items.every(r=>r.month>=body.fromMonth&&r.month<=body.latest&&r.sourceBlockId!=='name-b'&&!('sourceFile' in r)&&!('history' in r)));
+ assert.equal(body.items.find(r=>r.month===body.latest).mapBlockCode,'E-4');
+ await request(app).get('/production/decision-support').query({estateId:'estate-b'}).expect(403);
+});
