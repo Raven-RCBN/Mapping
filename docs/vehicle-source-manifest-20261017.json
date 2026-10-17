@@ -1,0 +1,37 @@
+[
+  {
+    "path": "apps/api/src/app.js",
+    "before": "ef7a9b69976225435aeb4ce854d89ffb670342f7334df1dfca1bae9a870d0397",
+    "after": "3d92a210a62e8fffc9c812938420a0e936504a5209973260422fd2b5c0763a46"
+  },
+  {
+    "path": "apps/api/src/model/index.js",
+    "before": "9fc707c9cf0c2454029ac27dcdced5758386dcdc503123c4885a8fcf6a2589b1",
+    "after": "1d927be2c760d4c8c69300cd1788acfbc815196bd077dd8fbbd40727960e0fe5"
+  },
+  {
+    "path": "apps/api/src/model/vehicles.js",
+    "before": null,
+    "after": "6f535489871054a544a86ba302803b6efcf7a065e565cef186b50081cd669ec1"
+  },
+  {
+    "path": "apps/api/src/service/archives.js",
+    "before": "4f263dec45c5df94a9eda28857ad153751d237303f9d47fca762f0f4e5125d6c",
+    "after": "fc5f1bcaf865fde5ff14867ae198adbfe9f84c70b64a4eccdffb4e4000ec3c00"
+  },
+  {
+    "path": "apps/api/src/service/vehicles.js",
+    "before": null,
+    "after": "83d61fd79f652218fc5bcfc1af5eefd521c848ce5f8e64e9513c3ce4c67eb084"
+  },
+  {
+    "path": "apps/api/src/service/vehicle-import.js",
+    "before": null,
+    "after": "675ad4d31fdc2593cb67ff1b06300d539a651a904c144bef164c52bc668d7ab2"
+  },
+  {
+    "path": "scripts/deploy/import-oban-vehicles.mjs",
+    "before": null,
+    "after": "68368c10f11b406a061765b45f873bc2ae66ac9dd243dc73bcee750891b5a1b6"
+  }
+]

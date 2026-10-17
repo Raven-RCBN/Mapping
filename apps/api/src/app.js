@@ -4,6 +4,10 @@ import { installDecisionWeather } from "./service/decision-weather.js";
 import { installMosaic } from "./service/mosaic.js";
 import { installProduction } from "./service/production.js";
 import { installWages } from "./service/wages.js";
+import { installVehicles } from './service/vehicles.js';
+import { installTrialBalance } from './service/trial-balance.js';
+import { installDataTablePages } from './service/data-table-pages.js';
+import { installVehiclePages } from './service/vehicle-pages.js';
 import { installHtsAnalysis } from "./service/hts-analysis.js";
 import express from "express";
 import { renderQgisCgi } from "./service/qgis.js";
@@ -19,6 +23,7 @@ import {
   selection,
   bounded,
 } from "./service/queries.js";
+import { createArchiveManager } from "./service/archives.js";
 import { installStorage } from "./service/storage.js";
 import { compressedJson, QueryError } from "./service/performance.js";
 import { createHash, randomUUID } from "node:crypto";
@@ -88,7 +93,7 @@ export async function createApp(config) {
   } = config.models || defaultModels;
   const apiPath = config.apiPath ?? "/api";
   const productionModels = config.models || defaultModels;
-  await Promise.all([productionModels.ProductionName, productionModels.MonthlyProduction, productionModels.YearlyProduction, productionModels.Wage, productionModels.WageArea].filter(Boolean).map(m=>m.createIndexes()));
+  await Promise.all([productionModels.ProductionName, productionModels.MonthlyProduction, productionModels.YearlyProduction, productionModels.Wage, productionModels.WageArea, productionModels.Vehicle, productionModels.VehicleImport, productionModels.VehicleTransaction, productionModels.VehicleUsage].filter(Boolean).map(m=>m.createIndexes()));
   const mount = apiPath || "/";
   const expose = (a) => publicAsset(a, config.publicApiPath || "/api");
   // Build only declared indexes; never drop or synchronize away existing indexes.
@@ -129,6 +134,8 @@ export async function createApp(config) {
       auth: config.authMode,
     })
   );
+  const archives = await createArchiveManager(config.models || defaultModels, config);
+  app.get(apiPath + "/archives/download/:ticket", archives.download);
   const api = express.Router();
   api.use(config.authenticate || authentication(config));
   api.use((req, res, next) => {
@@ -142,9 +149,14 @@ export async function createApp(config) {
   });
   const models = config.models || defaultModels;
   installQueries(api, models, expose);
-  installStorage(api, models, config);
+  archives.install(api);
+  installStorage(api, models, config, archives);
   installProduction(api, models);
   installWages(api, models);
+  installVehicles(api, models);
+  installTrialBalance(api, models);
+  installDataTablePages(api, models);
+  installVehiclePages(api, models);
   installHtsAnalysis(api, models, config);
   installDecisionWeather(api, models);
   installYieldModel(api, models, config);
@@ -579,7 +591,7 @@ export async function createApp(config) {
         const asset = await Asset.findById(id.parse(req.params.id)).lean();
         if (!asset) return res.sendStatus(404);
         if (!canAccess(req, asset.estateId)) return res.sendStatus(403);
-        if (["retired", "purging", "purged"].includes(asset.storageState))
+        if (["retired", "purging", "purged", "restoring"].includes(asset.storageState))
           return res
             .status(410)
             .json({ error: "This image has been retired." });

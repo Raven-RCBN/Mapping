@@ -22,6 +22,7 @@ export function configFromEnv(env = process.env) {
     port: Number(env.PORT || 4180),
     mongoUri: env.MONGODB_URI || "mongodb://127.0.0.1:27018/DigitalPalmMapping",
     dataDir: path.resolve(ROOT, env.DATA_DIR || "data"),
+    archiveDir: env.ARCHIVE_DIR ? path.resolve(ROOT, env.ARCHIVE_DIR) : undefined,
     publicKeyPath: env.JWT_PUBLIC_KEY_PATH,
     issuer: env.JWT_ISSUER,
     audience: env.JWT_AUDIENCE,

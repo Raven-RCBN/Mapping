@@ -10,7 +10,7 @@ import {
 import { buckets } from "../../../../packages/shared/timeline.js";
 
 export const activeAsset = {
-  storageState: { $nin: ["retired", "purging", "purged"] },
+  storageState: { $nin: ["retired", "purging", "purged", "restoring"] },
 };
 const day = z
   .string()

@@ -293,6 +293,23 @@ test("retirement is administrator-only, protects latest images, supports restore
   assert.equal((await post(app, "/storage/old1/restore", {})).status, 200);
   assert.equal((await request(app).get("/api/assets/old1/file")).status, 200);
   clock = new Date("2026-11-05");
+  const unprotected = (await post(app, "/storage/preview", { ...body, action: "purge" })).body;
+  assert.equal((await post(app, "/storage/apply", { token: unprotected.token, confirmation: "PURGE" })).status, 409);
+  assert.ok(await fs.stat(path.join(root, "estates/a/images/old2.png")));
+  const archive = await post(app, "/archives", { estateId: "a" });
+  assert.equal(archive.status, 202, JSON.stringify(archive.body));
+  const waitArchive = async status => {
+    for (let i = 0; i < 200; i++) {
+      const row = await models.Archive.findById(archive.body._id).lean();
+      if (row.status === status) return;
+      assert.notEqual(row.status, "failed", row.error);
+      await new Promise(resolve => setTimeout(resolve, 25));
+    }
+    assert.fail("Archive did not finish");
+  };
+  await waitArchive("ready");
+  assert.equal((await post(app, `/archives/${archive.body._id}/verify`, {})).status, 202);
+  await waitArchive("verified");
   const purge = (
     await post(app, "/storage/preview", { ...body, action: "purge" })
   ).body;

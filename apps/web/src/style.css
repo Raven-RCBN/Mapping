@@ -3366,3 +3366,38 @@ button:disabled {
 @media(max-width:600px){.map-stage.map-expanded{height:78svh;min-height:560px}.map-block-popup{max-height:min(380px,53svh);width:min(330px,calc(100vw - 48px))}}
 
 .map-stage .map-detail-overlay{z-index:2}
+
+/* Estate archive console */
+.archive-heading { display:flex; justify-content:space-between; align-items:center; gap:18px; }
+.archive-heading h2 { margin:6px 0 8px; }
+.archive-workspace p { line-height:1.6; }
+.archive-toolbar { display:flex; align-items:center; gap:32px; background:#f3f8f6; border:1px solid var(--line); padding:18px; border-radius:12px; margin:22px 0; }
+.archive-toolbar label { display:grid; gap:8px; min-width:260px; font-weight:600; }
+.archive-toolbar select { padding:12px; background:white; border:1px solid var(--line); border-radius:8px; max-width:100%; }
+.archive-toolbar span, .archive-subtext { display:block; color:var(--muted); font-size:12px; margin-top:5px; }
+.archive-workspace .archive-stats { grid-template-columns:repeat(4,minmax(0,1fr)); margin:22px 0; }
+.archive-stats article { padding:18px; }
+.archive-stats strong { font-size:28px; }
+.archive-stats p { font-size:12px; margin:7px 0 0; }
+.archive-columns { display:grid; grid-template-columns:minmax(0,1.45fr) minmax(290px,1fr); gap:20px; align-items:start; }
+.archive-panel { border:1px solid var(--line); border-radius:12px; padding:20px; min-width:0; }
+.archive-panel h3 { margin:0 0 12px; }
+.archive-panel .data-table-scroll { max-height:470px; }
+.archive-action-panel { background:#f8fbfa; }
+.archive-steps { padding-left:22px; }
+.archive-steps li { margin:14px 0; padding-left:6px; }
+.archive-steps span { display:block; font-size:13px; color:var(--muted); line-height:1.5; margin-top:4px; }
+.archive-capacity { margin:24px 0; }
+.archive-capacity div { display:flex; justify-content:space-between; gap:16px; margin:10px 0; font-size:13px; }
+.archive-capacity dd { margin:0; font-weight:700; }
+.archive-history { margin-top:20px; }
+.archive-row-actions { display:flex; align-items:center; flex-wrap:wrap; gap:8px; }
+.archive-row-actions .button { font-size:12px; padding:9px 12px; }
+.archive-badge { display:inline-block; padding:5px 9px; border-radius:6px; font-size:12px; background:#fff3d9; color:#885807; text-transform:capitalize; }
+.archive-badge.verified { background:#dff4e9; color:#206546; }
+.archive-badge.failed { background:#fce8e6; color:#983b35; }
+.archive-error { max-width:300px; color:#983b35; }
+.archive-records { margin-top:18px; }
+.archive-records summary { cursor:pointer; padding:10px 0; font-weight:600; }
+@media(max-width:1100px) { .archive-columns { grid-template-columns:1fr; } .archive-workspace .archive-stats { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:650px) { .archive-heading,.archive-toolbar { align-items:stretch; flex-direction:column; } .archive-toolbar label { min-width:0; } .archive-workspace .archive-stats { grid-template-columns:1fr; } .archive-panel { padding:12px; } }

@@ -1,4 +1,6 @@
 import mongoose from "mongoose";
+import { createVehicleModels } from './vehicles.js';
+import { createTrialBalanceModels } from './trial-balance.js';
 const { Schema } = mongoose;
 const options = { versionKey: false, timestamps: true };
 const ensureIndex = (model, keys, options) => {
@@ -76,9 +78,14 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     featureCount: Number,
     storageState: {
       type: String,
-      enum: ["active", "retired", "purging", "purged"],
+      enum: ["active", "retired", "purging", "purged", "restoring"],
       default: "active",
     },
+    archiveId: String,
+    restoreOperation: String,
+    restoreStartedAt: Date,
+    restoredAt: Date,
+    restoredBy: String,
     retiredAt: Date,
     retiredBy: String,
     purgedAt: Date,
@@ -88,6 +95,15 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
   ensureIndex(Asset, { estateId: 1, kind: 1, acquiredAt: -1, _id: -1 });
   ensureIndex(Asset, { estateId: 1, storageState: 1, retiredAt: 1, _id: 1 });
   ensureIndex(Asset, { "file.path": 1 });
+  const Archive = model("MappingArchive", {
+    _id: String, estateId: { type: String, required: true, index: true },
+    status: { type: String, enum: ["building", "ready", "verifying", "verified", "failed"], required: true },
+    active: { type: Boolean, default: false }, heartbeatAt: Date,
+    createdBy: String, verifiedAt: Date, manifestHash: String,
+    files: Number, bytes: Number, records: Number, error: String,
+  });
+  ensureIndex(Archive, { estateId: 1 }, { unique: true, partialFilterExpression: { active: true } });
+  ensureIndex(Archive, { estateId: 1, createdAt: -1 });
   const Activity = model("MappingActivity", {
     _id: String,
     estateId: { type: String, index: true },
@@ -299,8 +315,16 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
   });
   ensureIndex(AnnualRainfall,{estateId:1,year:1,sourceId:1},{unique:true});
   ensureIndex(AnnualRainfall,{estateId:1,year:1},{unique:true,partialFilterExpression:{active:true}});
+  ensureIndex(MonthlyProduction,{estateId:1,month:-1,sourceBlockId:1,_id:1});
+  ensureIndex(YearlyProduction,{estateId:1,year:1,sourceBlockId:1,_id:1});
+  ensureIndex(ProductionName,{estateId:1,sourceBlockCode:1,_id:1});
+  ensureIndex(ProductionComment,{estateId:1,year:1,sourceBlockId:1,_id:1});
+  ensureIndex(Wage,{estateId:1,basis:1,period:1,_id:1});
+  ensureIndex(WageArea,{estateId:1,year:1,sourceBlockCode:1,_id:1});
   return {
+    ...createTrialBalanceModels(model, Schema, ensureIndex), ...createVehicleModels(model, Schema, ensureIndex),
     Estate,
+    Archive,
     Asset,
     Activity,
     Source,
@@ -318,8 +342,13 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     AnnualRainfall,
   };
 }
-export const {
+export const {TrialBalanceSummary,TrialBalanceDetail,
+  Vehicle,
+  VehicleImport,
+  VehicleTransaction,
+  VehicleUsage,
   Estate,
+  Archive,
   Asset,
   Activity,
   Source,

@@ -46,6 +46,7 @@ const MapView = lazy(loadMapView);
 import Timeline from "./components/Timeline";
 import Dialogs from "./components/Dialogs";
 import Storage from "./components/Storage";
+import Archives from "./components/Archives";
 import DataTables from "./components/DataTables";
 import ProductionDashboard from './components/ProductionDashboard';
 import WagesDashboard from './components/WagesDashboard';
@@ -92,7 +93,8 @@ function Thumbnail({ asset }) {
 export default function App() {
   const [searchParams, setSearchParams] = useSearchParams();
   const dataView = searchParams.get("view") === "data";
-  const storageView = searchParams.get("view") === "storage";
+  const archiveView = searchParams.get("view") === "archive";
+  const storageView = archiveView || searchParams.get("view") === "storage";
   const openMap = () => setSearchParams({});
   const openData = () => setSearchParams({ view: "data" });
   const s = useSelector((s) => s),
@@ -446,8 +448,9 @@ export default function App() {
         </a>
         <div className="rail-divider" />
         <button
-          className="nav-icon"
+          className="nav-icon data-nav"
           title="Map workspace"
+          aria-label="Map workspace"
           onClick={() => {
             openMap();
             requestAnimationFrame(() =>
@@ -457,7 +460,7 @@ export default function App() {
             );
           }}
         >
-          ◈
+          ◈<small>Map</small>
         </button>
         <button
           className={"nav-icon data-nav " + (dataView ? "active" : "")}
@@ -468,29 +471,36 @@ export default function App() {
           ▤<small>Data</small>
         </button>
         <button
-          className={"nav-icon data-nav " + (storageView ? "active" : "")}
+          className={"nav-icon data-nav " + (storageView && !archiveView ? "active" : "")}
           title="Image storage"
           aria-label="Image storage"
           onClick={() => setSearchParams({ view: "storage" })}
         >
           ▣<small>Storage</small>
         </button>
-        <button className="nav-icon" title="Map history" onClick={goHistory}>
-          ◷
+        <button className={"nav-icon data-nav " + (archiveView ? "active" : "")}
+          title="Data Storage & Archive" aria-label="Data Storage & Archive"
+          onClick={() => setSearchParams({ view: "archive" })}>
+          ▥<small>Archive</small>
+        </button>
+        <button className="nav-icon data-nav" title="Map history" aria-label="Map history" onClick={goHistory}>
+          ◷<small>History</small>
         </button>
         <button
-          className="nav-icon"
+          className="nav-icon data-nav"
           title="Map sources"
+          aria-label="Map sources"
           onClick={() => setDialog({ type: "sources" })}
         >
-          ▱
+          ▱<small>Sources</small>
         </button>
         <button
-          className="nav-icon"
+          className="nav-icon data-nav"
           title="Offline maps"
+          aria-label="Offline maps"
           onClick={() => setDialog({ type: "offline" })}
         >
-          ⇩
+          ⇩<small>Offline</small>
         </button>
       </aside>
       <div className="shell">
@@ -524,14 +534,18 @@ export default function App() {
             <div>
               <div className="eyebrow">GEOSPATIAL COMMAND CENTER</div>
               <h1>
-                {storageView
+                {archiveView
+                  ? "Your data. Preserved."
+                  : storageView
                   ? "Your image storage."
                   : dataView
                   ? "Your estate data."
                   : "Your estate. Every day."}
               </h1>
               <p>
-                {storageView
+                {archiveView
+                  ? "Monitor growth, preserve estate maps and recover archived imagery."
+                  : storageView
                   ? "Review image usage and manage retention for your estates."
                   : dataView
                   ? "Monthly production, block history, parameters and field records."
@@ -574,13 +588,15 @@ export default function App() {
               {error}
             </div>
           )}
-          {storageView && <Storage key={s.selected[0]} onReload={reload} />}
+          {archiveView && <Archives key={s.selected.join(",")} onReload={reload} onRetention={() => setSearchParams({ view: "storage" })} />}
+          {storageView && !archiveView && <Storage key={s.selected[0]} onReload={reload} />}
           {dataView && (
             <section className="data-workspace">
               <DataTables
                 key={s.selected.join(",")}
                 productionEstateId={!s.data.offline?s.selected[0]:null}
-                initialTab={['monthly','parameters','names','yearly','wages'].includes(searchParams.get('tab'))?searchParams.get('tab'):'blocks'}
+                vehicleEstateId={!s.data.offline&&s.selected.length===1?s.selected[0]:null}
+                initialTab={['monthly','parameters','names','yearly','wages','vehicles','trial-balance'].includes(searchParams.get('tab'))?searchParams.get('tab'):'blocks'}
                 role={s.data.access.role}
                 server={s.data.paged ? { estates: s.selected.join(",") } : null}
                 blocks={(s.data.blocks || []).filter((b) =>

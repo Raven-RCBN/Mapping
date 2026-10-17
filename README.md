@@ -107,3 +107,20 @@ The initial snapshot uses production through July 2026 and is marked historical.
 See `scripts/model/README.md` and `scripts/model/evaluation.ipynb` for retraining,
 evaluation and limitations. Persistent alert workflows and external notifications
 remain subsequent work.
+
+### Data Storage & Archive
+
+Open **Archive** in the left menu to review map/image storage and record counts,
+create a full estate snapshot, verify its checksums and download its files and
+record exports. **Storage** retains the existing image retirement workflow;
+permanent image purge now requires a verified recovery copy. Purged imagery can
+be recovered from the Archive menu. See [archive operation and capacity](docs/DATA-STORAGE-ARCHIVE.md)
+for archive-volume configuration, recovery limits and backup requirements.
+
+### Trial balance and paginated Data tables
+
+Trial balance stores account hierarchy and source transaction details separately,
+including Highlight reasons and block matching evidence. Production, wages,
+vehicle and trial balance Data views use scoped server pages. See
+[trial balance data and pagination](docs/TRIAL-BALANCE-AND-DATA-PAGING.md)
+for coverage, source reconciliation and workload limits.

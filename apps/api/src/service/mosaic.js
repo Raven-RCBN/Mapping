@@ -50,7 +50,7 @@ export function installMosaic(api, { Asset }, config, canAccess) {
     const asset = await Asset.findById(req.params.id).lean();
     if (!asset) return res.sendStatus(404);
     if (!canAccess(req, asset.estateId)) return res.sendStatus(403);
-    if (["retired", "purging", "purged"].includes(asset.storageState)) return res.sendStatus(410);
+    if (["retired", "purging", "purged", "restoring"].includes(asset.storageState)) return res.sendStatus(410);
     if (asset.kind !== "reference-image" || !asset.mosaic?.levels?.length) return res.sendStatus(404);
     const { z, x, y } = req.params;
     const tile = await readMosaicTile(config.dataDir, asset.mosaic, +z, +x, +y);

@@ -13,7 +13,7 @@ const admin = (req, res, next) =>
     : res
         .status(403)
         .json({ error: "Administrator access is required to manage storage." });
-export function installStorage(api, { Asset }, config) {
+export function installStorage(api, { Asset }, config, archives) {
   // Preview tokens are single-use, short-lived, scoped to the authenticated administrator.
   const previews = new Map();
   const now = () => (config.clock ? config.clock() : new Date());
@@ -192,6 +192,14 @@ export function installStorage(api, { Asset }, config) {
         "Storage changed since the preview. Preview again.",
         409
       );
+    // Validate every recovery copy before removing any file in this batch.
+    if (preview.input.action === "purge") {
+      for (const id of preview.ids) {
+        const asset = await Asset.findById(id).lean();
+        if (!asset || !canAccess(req, asset.estateId)) throw new QueryError("Estate access denied", 403);
+        await archives.archivedFile(asset);
+      }
+    }
     const completed = [],
       skipped = [];
     for (const id of preview.ids) {
@@ -249,6 +257,7 @@ export function installStorage(api, { Asset }, config) {
         continue;
       }
       try {
+        await archives.archivedFile(row);
         try {
           const filename = await secureStoredFile(config.dataDir, relative);
           if ((await fileHash(filename)) !== row.file.sha256)
@@ -283,7 +292,12 @@ export function installStorage(api, { Asset }, config) {
     if (!row) throw new QueryError("Image not found", 404);
     if (!canAccess(req, row.estateId))
       throw new QueryError("Estate access denied", 403);
-    await secureStoredFile(config.dataDir, row.file.path);
+    if (["purged", "restoring"].includes(row.storageState)) {
+      await archives.restore(row, req.access.subject);
+      return res.json({ restored: true, fromArchive: true });
+    }
+    const source = await secureStoredFile(config.dataDir, row.file.path);
+    if (await fileHash(source) !== row.file.sha256) throw new QueryError("Image checksum mismatch. Restore stopped.", 409);
     const result = await Asset.updateOne(
       { _id: row._id, storageState: "retired" },
       {

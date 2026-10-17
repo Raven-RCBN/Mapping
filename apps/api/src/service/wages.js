@@ -2,6 +2,7 @@ import {createHash} from 'node:crypto';
 import {z} from 'zod';
 import {canAccess, requireWrite} from './auth.js';
 import {QueryError} from './performance.js';
+import {cursorFilter,nextPage} from './table-pages.js';
 import {summarizeAllocatedBlocks} from '../../../../packages/shared/wage-analytics.js';
 import {buildWageTimeline} from '../../../../packages/shared/wage-timeline.js';
 import {allocateWages} from '../../../../packages/shared/wages.js';
@@ -49,7 +50,7 @@ export function installWages(api,models){
   };
   api.get('/wages/areas',async(req,res)=>{
     const estateId=await scope(req),year=z.coerce.number().int().min(1900).max(2200).parse(req.query.year);
-    const items=await WageArea.find({estateId,year}).select('-history').sort({division:1,sourceBlockCode:1}).limit(5001).lean();
+    const items=await WageArea.find({estateId,year}).select('-history').sort({division:1,sourceBlockCode:1}).limit(5001).maxTimeMS(10000).lean();
     if(items.length>5000)throw new QueryError('Too many area records',413);
     res.json({items:items.map(r=>({...r,id:r._id}))});
   });
@@ -79,28 +80,35 @@ export function installWages(api,models){
   });
   api.get('/wages/allocation',async(req,res)=>{
     const estateId=await scope(req),q=z.object({year:z.string().regex(/^\d{4}$/),basis:z.enum(['monthly','annual_summary']).default('monthly'),
-      mapBlockCode:z.string().max(200).optional(),task:z.string().max(200).optional(),activity:z.string().max(200).optional(),division:z.string().max(200).optional(),q:z.string().max(200).default(''),page:z.coerce.number().int().min(0).max(10000).default(0)}).parse(req.query);
+      mapBlockCode:z.string().max(200).optional(),task:z.string().max(200).optional(),activity:z.string().max(200).optional(),division:z.string().max(200).optional(),q:z.string().max(200).default(''),cursor:z.string().max(5000).optional(),page:z.coerce.number().int().min(0).max(10000).default(0)}).parse(req.query);
     const [wages,areas,mandays]=await Promise.all([
-      Wage.find({estateId,basis:q.basis,period:{$gte:q.year,$lt:String(Number(q.year)+1)},...(q.task?{task:q.task}:{}),...(q.activity?{activity:q.activity}:{}),...(q.division?{division:q.division}:{})}).select('-history').limit(50001).lean(),
-      WageArea.find({estateId,year:Number(q.year)}).select('-history').limit(5001).lean(),
-      BlockManday?BlockManday.find({estateId,year:Number(q.year)}).select('mapBlockCode division task activity mandayUnits').limit(50001).lean():[],
+      Wage.find({estateId,basis:q.basis,period:{$gte:q.year,$lt:String(Number(q.year)+1)},...(q.task?{task:q.task}:{}),...(q.activity?{activity:q.activity}:{}),...(q.division?{division:q.division}:{})}).select('-history').limit(50001).maxTimeMS(10000).lean(),
+      WageArea.find({estateId,year:Number(q.year)}).select('-history').limit(5001).maxTimeMS(10000).lean(),
+      BlockManday?BlockManday.find({estateId,year:Number(q.year)}).select('mapBlockCode division task activity mandayUnits').limit(50001).maxTimeMS(10000).lean():[],
     ]);
     if(wages.length>50000||areas.length>5000||mandays.length>50000)throw new QueryError('Too many allocation records',413);
+    const largestDivision=Math.max(0,...Object.values(areas.reduce((a,r)=>(a[r.division]=(a[r.division]||0)+1,a),{})));
+    if(wages.length*(q.mapBlockCode?1:largestDivision)>250000)throw new QueryError('Select a division or block to narrow the allocation report',413);
     const {sources,...allocation}=allocateWages(wages,areas,q.mapBlockCode),items=allocation.items.filter(r=>!q.q||[r.mapBlockCode,r.task,r.activity,r.division].join(' ').toLowerCase().includes(q.q.toLowerCase())).sort((a,b)=>a.period.localeCompare(b.period)||a.sourceBlockCode.localeCompare(b.sourceBlockCode)||a.task.localeCompare(b.task)||a.activity.localeCompare(b.activity));
     const totals=wageTotals(items);
-    res.json({...allocation,...totals,byBlock:summarizeAllocatedBlocks(items,mandays),items:items.slice(q.page*25,(q.page+1)*25),count:items.length,
+    const order={id:1},fingerprint=createHash('sha256').update(JSON.stringify([estateId,{...q,cursor:undefined,page:undefined}])).digest('hex');
+    const after=cursorFilter(q.cursor,order,fingerprint),lastId=after.$or?.[0]?.id?.$gt;
+    const sorted=[...items].sort((a,b)=>a.id.localeCompare(b.id,'en'));
+    const eligible=sorted.filter(r=>!lastId||r.id.localeCompare(lastId,'en')>0),offset=q.cursor?0:q.page*25;
+    const pageRows=nextPage(eligible.slice(offset,offset+26),25,order,fingerprint);
+    res.json({...allocation,...totals,byBlock:summarizeAllocatedBlocks(items,mandays),...pageRows,count:items.length,
       selectedAreas:areas.filter(a=>a.mapBlockCode===q.mapBlockCode),unknownDivisionBlocks:areas.filter(a=>a.division==='DIVISION NOT SET').map(a=>a.mapBlockCode)});
   });
   api.get('/wages/timeline',async(req,res)=>{
     const estateId=await scope(req),q=z.object({year:z.string().regex(/^\d{4}$/),mapBlockCode:label}).parse(req.query);
     if(!(await polygons(estateId)).includes(q.mapBlockCode))throw new QueryError('Choose an existing map block',400);
-    const areas=await WageArea.find({estateId,year:Number(q.year)}).select('-history').limit(5001).lean();
+    const areas=await WageArea.find({estateId,year:Number(q.year)}).select('-history').limit(5001).maxTimeMS(10000).lean();
     if(areas.length>5000)throw new QueryError('Too many area records',413);
     const area=areas.find(a=>a.mapBlockCode===q.mapBlockCode);
     if(!area)return res.json({year:q.year,mapBlockCode:q.mapBlockCode,items:[]});
     const [wages,mandays]=await Promise.all([
-      Wage.find({estateId,basis:'monthly',division:area.division,period:{$gte:q.year+'-01',$lte:q.year+'-12'}}).select('-history').limit(50001).lean(),
-      BlockManday.find({estateId,year:Number(q.year),mapBlockCode:q.mapBlockCode}).select('mapBlockCode division task activity mandayUnits').limit(5001).lean(),
+      Wage.find({estateId,basis:'monthly',division:area.division,period:{$gte:q.year+'-01',$lte:q.year+'-12'}}).select('-history').limit(50001).maxTimeMS(10000).lean(),
+      BlockManday.find({estateId,year:Number(q.year),mapBlockCode:q.mapBlockCode}).select('mapBlockCode division task activity mandayUnits').limit(5001).maxTimeMS(10000).lean(),
     ]);
     if(wages.length>50000||mandays.length>5000)throw new QueryError('Too many timeline records',413);
     const allocated=allocateWages(wages,areas,q.mapBlockCode).items.filter(r=>r.mapBlockCode===q.mapBlockCode);

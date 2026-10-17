@@ -5,6 +5,8 @@ import { label } from "../../../../packages/shared/timeline.js";
 import BlockComments from './BlockComments';
 import ProductionTables from './ProductionTables';
 import WagesTables from './WagesTables';
+import VehicleTables from './VehicleTables';
+import TrialBalanceTables from './TrialBalanceTables';
 
 export const blockColumns = [
   ["blockCode", "Block"],
@@ -93,6 +95,7 @@ export default function DataTables({
   onSelectBlock,
   onHistory,
   productionEstateId,
+  vehicleEstateId,
   role,
   initialTab = "blocks",
 }) {
@@ -105,13 +108,13 @@ export default function DataTables({
   );
   const [query, setQuery] = useState(""),
     [page, setPage] = useState(0);
-  const [remote, setRemote] = useState(null),
+  const [remoteResponse, setRemote] = useState(null),
     [busy, setBusy] = useState(false),
     [failure, setFailure] = useState(""),
     [cursors, setCursors] = useState([null]),
     [from, setFrom] = useState(""),
     [to, setTo] = useState("");
-  const productionTab=['monthly','parameters','names','yearly','wages','comments'].includes(tab);
+  const productionTab=['monthly','parameters','names','yearly','wages','comments','vehicles','trial-balance'].includes(tab);
   const reset = () => {
     setPage(0);
     setCursors([null]);
@@ -125,6 +128,7 @@ export default function DataTables({
     ...(to ? { to } : {}),
   };
   const remoteKey = JSON.stringify([tab, params]);
+  const remote=remoteResponse?.requestKey===remoteKey?remoteResponse:null;
   useEffect(() => {
     if (!server || productionTab) return;
     const controller = new AbortController();
@@ -135,7 +139,7 @@ export default function DataTables({
       () =>
         queryData("/records/" + tab, params, { signal: controller.signal })
           .then(({ data }) => {
-            setRemote(data);
+            setRemote({...data,requestKey:remoteKey});
             setBusy(false);
           })
           .catch((e) => {
@@ -150,9 +154,9 @@ export default function DataTables({
       clearTimeout(timer);
       controller.abort();
     };
-  }, [remoteKey, !!server]);
+  }, [remoteKey, !!server, productionTab]);
   const tabs = [
-    ...(!popup&&productionEstateId?[["monthly","Monthly production",0],["parameters","Monthly parameters",0],["names","Block-name history",0],["yearly","Yearly production",0],["wages","Wages",0],["comments","Block comments",0]]:[]),
+    ...(!popup&&productionEstateId?[["monthly","Monthly production",0],["parameters","Monthly parameters",0],["names","Block-name history",0],["yearly","Yearly production",0],["wages","Wages",0],["vehicles","Vehicle details",0],["trial-balance","Trial balance",0],["comments","Block comments",0]]:[]),
     ["blocks", "Block details", blocks.length],
     [
       "harvesting",
@@ -240,7 +244,7 @@ export default function DataTables({
       : key === "mapBlockNames"
       ? r.mapBlockNames?.join(", ") || "Pending"
       : format(r[key], key);
-  if(productionTab) return <div className="data-tables"><div className="table-tabs" role="tablist">{tabs.map(([id,name])=><button key={id} role="tab" aria-selected={tab===id} onClick={()=>{setTab(id);reset();setQuery('');}}>{name}</button>)}</div>{tab==='comments'?<BlockComments key={productionEstateId} estateId={productionEstateId} table role={role} onMap={onSelectBlock}/>:tab==='wages'?<WagesTables key={productionEstateId} estateId={productionEstateId} role={role} onMap={onSelectBlock}/>:<ProductionTables key={productionEstateId} estateId={productionEstateId} role={role} view={tab} onMap={onSelectBlock}/>}</div>;
+  if(productionTab) return <div className="data-tables"><div className="table-tabs" role="tablist">{tabs.map(([id,name])=><button key={id} role="tab" aria-selected={tab===id} onClick={()=>{setTab(id);reset();setQuery('');}}>{name}</button>)}</div>{tab==='trial-balance'?<TrialBalanceTables key={vehicleEstateId||'choose-estate'} estateId={vehicleEstateId}/>:tab==='vehicles'?<VehicleTables key={vehicleEstateId||'choose-estate'} estateId={vehicleEstateId}/>:tab==='comments'?<BlockComments key={productionEstateId} estateId={productionEstateId} table role={role} onMap={onSelectBlock}/>:tab==='wages'?<WagesTables key={productionEstateId} estateId={productionEstateId} role={role} onMap={onSelectBlock}/>:<ProductionTables key={productionEstateId} estateId={productionEstateId} role={role} view={tab} onMap={onSelectBlock}/>}</div>;
   return (
     <div className="data-tables">
       <div className="table-tabs" role="tablist">

@@ -145,7 +145,7 @@ export default function Storage({ onReload }) {
           <p>
             Retire hides images from the map and new downloads. You can restore
             them for at least 30 days. Permanent purge becomes available after
-            that period. Boundaries, terrain, QGIS packages and activity records
+            that period and requires a verified archive in Data Storage & Archive. Boundaries, terrain, QGIS packages and activity records
             are protected.
           </p>
           {admin ? (

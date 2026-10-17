@@ -1,0 +1,42 @@
+[
+  {
+    "path": "apps/api/src/app.js",
+    "before": "d5494ee88210d90a17bf71f67fc8cdf23f3fbea79d51dbbb63b019f6f101ee8c",
+    "after": "d296462d369762f12b4a4eb16dda1000fc6f75042b312f42111ce41ee099ae0a"
+  },
+  {
+    "path": "apps/api/src/config/index.js",
+    "before": "1ccbbb5e300370be4e1a087c6915b968b911cb0481112478991659d8c70a4892",
+    "after": "6ed06dcdaf158f90d82f4a6243a1570a68395dc7460925b5b2bbc5e2665cda40"
+  },
+  {
+    "path": "apps/api/src/independent-server.js",
+    "before": "fc321256dd16e09f0b1a9607237ea342c0c6fe549d1d4630242081a51022a7b7",
+    "after": "3ab08ada67dfdf79951657b83cc1a05b07b4f3ebe17fec8959d532ad5ec462ee"
+  },
+  {
+    "path": "apps/api/src/model/index.js",
+    "before": "eee31a04af9d1381a09289bf1c52c5b6ccf6d5090d208495bf2114155993d0bb",
+    "after": "9fc707c9cf0c2454029ac27dcdced5758386dcdc503123c4885a8fcf6a2589b1"
+  },
+  {
+    "path": "apps/api/src/service/queries.js",
+    "before": "bbbf25af1bc03a0121b1b24b970f8f60b85e48552f4b5a8d97e09ceac16917d8",
+    "after": "3fffc28940c117b841809956e832ce4409634d6b9284abd760386d5dbd709403"
+  },
+  {
+    "path": "apps/api/src/service/storage.js",
+    "before": "f57baa6d679f8c579e3aa20875acb3ecd8e642230bea069322dc68d43b649b00",
+    "after": "fc6636693a88aa2b20a24abc30a721de2bda473c2d25baba3bc746dbf295a3ae"
+  },
+  {
+    "path": "apps/api/src/service/mosaic.js",
+    "before": "cebb0c5053d4ffd090c4c26211a60d4df6692270db098884603f74e52f8d752f",
+    "after": "cd31e9defd2e40ebd4e0d9ab28e517d901e4567d55df186eebc911673ce4949b"
+  },
+  {
+    "path": "apps/api/src/service/archives.js",
+    "before": null,
+    "after": "4f263dec45c5df94a9eda28857ad153751d237303f9d47fca762f0f4e5125d6c"
+  }
+]

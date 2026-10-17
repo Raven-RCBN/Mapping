@@ -16,6 +16,7 @@ app.set('trust proxy', 'loopback');
 app.use('/api/v1/users', auth.router);
 app.use(await createApp({
   production: true, authMode: 'mapping-session', authenticate: auth.authenticate,
+  archiveDir: process.env.ARCHIVE_DIR,
   dataDir: process.env.DATA_DIR, qgisRoot: path.join(process.env.DATA_DIR, 'estates'),
   qgisCommand: process.env.QGIS_COMMAND, origins: [process.env.PUBLIC_ORIGIN],
   apiPath: '/api/EstateAtlas', publicApiPath: '/api/EstateAtlas', serveWeb: false,
