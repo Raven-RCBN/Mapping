@@ -45,7 +45,7 @@ test('sample costs nothing, live fails closed, estate ACL and admin switch',asyn
 });
 test('live request is bounded, no tools or retries, cached idempotent result and verified highlights',async()=>{
  let calls=0;
- const f=await fixture({provider:async(url,options)=>{calls++;const b=JSON.parse(options.body);assert.equal(b.store,false);assert.equal(b.service_tier,'default');assert.equal(b.max_output_tokens,1800);assert.equal(b.tools,undefined);assert.equal(b.model,'gpt-6.1-sol');return {ok:true,json:async()=>({status:'completed',usage:{input_tokens:100,output_tokens:20},output:[{content:[{type:'output_text',text:JSON.stringify({answer:'Forecast is an estimate.',blockCodes:['F5','fake'],sourceIds:['record-1','fake'],actionDrafts:[]})}]}]})};}});
+ const f=await fixture({provider:async(url,options)=>{calls++;const b=JSON.parse(options.body);assert.equal(b.store,false);assert.equal(b.service_tier,'default');assert.equal(b.max_output_tokens,1800);assert.equal(b.reasoning.effort,'low');assert.equal(b.tools,undefined);assert.equal(b.model,'gpt-6.1-sol');return {ok:true,json:async()=>({status:'completed',usage:{input_tokens:100,output_tokens:20},output:[{content:[{type:'output_text',text:JSON.stringify({answer:'Forecast is an estimate.',blockCodes:['F5','fake'],sourceIds:['record-1','fake'],actionDrafts:[]})}]}]})};}});
  try{await f.budget.enable(true,'admin');const a=await request(f.app).post('/ai/run').send(body);assert.equal(a.status,200);assert.deepEqual(a.body.blockCodes,['F5']);assert.deepEqual(a.body.sourceIds,['record-1']);const retry=await request(f.app).post('/ai/run').send(body);assert.equal(retry.body.reused,true);assert.equal(calls,1);assert.equal((await f.budget.status()).usedUsd,(100*2500+20*10000)/1e9);}finally{await fs.rm(f.root,{recursive:true,force:true});}
 });
 test('provider credit failure retains reservation and cannot repeat request',async()=>{
@@ -53,4 +53,13 @@ test('provider credit failure retains reservation and cannot repeat request',asy
 });
 test('grounding uses the same baseline selection as forecast cards',()=>{
  const snapshot={status:'pilot',asOf:'2026-07',modelRevision:'test',horizons:[{monthsAhead:1,beatsBaseline:true},{monthsAhead:2,beatsBaseline:false}],forecasts:[{horizon:1,month:'2026-08',sourceBlockId:'a',predictionTonnes:10,baselineTonnes:8,effectiveHa:2},{horizon:2,month:'2026-09',sourceBlockId:'a',predictionTonnes:12,baselineTonnes:9,effectiveHa:2}]};const e=evidenceFromRows([],[],snapshot);assert.equal(e.forecast.months[0].tonnes,10);assert.equal(e.forecast.months[1].tonnes,9);assert.equal(e.forecast.months[1].tonnesPerHa,4.5);
+});
+
+test('request-format errors pause AI, expose only allowed parameter and retain charge',async()=>{
+ let calls=0;const f=await fixture({provider:async()=>{calls++;return {ok:false,status:400,json:async()=>({error:{code:'unsupported_value',param:'reasoning.effort',message:'sensitive provider text'}})};}});
+ try{await f.budget.enable(true,'admin');const result=await request(f.app).post('/ai/run').send(body);assert.equal(result.status,502);assert.match(result.body.error,/reasoning.effort/);assert.doesNotMatch(result.body.error,/sensitive/);assert.equal((await f.budget.status()).enabled,false);assert.equal((await f.budget.status()).usedUsd,.078);assert.equal(calls,1);}finally{await fs.rm(f.root,{recursive:true,force:true});}
+});
+test('Luna uses supported low effort within the same bounded text-only payload',async()=>{
+ let calls=0;const f=await fixture({provider:async(url,options)=>{calls++;const p=JSON.parse(options.body);assert.equal(p.model,'gpt-6-luna');assert.equal(p.reasoning.effort,'low');assert.equal(p.max_output_tokens,1800);assert.equal(p.tools,undefined);return {ok:true,json:async()=>({status:'completed',usage:{input_tokens:100,output_tokens:20},output:[{content:[{type:'output_text',text:JSON.stringify({answer:'Review F5 evidence.',blockCodes:['F5'],sourceIds:['record-1'],actionDrafts:[]})}]}]})};}});
+ try{await f.budget.enable(true,'admin');const result=await request(f.app).post('/ai/run').send({...body,action:'ask-map'});assert.equal(result.status,200);assert.equal(calls,1);assert.equal((await f.budget.status()).usedUsd,(100*125+20*500)/1e9);}finally{await fs.rm(f.root,{recursive:true,force:true});}
 });

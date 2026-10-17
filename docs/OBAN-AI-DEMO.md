@@ -40,3 +40,9 @@ Keep `ledger.json` and the `initialized` marker together, with owner-only permis
 ## Validation
 
 `node --test apps/api/test/ai.test.js` covers cross-worker cap reservations, pause/dispatch ordering, metered settlement, unknown retention, rate limiting, idempotency, UTC rollover, missing-ledger failure, roles/estate scope, sample no-spend behavior, provider credit failures and matching forecast baseline selection. `pnpm check` covers the full app and frontend build. The local fixture preview exposes the same assistant service with no credentials and a separate temporary ledger.
+
+## Live acceptance, 17 October 2026
+
+The two explicitly approved F5 requests did not produce a live answer. The second returned provider400, `unsupported_value` at `reasoning.effort`. The original `none` setting is unsupported by GPT-6.1 Sol. Both models now use supported `low` effort; the1,800-token output cap still includes reasoning. Official model pages: [Sol](https://developers.openai.com/api/docs/models/gpt-6.1-sol), [Luna](https://developers.openai.com/api/docs/models/gpt-6-luna). Provider rejection now pauses live AI automatically and logs only fixed-vocabulary status/code/parameter diagnostics. Raw provider text is never exposed.
+
+Two unknown reservations remain in the October ledger: US$0.0039 and US$0.078, total US$0.0819. They are conservative application charges, not confirmed provider spend. Do not reset them. Live AI is paused. Corrected live acceptance requires fresh explicit approval; no further provider requests were made while correcting the code.

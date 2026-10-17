@@ -49,12 +49,21 @@ export function installEstateAI(api,models,config){
   let pending;
   await budget.dispatch(reservation.month,id,()=>{
    // No automatic retries, tools, images, conversation state or background calls.
-   pending=provider('https://api.openai.com/v1/responses',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+env.OPENAI_API_KEY,'OpenAI-Project':env.OPENAI_PROJECT_ID},body:JSON.stringify({model,service_tier:'default',store:false,reasoning:{effort:'none'},max_output_tokens:OUTPUT,instructions,input,text:{format:{type:'json_object'}}}),signal:AbortSignal.timeout(45000)});
+   pending=provider('https://api.openai.com/v1/responses',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+env.OPENAI_API_KEY,'OpenAI-Project':env.OPENAI_PROJECT_ID},body:JSON.stringify({model,service_tier:'default',store:false,reasoning:{effort:'low'},max_output_tokens:OUTPUT,instructions,input,text:{format:{type:'json_object'}}}),signal:AbortSignal.timeout(45000)});
   });
   let cost,response;
   try{
    const upstream=await pending;
-   if(!upstream.ok){if([402,429].includes(upstream.status))error('Provider credit or rate limit reached. No automatic retry. Ask the owner before adding credit.',503);error('AI provider unavailable. No automatic retry was made.',502);}
+   if(!upstream.ok){
+    // Raw provider text can echo input or credentials. Use fixed diagnostics.
+    let detail={};try{detail=await upstream.json();}catch{}
+    const code=['unsupported_value','unsupported_parameter','invalid_api_key','insufficient_permissions','model_not_found','rate_limit_exceeded','insufficient_quota'].includes(detail.error?.code)?detail.error.code:'request_rejected';
+    const param=['reasoning.effort','text.format','max_output_tokens','model','service_tier'].includes(detail.error?.param)?detail.error.param:'';
+    console.error('OBAN AI provider rejected request',JSON.stringify({status:upstream.status,code,param}));
+    await budget.enable(false,'provider-request-error');
+    if([402,429].includes(upstream.status))error('Provider credit or rate limit reached. Live AI paused; no automatic retry. Ask the owner before adding credit.',503);
+    error(`AI provider rejected the request${param?' ('+param+')':''}. Live AI paused for administrator review; no automatic retry.`,502);
+   }
    const data=await upstream.json(),u=data.usage;
    if(u&&Number.isSafeInteger(u.input_tokens)&&u.input_tokens>=0&&Number.isSafeInteger(u.output_tokens)&&u.output_tokens>=0)cost=u.input_tokens*rates.input+u.output_tokens*rates.output;
    if(!Number.isSafeInteger(cost)||u.input_tokens>INPUT_BOUND||u.output_tokens>OUTPUT)error('Provider usage could not be verified. Reservation retained.',502);
