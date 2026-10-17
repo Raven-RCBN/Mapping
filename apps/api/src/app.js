@@ -1,4 +1,5 @@
 import { installYieldModel } from "./service/yield-model.js";
+import { installEstateAI } from "./service/ai/index.js";
 import { installDecisionWeather } from "./service/decision-weather.js";
 import { installMosaic } from "./service/mosaic.js";
 import { installProduction } from "./service/production.js";
@@ -147,6 +148,7 @@ export async function createApp(config) {
   installHtsAnalysis(api, models, config);
   installDecisionWeather(api, models);
   installYieldModel(api, models, config);
+  installEstateAI(api, models, config);
   const snapshot = async (req) => {
     const q = selection(req),
       scope = q.scope;
