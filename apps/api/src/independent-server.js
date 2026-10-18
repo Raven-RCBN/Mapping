@@ -1,3 +1,7 @@
+import * as sustainabilityModels from './model/index.js';
+import {installSustainabilityFeed} from './service/sustainabilityFeed.js';
+import {readMosaicTile as sustainabilityMosaicTile} from './service/mosaic.js';
+import {secureStoredFile as sustainabilityStoredFile} from './service/files.js';
 import express from 'express';
 import mongoose from 'mongoose';
 import path from 'node:path';
@@ -14,6 +18,7 @@ const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 'loopback');
 app.use('/api/v1/users', auth.router);
+installSustainabilityFeed(app, {express, models:sustainabilityModels, dataDir:process.env.DATA_DIR, readMosaicTile:sustainabilityMosaicTile, secureStoredFile:sustainabilityStoredFile});
 app.use(await createApp({
   production: true, authMode: 'mapping-session', authenticate: auth.authenticate,
   archiveDir: process.env.ARCHIVE_DIR,
