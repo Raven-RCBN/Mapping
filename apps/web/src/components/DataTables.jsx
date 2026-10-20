@@ -1,3 +1,4 @@
+import {useAccess} from '../useAccess';
 import { useEffect, useMemo, useState } from "react";
 import { queryData } from "../api";
 import { exactCoordinates } from "../../../../packages/shared/activities.js";
@@ -38,6 +39,8 @@ const format = (value, key) =>
     ? label(value)
     : String(value);
 export function BlockInformation({ blocks, selection, estates, onClose, offline, compact=false }) {
+  const {can}=useAccess(selection?.split("::")[0]);
+  if (!can("blocks")) return null;
   if (!selection)
     return (
       <div className="block-info-hint">
@@ -52,7 +55,7 @@ export function BlockInformation({ blocks, selection, estates, onClose, offline,
   );
   const estate = estates.find((e) => e.id === estateId);
   return (
-    <>{!compact&&<BlockComments key={selection} estateId={estateId} code={code} offline={offline}/>}<section className="block-info" aria-label="Selected block information">
+    <>{!compact&&can("comments")&&<BlockComments key={selection} estateId={estateId} code={code} offline={offline}/>}<section className="block-info" aria-label="Selected block information">
       <div className="block-info-heading">
         <strong>
           ▱ {code} <small>· {estate?.name}</small>
@@ -83,7 +86,7 @@ export function BlockInformation({ blocks, selection, estates, onClose, offline,
       {!matches.length && (
         <p>No block-detail record is linked to this map polygon.</p>
       )}
-      {compact&&<details className="map-block-comments"><summary>Block comments</summary><BlockComments key={selection} estateId={estateId} code={code} offline={offline}/></details>}
+      {compact&&can("comments")&&<details className="map-block-comments"><summary>Block comments</summary><BlockComments key={selection} estateId={estateId} code={code} offline={offline}/></details>}
     </section></>
   );
 }
@@ -99,12 +102,15 @@ export default function DataTables({
   role,
   initialTab = "blocks",
 }) {
+  const {can} = useAccess(productionEstateId || vehicleEstateId);
+  const allowedTab = value => can(value==='parameters'?'monthly':value);
+  const firstTab = ['blocks','monthly','names','yearly','wages','vehicles','trial-balance','harvesting','field','comments'].find(allowedTab);
   const [tab, setTab] = useState(
     popup
       ? rows.some((r) => r.recordKind === "harvesting")
         ? "harvesting"
         : "field"
-      : initialTab
+      : allowedTab(initialTab) ? initialTab : firstTab
   );
   const [query, setQuery] = useState(""),
     [page, setPage] = useState(0);
@@ -130,7 +136,7 @@ export default function DataTables({
   const remoteKey = JSON.stringify([tab, params]);
   const remote=remoteResponse?.requestKey===remoteKey?remoteResponse:null;
   useEffect(() => {
-    if (!server || productionTab) return;
+    if (!server || productionTab || !allowedTab(tab)) return;
     const controller = new AbortController();
     setBusy(true);
     setRemote(null);
@@ -172,7 +178,7 @@ export default function DataTables({
         .filter((r) => r.recordKind === "field")
         .reduce((n, r) => n + (r.count ?? 1), 0),
     ],
-  ].filter((t) => !popup || (t[0] !== "blocks" && t[2]));
+  ].filter(t=>allowedTab(t[0])).filter((t) => !popup || (t[0] !== "blocks" && t[2]));
   const source =
     tab === "blocks" ? blocks : rows.filter((r) => r.recordKind === tab);
   const filtered = useMemo(
@@ -244,6 +250,7 @@ export default function DataTables({
       : key === "mapBlockNames"
       ? r.mapBlockNames?.join(", ") || "Pending"
       : format(r[key], key);
+  if (!allowedTab(tab)) return <p>This table is not enabled for your account.</p>;
   if(productionTab) return <div className="data-tables"><div className="table-tabs" role="tablist">{tabs.map(([id,name])=><button key={id} role="tab" aria-selected={tab===id} onClick={()=>{setTab(id);reset();setQuery('');}}>{name}</button>)}</div>{tab==='trial-balance'?<TrialBalanceTables key={vehicleEstateId||'choose-estate'} estateId={vehicleEstateId}/>:tab==='vehicles'?<VehicleTables key={vehicleEstateId||'choose-estate'} estateId={vehicleEstateId}/>:tab==='comments'?<BlockComments key={productionEstateId} estateId={productionEstateId} table role={role} onMap={onSelectBlock}/>:tab==='wages'?<WagesTables key={productionEstateId} estateId={productionEstateId} role={role} onMap={onSelectBlock}/>:<ProductionTables key={productionEstateId} estateId={productionEstateId} role={role} view={tab} onMap={onSelectBlock}/>}</div>;
   return (
     <div className="data-tables">

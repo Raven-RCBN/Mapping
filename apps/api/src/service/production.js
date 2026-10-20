@@ -1,3 +1,4 @@
+import {permitted} from '../../../../packages/shared/access.js';
 import {allocateProduction} from '../../../../packages/shared/production-allocation.js';
 import {installProductionComments} from './production-comments.js';
 import { createHash, randomUUID } from 'node:crypto';
@@ -82,7 +83,7 @@ export function installProduction(api, models) {
       namesAndBlocks(estateId),
     ]);
     res.json({months:months.sort().reverse(),latestReceived:latest?.month||null,
-      names:inventory.names.map(n=>({...n,id:n._id})),mapBlocks:inventory.blocks.filter(b=>b.mapBlockNames?.length).map(b=>b.blockCode).sort()});
+      names:inventory.names.map(n=>!req.access.managed||permitted(req.access,estateId,'names')?({...n,id:n._id}):({id:n._id,sourceBlockCode:n.sourceBlockCode,mapBlockCode:n.mapBlockCode,division:n.division})),mapBlocks:inventory.blocks.filter(b=>b.mapBlockNames?.length).map(b=>b.blockCode).sort()});
   });
   // Bounded, projected evidence for decision support; full history stays in Analytics.
   api.get('/production/decision-support',async(req,res)=>{

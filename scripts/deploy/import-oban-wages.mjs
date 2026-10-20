@@ -30,7 +30,7 @@ try{
   const existing=await Promise.all(sets.map(async([Model])=>({collection:Model.collection.name,rows:await Model.find({estateId:p.estateId}).lean()})));
   if(mode!=='--apply'){console.log(JSON.stringify({mode:'dry-run',...summary,existing:existing.map(e=>({collection:e.collection,count:e.rows.length}))}));}
   else{
-    const dir=path.join(process.env.DATA_DIR,'wages-imports');await fs.mkdir(dir,{recursive:true,mode:0o700});const stamp=new Date().toISOString().replaceAll(':','-');
+    const dir=path.join(process.env.DATA_DIR,'estates',p.estateId,'imports','wages-imports');await fs.mkdir(dir,{recursive:true,mode:0o700});const stamp=new Date().toISOString().replaceAll(':','-');
     await fs.writeFile(path.join(dir,stamp+'-before.json'),JSON.stringify({mapHash,existing}),{flag:'wx',mode:0o600});
     await fs.copyFile(filename,path.join(dir,stamp+'-source.json'));await fs.chmod(path.join(dir,stamp+'-source.json'),0o600);
     const results=[];

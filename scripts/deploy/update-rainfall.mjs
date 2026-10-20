@@ -32,7 +32,7 @@ try{
  const summary={mode:mode||'dry-run',years:rows.map(r=>r.year),previousActive:before.filter(r=>r.active).map(({year,mm,sourceId})=>({year,mm,sourceId})),ytd:{mm:ytd.mm,rainDays:ytd.rainDays,toMonth:ytd.toMonth},reportedTotalDifferences:rows.filter(r=>r.mm!==r.monthlySumMm).map(({year,mm,monthlySumMm})=>({year,reported: mm,monthlySum:monthlySumMm}))};
  if(mode==='--apply'){
   assert.ok(process.env.DATA_DIR);
-  const dir=path.join(process.env.DATA_DIR,'rainfall-imports');await fs.mkdir(dir,{recursive:true,mode:0o700});
+  const dir=path.join(process.env.DATA_DIR,'estates',p.estateId,'imports','rainfall-imports');await fs.mkdir(dir,{recursive:true,mode:0o700});
   const hash=createHash('sha256').update(JSON.stringify(before)).digest('hex').slice(0,16);
   const backup=path.join(dir,`20261015-before-${hash}.json`);
   try{await fs.writeFile(backup,JSON.stringify({where,before,payload:p},null,2),{flag:'wx',mode:0o600});}catch(e){if(e.code!=='EEXIST')throw e;}

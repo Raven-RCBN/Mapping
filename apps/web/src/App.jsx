@@ -1,3 +1,6 @@
+import UserAccess from './components/UserAccess';
+import TeamOutlined from '@ant-design/icons/es/icons/TeamOutlined';
+import { permitted, isSuperuser, dataMenus } from '../../../packages/shared/access.js';
 import {
   lazy,
   Suspense,
@@ -92,6 +95,7 @@ function Thumbnail({ asset }) {
 }
 export default function App() {
   const [searchParams, setSearchParams] = useSearchParams();
+  const userAccessView = searchParams.get("view") === "user-access";
   const dataView = searchParams.get("view") === "data";
   const archiveView = searchParams.get("view") === "archive";
   const storageView = archiveView || searchParams.get("view") === "storage";
@@ -107,6 +111,15 @@ export default function App() {
     [dashboardTab, setDashboardTab] = useState("production"),
     [mapPaging, setMapPaging] = useState({ key: "", cursors: [undefined] }),
     [token, setInputToken] = useState("");
+  const can = (menu,action='view') => permitted(s.data?.access,s.selected[0],menu,action);
+  const superuser = isSuperuser(s.data?.access);
+  const canData = dataMenus.some(menu=>can(menu));
+  const canOperations = can('map') && can('harvesting') && can('field');
+  const visibleDashboards=dashboardTabs.filter(tab=>({production:can('monthly'),operations:canOperations&&can('history'),wages:can('wages'),analytics:can('decisions'),decisions:can('decisions')})[tab]);
+  const mapVisible = !dataView && !storageView && !userAccessView && can('map');
+  useEffect(()=>{
+    if(visibleDashboards.length && !visibleDashboards.includes(dashboardTab)) setDashboardTab(visibleDashboards[0]);
+  },[visibleDashboards.join(','),dashboardTab]);
   const reload = useCallback(async () => {
     const data = await getSnapshot();
     dispatch(loaded(data));
@@ -187,10 +200,10 @@ export default function App() {
   const failEstateLoad = (e) =>
     dispatch(estateLoadFailed({ ...estateRequest, message: errorMessage(e) }));
   useEffect(() => {
-    if (s.data && !dataView && !storageView) loadMapView().catch(() => {});
-  }, [Boolean(s.data), dataView, storageView]);
+    if (s.data && mapVisible) loadMapView().catch(() => {});
+  }, [Boolean(s.data), mapVisible]);
   useEffect(() => {
-    if (!s.data?.paged || s.data.offline) return;
+    if (!s.data?.paged || s.data.offline || !s.selected.length || userAccessView) return;
     const controller = new AbortController();
     api
       .get("/workspace", {
@@ -208,9 +221,9 @@ export default function App() {
         }
       });
     return () => controller.abort();
-  }, [s.selected.join(","), s.data?.refresh]);
+  }, [s.selected.join(","), s.data?.refresh, userAccessView]);
   useEffect(() => {
-    if (!s.data?.paged || s.data.offline || dataView || storageView) return;
+    if (!s.data?.paged || s.data.offline || !mapVisible || !canOperations) return;
     const controller = new AbortController();
     dispatch(
       patch({
@@ -254,9 +267,9 @@ export default function App() {
         }
       });
     return () => controller.abort();
-  }, [mapKey, mapCursor, s.data?.refresh, dataView, storageView]);
+  }, [mapKey, mapCursor, s.data?.refresh, dataView, storageView, userAccessView, canOperations]);
   useEffect(() => {
-    if (!s.data?.paged || s.data.offline) return;
+    if (!s.data?.paged || s.data.offline || !can('map') || userAccessView) return;
     const controller = new AbortController();
     api
       .get("/map-assets", {
@@ -285,6 +298,8 @@ export default function App() {
     s.data?.refresh,
     dataView,
     storageView,
+    userAccessView,
+    can("map"),
   ]);
   const onRecord = useCallback((record) => {
     setMapRecord({
@@ -447,7 +462,7 @@ export default function App() {
           <img src={import.meta.env.BASE_URL + "icon.svg"} alt="" />
         </a>
         <div className="rail-divider" />
-        <button
+        {can('map') && (<button
           className="nav-icon data-nav"
           title="Map workspace"
           aria-label="Map workspace"
@@ -461,47 +476,48 @@ export default function App() {
           }}
         >
           ◈<small>Map</small>
-        </button>
-        <button
+        </button>)}
+        {canData && (<button
           className={"nav-icon data-nav " + (dataView ? "active" : "")}
           title="Data tables"
           aria-label="Data tables"
           onClick={openData}
         >
           ▤<small>Data</small>
-        </button>
-        <button
+        </button>)}
+        {can('storage') && (<button
           className={"nav-icon data-nav " + (storageView && !archiveView ? "active" : "")}
           title="Image storage"
           aria-label="Image storage"
           onClick={() => setSearchParams({ view: "storage" })}
         >
           ▣<small>Storage</small>
-        </button>
-        <button className={"nav-icon data-nav " + (archiveView ? "active" : "")}
+        </button>)}
+        {can('archive') && (<button className={"nav-icon data-nav " + (archiveView ? "active" : "")}
           title="Data Storage & Archive" aria-label="Data Storage & Archive"
           onClick={() => setSearchParams({ view: "archive" })}>
           ▥<small>Archive</small>
-        </button>
-        <button className="nav-icon data-nav" title="Map history" aria-label="Map history" onClick={goHistory}>
+        </button>)}
+        {can('history') && can('map') && (<button className="nav-icon data-nav" title="Map history" aria-label="Map history" onClick={goHistory}>
           ◷<small>History</small>
-        </button>
-        <button
+        </button>)}
+        {can('sources') && (<button
           className="nav-icon data-nav"
           title="Map sources"
           aria-label="Map sources"
           onClick={() => setDialog({ type: "sources" })}
         >
           ▱<small>Sources</small>
-        </button>
-        <button
+        </button>)}
+        {superuser && (<button
           className="nav-icon data-nav"
           title="Offline maps"
           aria-label="Offline maps"
           onClick={() => setDialog({ type: "offline" })}
         >
           ⇩<small>Offline</small>
-        </button>
+        </button>)}
+        {superuser && <button className={'nav-icon data-nav '+(userAccessView?'active':'')} aria-label="User Access" onClick={()=>setSearchParams({view:'user-access'})}><TeamOutlined/><small>User Access</small></button>}
       </aside>
       <div className="shell">
         <header>
@@ -510,7 +526,7 @@ export default function App() {
             <small>ESTATE INTELLIGENCE</small>
           </div>
           <div className="breadcrumb">
-            Workspace / MapIntel{dataView ? " / Data tables" : ""}
+            Workspace / MapIntel{userAccessView ? " / User access" : dataView ? " / Data tables" : ""}
           </div>
           <div className="header-right">
             <span className="today">
@@ -530,7 +546,7 @@ export default function App() {
           </div>
         </header>
         <main>
-          <div className="page-title">
+          {!userAccessView && <div className="page-title">
             <div>
               <div className="eyebrow">GEOSPATIAL COMMAND CENTER</div>
               <h1>
@@ -553,30 +569,33 @@ export default function App() {
               </p>
             </div>
             <div className="title-actions">
-              {dataView && (
+              {dataView && canData && (
                 <button className="button" onClick={openMap}>
                   ◈ Back to map
                 </button>
               )}
-              {!dataView && !storageView && (
+              {mapVisible && (can('map','add')||can('map','edit')) && <button className="button primary" onClick={()=>setDialog({type:'import'})}>Upload map</button>}
+              {mapVisible && (
                 <>
-                  <button
+                  {superuser && <button
                     className="button"
                     onClick={() => setDialog({ type: "offline" })}
                   >
                     ⇩ Offline maps
-                  </button>
-                  <button
+                  </button>}
+                  {can("sources") && <button
                     className="button primary"
                     onClick={() => setDialog({ type: "sources" })}
                   >
                     ＋ Manage map sources
-                  </button>
+                  </button>}
                 </>
               )}
             </div>
           </div>
-          <EstatePicker onAdd={() => setDialog({ type: "estate" })} />
+          }
+          {userAccessView ? (superuser ? <UserAccess estates={s.data.estates} onReload={reload}/> : <p className="callout">Superuser access is required.</p>) : <EstatePicker onAdd={()=>setSearchParams({view:'user-access'})}/>}
+          {!userAccessView && ((dataView&&!canData)||(storageView&&!can(archiveView?'archive':'storage'))||(!dataView&&!storageView&&!can('map'))) && <p className="callout">This menu is not enabled for your account in this location. Choose an available menu.</p>}
           {!estates.length && (
             <div className="callout">
               Add an estate to begin, or import the existing MapIntel data
@@ -588,9 +607,9 @@ export default function App() {
               {error}
             </div>
           )}
-          {archiveView && <Archives key={s.selected.join(",")} onReload={reload} onRetention={() => setSearchParams({ view: "storage" })} />}
-          {storageView && !archiveView && <Storage key={s.selected[0]} onReload={reload} />}
-          {dataView && (
+          {archiveView && can("archive") && <Archives key={s.selected.join(",")} onReload={reload} onRetention={() => setSearchParams({ view: "storage" })} />}
+          {storageView && !archiveView && can("storage") && <Storage key={s.selected[0]} onReload={reload} />}
+          {dataView && canData && (
             <section className="data-workspace">
               <DataTables
                 key={s.selected.join(",")}
@@ -610,7 +629,7 @@ export default function App() {
               />
             </section>
           )}
-          {!dataView && !storageView && (
+          {mapVisible && (
             <div>
               <SummaryCards
                 showEmptyMessage={dashboardTab === "operations"}
@@ -731,34 +750,35 @@ export default function App() {
                     onKeyDown={e=>{
                       if(!['ArrowLeft','ArrowRight','Home','End'].includes(e.key)) return;
                       e.preventDefault();
-                      const order=dashboardTabs;
+                      const order=visibleDashboards;
+                      if(!order.length)return;
                       const next=e.key==='Home'?order[0]:e.key==='End'?order.at(-1):order[(order.indexOf(dashboardTab)+(e.key==='ArrowRight'?1:order.length-1))%order.length];
                       setDashboardTab(next);
                       document.getElementById('dashboard-tab-'+next)?.focus();
                     }}>
-                    {dashboardTabs.map(tab=><button key={tab} type="button" role="tab" id={'dashboard-tab-'+tab}
+                    {visibleDashboards.map(tab=><button key={tab} type="button" role="tab" id={'dashboard-tab-'+tab}
                       aria-selected={dashboardTab===tab} aria-controls={'dashboard-panel-'+tab} tabIndex={dashboardTab===tab?0:-1}
                       onClick={()=>setDashboardTab(tab)}>{tab==='production'?'Production':tab==='operations'?'Operations':tab==='wages'?'Wages':tab==='decisions'?'Decision Support':'Analytics'}</button>)}
                   </div>
                   <div className="map-dashboard-panel" id="dashboard-panel-production" role="tabpanel" aria-labelledby="dashboard-tab-production" hidden={dashboardTab!=='production'}>
-                    <ProductionDashboard key={"production-"+s.selected[0]} estateId={s.selected[0]} selection={s.selectedBlock || (s.block !== 'all'?s.block:null)} offline={s.data.offline} onHighlights={setProductionHighlights} onData={()=>setSearchParams({view:'data',tab:'monthly'})}/>
+                    {can("monthly") && <ProductionDashboard key={"production-"+s.selected[0]} estateId={s.selected[0]} selection={s.selectedBlock || (s.block !== 'all'?s.block:null)} offline={s.data.offline} onHighlights={setProductionHighlights} onData={()=>setSearchParams({view:'data',tab:'monthly'})}/>}
                   </div>
                   <div className="map-dashboard-panel" id="dashboard-panel-analytics" role="tabpanel" aria-labelledby="dashboard-tab-analytics" hidden={dashboardTab!=='analytics'}>
-                    <AnalyticsDashboard key={'analytics-'+s.selected[0]} estateId={s.selected[0]} boundary={estates[0]?.boundary} enabled={dashboardTab==='analytics'} offline={s.data.offline} selection={s.selectedBlock} onHighlights={setAnalyticsHighlights}
+                    <AnalyticsDashboard key={'analytics-'+s.selected[0]} estateId={s.selected[0]} boundary={estates[0]?.boundary} enabled={dashboardTab==='analytics'&&can('decisions')} offline={s.data.offline} selection={s.selectedBlock} onHighlights={setAnalyticsHighlights}
                       onBlockChange={code=>dispatch(patch({selectedBlock:code?`${s.selected[0]}::${code}`:null,block:code?`${s.selected[0]}::${code}`:'all'}))}
                       onSelect={code=>{dispatch(patch({selectedBlock:`${s.selected[0]}::${code}`,block:`${s.selected[0]}::${code}`}));document.getElementById('estateMap')?.scrollIntoView({behavior:'smooth',block:'center'});}}
                       onMap={()=>{dispatch(patch({block:'all',selectedBlock:null}));document.getElementById('estateMap')?.scrollIntoView({behavior:'smooth',block:'center'});}}/>
                   </div>
                   <div className="map-dashboard-panel" id="dashboard-panel-decisions" role="tabpanel" aria-labelledby="dashboard-tab-decisions" hidden={dashboardTab!=='decisions'}>
-                    {dashboardTab==='decisions'&&<DecisionSupport key={'decisions-'+s.selected[0]} estateId={s.selected[0]} selection={s.selectedBlock} offline={s.data.offline} onHighlights={setAnalyticsHighlights}
+                    {dashboardTab==='decisions'&&can('decisions')&&<DecisionSupport key={'decisions-'+s.selected[0]} estateId={s.selected[0]} selection={s.selectedBlock} offline={s.data.offline} onHighlights={setAnalyticsHighlights}
                       onBlockChange={code=>dispatch(patch({selectedBlock:code?`${s.selected[0]}::${code}`:null,block:code?`${s.selected[0]}::${code}`:'all'}))}
                       onSelect={code=>{dispatch(patch({selectedBlock:`${s.selected[0]}::${code}`,block:`${s.selected[0]}::${code}`}));document.getElementById('estateMap')?.scrollIntoView({behavior:'smooth',block:'center'});}}/>}
                   </div>
                   <div className="map-dashboard-panel" id="dashboard-panel-operations" role="tabpanel" aria-labelledby="dashboard-tab-operations" hidden={dashboardTab!=='operations'}>
-                    {dashboardTab==='operations'&&<Timeline key={s.selected[0]} />}
+                    {dashboardTab==='operations'&&canOperations&&can('history')&&<Timeline key={s.selected[0]} />}
                   </div>
                   <div className="map-dashboard-panel" id="dashboard-panel-wages" role="tabpanel" aria-labelledby="dashboard-tab-wages" hidden={dashboardTab!=='wages'}>
-                    {dashboardTab==='wages'&&<WagesDashboard key={'wages-'+s.selected[0]} estateId={s.selected[0]} selection={s.selectedBlock || (s.block !== 'all'?s.block:null)} offline={s.data.offline} onData={()=>setSearchParams({view:'data',tab:'wages'})}/>}
+                    {dashboardTab==='wages'&&can('wages')&&<WagesDashboard key={'wages-'+s.selected[0]} estateId={s.selected[0]} selection={s.selectedBlock || (s.block !== 'all'?s.block:null)} offline={s.data.offline} onData={()=>setSearchParams({view:'data',tab:'wages'})}/>}
                   </div>
                 </section>
                 {dashboardTab==='operations'&&<aside className="activity-panel">
@@ -969,7 +989,7 @@ export default function App() {
             <span>
               {estates.map((e) => e.name).join(" · ")} · MapIntel
             </span>
-            {!dataView && !storageView && (
+            {mapVisible && (
               <button onClick={() => setDialog({ type: "import" })}>
                 Import a map or image ↗
               </button>

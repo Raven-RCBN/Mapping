@@ -1,3 +1,4 @@
+import {useAccess} from '../useAccess';
 import { useRef, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import {
@@ -88,8 +89,11 @@ export default function Dialogs({
       form.reset();
     });
   }
-  const writable =
-    !s.data.offline && ["manager", "admin"].includes(s.data.access.role);
+  const {can,superuser}=useAccess();
+  const writable = !s.data.offline && (superuser ||
+    (mode.type==='import' && can('map',uploadKind==='boundary'?'edit':'add')) ||
+    (mode.type==='sources' && can('sources','add')) ||
+    (mode.type==='record' && can(mode.record?.recordKind==='harvesting'?'harvesting':mode.record?.recordKind==='field'?'field':'map','edit')));
   const estateOptions = s.data.estates
     .filter((e) => s.selected.includes(e.id))
     .map((e) => (

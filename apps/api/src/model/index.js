@@ -22,6 +22,7 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
   const Estate = model("MappingEstate", {
     _id: String,
     name: { type: String, required: true },
+    nameKey: { type: String, unique: true, sparse: true },
     location: String,
     totalAreaHa: Number,
     boundary: Schema.Types.Mixed,

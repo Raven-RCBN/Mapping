@@ -13,7 +13,8 @@ const port = Number(process.env.PORT);
 if (!Number.isInteger(port) || port < 1024 || port > 65535) throw Error('Invalid dedicated service port');
 if (!path.isAbsolute(process.env.DATA_DIR) || !path.isAbsolute(process.env.QGIS_COMMAND)) throw Error('Use absolute storage/runtime paths');
 await mongoose.connect(process.env.MONGODB_URI, { serverSelectionTimeoutMS: 8000 });
-const auth = await sessionAuth(mongoose.connection, process.env.PUBLIC_ORIGIN);
+const origins = (process.env.PUBLIC_ORIGINS || process.env.PUBLIC_ORIGIN).split(",").map(value => value.trim()).filter(Boolean);
+const auth = await sessionAuth(mongoose.connection, origins);
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 'loopback');
@@ -23,7 +24,7 @@ app.use(await createApp({
   production: true, authMode: 'mapping-session', authenticate: auth.authenticate,
   archiveDir: process.env.ARCHIVE_DIR,
   dataDir: process.env.DATA_DIR, qgisRoot: path.join(process.env.DATA_DIR, 'estates'),
-  qgisCommand: process.env.QGIS_COMMAND, origins: [process.env.PUBLIC_ORIGIN],
+  qgisCommand: process.env.QGIS_COMMAND, origins,
   apiPath: '/api/EstateAtlas', publicApiPath: '/api/EstateAtlas', serveWeb: false,
 }));
 app.use((error, req, res, next) => {

@@ -1,3 +1,4 @@
+import { publicAccess, permitted } from '../../../../packages/shared/access.js';
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { canAccess, estateQuery } from "./auth.js";
@@ -355,9 +356,9 @@ export function installQueries(api, models, expose) {
       estate.blockCount =
         counts.find((c) => c._id === estate._id)?.blockCount || 0;
     const latest = await Promise.all(
-      kinds.map(([, m]) =>
+      kinds.map(([kind, m]) =>
         m
-          .findOne(scoped)
+          .findOne(req.access.managed && !req.access.isSuperuser ? {estateId:{$in:(req.access.estateIds||[]).filter(id=>permitted(req.access,id,kind))}} : scoped)
           .sort({ workDate: -1, _id: -1 })
           .select("workDate")
           .maxTimeMS(10000)
@@ -377,7 +378,7 @@ export function installQueries(api, models, expose) {
         .filter(Boolean)
         .sort()
         .at(-1),
-      access: { role: req.access.role, subject: req.access.subject },
+      access: publicAccess(req.access),
     });
   });
   api.get("/workspace", async (req, res) => {
@@ -393,9 +394,12 @@ export function installQueries(api, models, expose) {
       bounded(Source.find(q.scope), 1000, "Select fewer estates."),
     ]);
     res.json({
-      estates: estates.map(clean),
-      blocks: blocks.map(clean),
-      sources: sources.map(clean),
+      estates: estates.map(e => {
+        if (!req.access.managed || permitted(req.access,e._id,'map')) return clean(e);
+        const {boundary,...metadata}=e; return clean(metadata);
+      }),
+      blocks: blocks.filter(b => !req.access.managed || permitted(req.access,b.estateId,'blocks')).map(clean),
+      sources: sources.filter(b => !req.access.managed || permitted(req.access,b.estateId,'sources')).map(clean),
     });
   });
 

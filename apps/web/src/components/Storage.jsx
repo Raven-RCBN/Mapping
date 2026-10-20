@@ -1,3 +1,4 @@
+import {useAccess} from '../useAccess';
 import { useEffect, useState } from "react";
 import { useSelector } from "react-redux";
 import { api } from "../api";
@@ -19,7 +20,8 @@ export default function Storage({ onReload }) {
     [before, setBefore] = useState(""),
     [keep, setKeep] = useState(2),
     [action, setAction] = useState("retire");
-  const admin = !s.data.offline && s.data.access.role === "admin";
+  const {can}=useAccess();
+  const admin = !s.data.offline && can('storage','delete');
   const load = async (cursor = pageCursor) => {
     const { data } = await api.get("/storage", {
       params: { estates: s.selected.join(","), ...(cursor ? { cursor } : {}) },
@@ -234,7 +236,7 @@ export default function Storage({ onReload }) {
               </button>
             </form>
           ) : (
-            <p>Only an administrator can retire, restore or purge imagery.</p>
+            <p>Storage delete permission is required to retire or purge imagery.</p>
           )}
           {preview && (
             <div className="callout storage-preview">
@@ -341,7 +343,7 @@ export default function Storage({ onReload }) {
                       <button
                         className="button"
                         disabled={
-                          !admin || busy || a.storageState !== "retired"
+                          !can("storage","edit") || busy || a.storageState !== "retired"
                         }
                         onClick={() =>
                           run(async () => {

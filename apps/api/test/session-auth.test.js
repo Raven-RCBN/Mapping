@@ -10,7 +10,7 @@ before(async () => {
   await mongoose.connect(`mongodb://127.0.0.1:27018/MappingTest_session_${Date.now()}`);
   ({ User, Session } = sessionModels(mongoose.connection));
   await User.create({ _id: 'Admin', passwordHash: await passwordHash('test-secret-123'), role: 'admin' });
-  const auth = await sessionAuth(mongoose.connection, origin);
+  const auth = await sessionAuth(mongoose.connection, [origin, 'https://mapintel.example.test']);
   app = express();
   app.use('/identity', auth.router);
   app.get('/private', auth.authenticate, (req, res) => res.json(req.access));
@@ -25,6 +25,12 @@ test('independent login rejects unknown credentials and cross-origin requests', 
   assert.equal((await request(app).post('/identity/login').send({ login: 'Admin', password: 'test-secret-123' })).status, 403);
   assert.equal((await login('incorrect')).status, 401);
   assert.equal((await request(app).get('/private')).status, 401);
+});
+test('additional configured HTTPS origin can sign in and use its session', async () => {
+  const result = await request(app).post('/identity/login').set('Origin', 'https://mapintel.example.test').set('X-Mapping-Client', '1').send({ login: 'Admin', password: 'test-secret-123' });
+  assert.equal(result.status, 200);
+  const cookie = result.headers['set-cookie'][0].split(';')[0];
+  assert.equal((await request(app).post('/private').set('Cookie', cookie).set('Origin', 'https://mapintel.example.test')).status, 200);
 });
 test('cookie is private, sessions are hashed, revoked on logout, and rejected after expiry', async () => {
   const result = await login();
@@ -47,7 +53,7 @@ test('cookie is private, sessions are hashed, revoked on logout, and rejected af
 test('disabled users lose existing access, and role/estate scope comes from server records', async () => {
   const cookie = (await login()).headers['set-cookie'][0].split(';')[0];
   await User.updateOne({ _id: 'Admin' }, { role: 'viewer', estateIds: ['estate-a'] });
-  assert.deepEqual((await request(app).get('/private').set('Cookie', cookie)).body, { subject: 'Admin', role: 'viewer', estateIds: ['estate-a'] });
+  assert.deepEqual((await request(app).get('/private').set('Cookie', cookie)).body, { subject: 'Admin', role: 'viewer', estateIds: ['estate-a'], isSuperuser: false, managed: true, permissions: {}, revision: 0 });
   await User.updateOne({ _id: 'Admin' }, { active: false });
   assert.equal((await request(app).get('/private').set('Cookie', cookie)).status, 401);
 });

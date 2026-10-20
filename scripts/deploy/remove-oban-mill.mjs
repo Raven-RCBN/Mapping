@@ -11,7 +11,7 @@ try {
   assert.ok(rows.length===0||rows.length===27,'Unexpected MILL record count');
   assert.ok(rows.every(r=>r.amountMinor===0&&r.revision===0),'MILL records have been edited; inspect before removal');
   if(rows.length){
-    const dir=path.join(process.env.DATA_DIR,'wages-imports');
+    const dir=path.join(process.env.DATA_DIR,'estates',where.estateId,'imports','wages-imports');
     await fs.mkdir(dir,{recursive:true,mode:0o700});
     await fs.writeFile(path.join(dir,Date.now()+'-removed-mill.json'),JSON.stringify(rows),{mode:0o600,flag:'wx'});
     const result=await Wage.deleteMany({...where,_id:{$in:rows.map(r=>r._id)},amountMinor:0,revision:0});

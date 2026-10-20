@@ -1,0 +1,61 @@
+import {test,before,after} from 'node:test';
+import assert from 'node:assert/strict';
+import mongoose from 'mongoose';
+import request from 'supertest';
+import express from 'express';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import {createModels} from '../src/model/index.js';
+import {sessionModels,passwordHash,sessionAuth} from '../src/service/session-auth.js';
+import {createApp} from '../src/app.js';
+let app,models,root,User,Session;
+const origin='https://access.example.test';
+const admin={subject:'Admin',role:'admin',isSuperuser:true,managed:true,estateIds:null};
+const limited={subject:'ObanUser',role:'manager',isSuperuser:false,managed:true,estateIds:['a'],permissions:{a:{monthly:['view','add'],map:['view','add']}}};
+const send=(method,url,body,owner=true)=>request(app)[method]('/api'+url).set('X-Mapping-Client','1').set('X-Test-Owner',owner?'1':'0').send(body);
+before(async()=>{
+ root=await fs.mkdtemp(path.join(os.tmpdir(),'mapping-access-'));
+ await mongoose.connect('mongodb://127.0.0.1:27018/MappingTest_access_'+Date.now());models=createModels();({User,Session}=sessionModels(mongoose.connection));
+ await models.Estate.create([{_id:'a',name:'OBAN'},{_id:'b',name:'Gumut'}]);
+ await models.Asset.create({_id:'asset-b',estateId:'b',kind:'imagery',file:{path:'estates/b/images/map.png'}});
+ await User.create({_id:'Admin',role:'admin',passwordHash:await passwordHash('test-secret-123')});
+ app=await createApp({models,dataDir:root,origins:[],authMode:'mapping-session',authenticate:(req,res,next)=>{req.access=structuredClone(req.get('X-Test-Owner')==='1'?admin:limited);next();}});
+});
+after(async()=>{if(mongoose.connection.name?.startsWith('MappingTest_'))await mongoose.connection.dropDatabase();await mongoose.disconnect();await fs.rm(root,{recursive:true,force:true});});
+test('only the superuser can list users or create locations, including legacy estate endpoint',async()=>{
+ assert.equal((await send('get','/user-access/users',undefined,false)).status,403);
+ for(const route of ['/estates','/user-access/locations'])assert.equal((await send('post',route,{name:'Denied'},false)).status,403);
+ const created=await send('post','/user-access/locations',{name:'New estate',location:'Malaysia'});assert.equal(created.status,201,JSON.stringify(created.body));
+ const boot=await send('get','/bootstrap');assert.ok(boot.body.estates.some(e=>e.id===created.body.id));assert.equal(boot.body.access.isSuperuser,true);assert.equal(boot.body.access.estateIds,null);
+ assert.ok(created.body.id);for(const dir of ['images','imports','boundaries'])assert.ok((await fs.stat(path.join(root,'estates',created.body.id,dir))).isDirectory());
+ assert.equal((await send('post','/user-access/locations',{name:'new estate'})).status,409);
+ assert.equal((await send('post','/user-access/locations',{name:'  '})).status,400);
+});
+test('account creation validates grants, keeps passwords private and protects Admin',async()=>{
+ const body={username:'reviewer',name:'Reviewer',active:true,password:'test-reviewer-password',estateIds:['a'],permissions:{a:{monthly:['view']}}};
+ assert.equal((await send('post','/user-access/users',{...body,estateIds:['missing']})).status,400);
+ assert.equal((await send('post','/user-access/users',{...body,permissions:{a:{monthly:['edit']}}})).status,400);
+ assert.equal((await send('post','/user-access/users',{...body,username:'Admin'})).status,403);
+ const result=await send('post','/user-access/users',body);assert.equal(result.status,201,JSON.stringify(result.body));assert.equal(result.body.passwordHash,undefined);assert.equal(result.body.password,undefined);
+ assert.equal((await send('post','/user-access/users',body)).status,409);
+ const list=await send('get','/user-access/users');assert.equal(list.status,200);assert.ok(list.body.items.every(u=>!u.passwordHash));
+ await Session.create({_id:'test-session',subject:'reviewer',expiresAt:new Date(Date.now()+60000)});
+ const changed=await send('patch','/user-access/users/reviewer',{...body,password:undefined,active:false,revision:0});assert.equal(changed.status,200);assert.equal(await Session.countDocuments({subject:'reviewer'}),0);
+ assert.equal((await send('patch','/user-access/users/reviewer',{...body,revision:0})).status,409);
+});
+test('direct URLs, forged estate IDs, files, hidden tables, and bundles cannot bypass grants',async()=>{
+ for(const url of ['/trial-balance?estateId=a','/production/recorded?estateId=a&frequency=yearly','/data-tables/wages?estateId=a','/assets/asset-b/file','/production/monthly?estateId=b','/offline?estates=a','/snapshot?estates=a','/ai/status?estateId=a','/archives/anything/manifest'])assert.equal((await send('get',url,undefined,false)).status,403,url);
+ assert.equal((await send('patch','/production/monthly/anything',{estateId:'a',record:{}},false)).status,403);
+ assert.equal((await send('post','/estates/b/images',{},false)).status,403);
+ assert.equal((await send('post','/dashboard',{estates:'a'},false)).status,403);
+ const allowed=await send('get','/data-tables/monthly?estateId=a',undefined,false);assert.equal(allowed.status,200,JSON.stringify(allowed.body));
+ const boot=await send('get','/bootstrap',undefined,false);assert.deepEqual(boot.body.estates.map(e=>e.id),['a']);assert.equal(boot.body.access.isSuperuser,false);
+});
+test('real sessions reread grants and only Admin receives superuser status',async()=>{
+ await User.create({_id:'AnotherAdmin',role:'admin',active:true,estateIds:['a'],passwordHash:await passwordHash('another-admin-password')});
+ const auth=await sessionAuth(mongoose.connection,origin),identity=express();identity.use('/identity',auth.router);identity.get('/private',auth.authenticate,(req,res)=>res.json(req.access));
+ const signed=await request(identity).post('/identity/login').set('Origin',origin).set('X-Mapping-Client','1').send({login:'AnotherAdmin',password:'another-admin-password'});
+ const cookie=signed.headers['set-cookie'][0].split(';')[0];let result=await request(identity).get('/private').set('Cookie',cookie);assert.equal(result.body.isSuperuser,false);assert.deepEqual(result.body.estateIds,['a']);
+ await User.updateOne({_id:'AnotherAdmin'},{$set:{estateIds:[]}});result=await request(identity).get('/private').set('Cookie',cookie);assert.deepEqual(result.body.estateIds,[]);
+});

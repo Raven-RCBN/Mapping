@@ -21,7 +21,7 @@ export function sessionModels(connection) {
   const Schema = connection.base.Schema;
   const User = connection.models.MappingUser || connection.model('MappingUser', new Schema({
     _id: String, passwordHash: { type: String, required: true }, active: { type: Boolean, default: true },
-    role: { type: String, enum: ['admin', 'manager', 'viewer'], required: true }, estateIds: [String],
+    role: { type: String, enum: ['admin', 'manager', 'viewer'], required: true }, estateIds: [String], name: String, permissions: { type: Schema.Types.Mixed, default: {} }, revision: { type: Number, default: 0 }, updatedBy: String,
   }, { timestamps: true }));
   const Session = connection.models.MappingSession || connection.model('MappingSession', new Schema({
     _id: String, subject: { type: String, required: true, index: true }, expiresAt: { type: Date, expires: 0, required: true },
@@ -29,7 +29,8 @@ export function sessionModels(connection) {
   return { User, Session };
 }
 export async function sessionAuth(connection, origin) {
-  if (new URL(origin).origin !== origin || !origin.startsWith('https://')) throw Error('PUBLIC_ORIGIN must be an exact HTTPS origin.');
+  const origins = new Set(Array.isArray(origin) ? origin : [origin]);
+  if (!origins.size || [...origins].some(value => new URL(value).origin !== value || !value.startsWith('https://'))) throw Error('PUBLIC_ORIGIN must be an exact HTTPS origin.');
   const { User, Session } = sessionModels(connection);
   await Promise.all([User.createIndexes(), Session.createIndexes()]);
   const dummy = await passwordHash(randomBytes(32).toString('hex'));
@@ -51,7 +52,7 @@ export async function sessionAuth(connection, origin) {
   router.use(express.json({ limit: '8kb' }));
   router.use((req, res, next) => {
     res.set('Cache-Control', 'no-store');
-    if (req.get('origin') !== origin || req.get('x-mapping-client') !== '1')
+    if (!origins.has(req.get('origin')) || req.get('x-mapping-client') !== '1')
       return res.status(403).json({ error: 'Origin not allowed.' });
     next();
   });
@@ -84,12 +85,13 @@ export async function sessionAuth(connection, origin) {
     try {
       const raw = token(req);
       if (!raw || !/^[a-f0-9]{64}$/.test(raw)) return res.status(401).json({ error: 'Sign in to MapIntel.' });
-      if (!['GET', 'HEAD'].includes(req.method) && req.get('origin') !== origin)
+      if (!['GET', 'HEAD'].includes(req.method) && !origins.has(req.get('origin')))
         return res.status(403).json({ error: 'Origin not allowed.' });
       const session = await Session.findOne({ _id: hash(raw), expiresAt: { $gt: new Date() } }).lean();
       const user = session && await User.findById(session.subject).lean();
       if (!user?.active) return res.status(401).json({ error: 'Sign in to MapIntel.' });
-      req.access = { subject: user._id, role: user.role, estateIds: user.role === 'admin' ? null : user.estateIds };
+      const isSuperuser = user._id === 'Admin' && user.role === 'admin';
+      req.access = { subject: user._id, role: user.role, isSuperuser, managed: true, estateIds: isSuperuser ? null : user.estateIds, permissions: user.permissions || {}, revision: user.revision || 0 };
       next();
     } catch (e) { next(e); }
   };

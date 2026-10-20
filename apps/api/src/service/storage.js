@@ -8,7 +8,7 @@ import { QueryError } from "./performance.js";
 
 const GRACE = 30 * 86400000;
 const admin = (req, res, next) =>
-  req.access.role === "admin"
+  req.access.role === "admin" || req.access.managed === true
     ? next()
     : res
         .status(403)
@@ -182,6 +182,7 @@ export function installStorage(api, { Asset }, config, archives) {
         "Preview expired or confirmation does not match. Preview again.",
         409
       );
+    if (!canAccess(req,preview.input.estateId)) throw new QueryError("Estate access denied",403);
     previews.delete(token);
     // Re-evaluate retention immediately before applying: newly acquired imagery may change the protected set.
     const permitted = new Set(

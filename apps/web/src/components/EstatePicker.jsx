@@ -1,3 +1,4 @@
+import { isSuperuser } from "../../../../packages/shared/access.js";
 import { useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { select } from "../store";
@@ -110,7 +111,7 @@ export default function EstatePicker({ onAdd }) {
                     </label>
                   ))}
               </div>
-              <button
+              {isSuperuser(data.access) &&               <button
                 className="estate-add"
                 onClick={() => {
                   setOpen(false);
@@ -118,7 +119,7 @@ export default function EstatePicker({ onAdd }) {
                 }}
               >
                 ＋ Add estate
-              </button>
+              </button>}
               <p id="estatePickerHint">
                 Maps, data tables, timeline, storage and offline maps follow
                 this estate.

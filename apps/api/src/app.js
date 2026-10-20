@@ -1,3 +1,6 @@
+import { installUserAccess, requireSuperuser, createLocation } from './service/user-access.js';
+import { menuAccess } from './service/menu-access.js';
+import { publicAccess } from '../../../packages/shared/access.js';
 import { installYieldModel } from "./service/yield-model.js";
 import { installEstateAI } from "./service/ai/index.js";
 import { installDecisionWeather } from "./service/decision-weather.js";
@@ -148,6 +151,8 @@ export async function createApp(config) {
     next();
   });
   const models = config.models || defaultModels;
+  api.use(menuAccess(models));
+  installUserAccess(api, models, config);
   installQueries(api, models, expose);
   archives.install(api);
   installStorage(api, models, config, archives);
@@ -245,7 +250,7 @@ export async function createApp(config) {
         ...field.map((r) => activityView(r, "field")),
       ],
       sources: sources.map(clean),
-      access: { role: req.access.role, subject: req.access.subject },
+      access: publicAccess(req.access),
     };
   };
   const geolocation = z
@@ -409,20 +414,8 @@ export async function createApp(config) {
     }
   });
   api.get("/snapshot", async (req, res) => res.json(await snapshot(req)));
-  api.post("/estates", requireWrite, async (req, res) => {
-    if (req.access.role !== "admin")
-      return res
-        .status(403)
-        .json({ error: "Administrator access is required to add estates." });
-    const data = z
-      .object({
-        name: z.string().trim().min(1).max(100),
-        location: z.string().max(150).default(""),
-        totalAreaHa: z.number().min(0).nullable().optional(),
-      })
-      .parse(req.body);
-    const doc = await Estate.create({ _id: randomUUID(), ...data });
-    res.status(201).json(clean(doc.toObject()));
+  api.post("/estates", requireSuperuser, async (req, res) => {
+    res.status(201).json(await createLocation(models, config, req.body));
   });
   api.put("/estates/:id/boundary", requireWrite, async (req, res) => {
     const estateId = id.parse(req.params.id);

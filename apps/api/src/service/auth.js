@@ -13,6 +13,7 @@ export function authentication(config) {
           .json({ error: "Development access is restricted to localhost." });
       req.access = {
         subject: "local-development",
+        isSuperuser: true,
         role: "admin",
         estateIds: null,
       };

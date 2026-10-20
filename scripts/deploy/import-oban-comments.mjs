@@ -18,7 +18,7 @@ try{
  const productionBefore=await models.MonthlyProduction.countDocuments({estateId:p.estateId,harvestingDays:{$ne:null}});
  let inserted=0;
  if(mode==='--apply'){
-  const dir=path.join(process.env.DATA_DIR,'production-imports');await fs.mkdir(dir,{recursive:true,mode:0o700});
+  const dir=path.join(process.env.DATA_DIR,'estates',p.estateId,'imports','production-imports');await fs.mkdir(dir,{recursive:true,mode:0o700});
   await fs.writeFile(path.join(dir,new Date().toISOString().replaceAll(':','-')+'-comments-before.json'),JSON.stringify(existing),{flag:'wx',mode:0o600});
   await models.ProductionComment.createIndexes();
   const result=await models.ProductionComment.bulkWrite(p.comments.map(r=>({updateOne:{filter:{_id:r._id,estateId:p.estateId},update:{$setOnInsert:{...r,updatedBy:'owner-authorized-workbook-import'}},upsert:true}})));

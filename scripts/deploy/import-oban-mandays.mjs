@@ -35,7 +35,7 @@ try {
   const existing=await BlockManday.find({estateId:p.estateId,year:p.year}).lean();
   let inserted=0;
   if(mode==='--apply') {
-    const dir=path.join(process.env.DATA_DIR,'mandays-imports');await fs.mkdir(dir,{recursive:true,mode:0o700});
+    const dir=path.join(process.env.DATA_DIR,'estates',p.estateId,'imports','mandays-imports');await fs.mkdir(dir,{recursive:true,mode:0o700});
     await fs.writeFile(path.join(dir,new Date().toISOString().replaceAll(':','-')+'-before.json'),JSON.stringify(existing),{flag:'wx',mode:0o600});
     await BlockManday.createIndexes();
     for(let i=0;i<rows.length;i+=500){const result=await BlockManday.bulkWrite(rows.slice(i,i+500).map(row=>({updateOne:{filter:{_id:row._id},update:{$setOnInsert:row},upsert:true}})));inserted+=result.upsertedCount;}
