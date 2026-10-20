@@ -3,7 +3,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
-import mongoose from 'mongoose';
+import mongoose from '../apps/api/node_modules/mongoose/index.js';
 import {createModels} from '../apps/api/src/model/index.js';
 const [payloadFile,dataDir]=process.argv.slice(2);
 if(!payloadFile||!dataDir||!process.env.MONGODB_URI)throw Error('Supply payload, data directory and MONGODB_URI.');
