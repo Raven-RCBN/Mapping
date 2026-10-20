@@ -144,6 +144,11 @@ export async function saveOffline(ids, onProgress, range = {}) {
   const { data: pack } = await api.get("/offline", {
     params: { estates: ids.join(","), ...range },
   });
+  const estimate=await navigator.storage?.estimate?.();
+  const required=pack.files.reduce((sum,file)=>sum+(file.bytes||0),0);
+  if(estimate?.quota!=null&&estimate?.usage!=null&&estimate.quota-estimate.usage<required*1.15)
+    throw Error('Not enough device storage. Free space or choose a smaller date range before downloading.');
+  await navigator.storage?.persist?.().catch(()=>false);
   const cacheName = namespace + "-pack-" + crypto.randomUUID(),
     cache = await caches.open(cacheName);
   const previous = await offlineManifest();

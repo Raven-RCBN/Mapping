@@ -1,3 +1,5 @@
+import PwaInstall from './PwaInstall';
+import DocumentImports from './DocumentImports';
 import {useAccess} from '../useAccess';
 import { useRef, useEffect, useState } from "react";
 import { useSelector } from "react-redux";
@@ -23,6 +25,7 @@ export default function Dialogs({
     [message, setMessage] = useState(""),
     [saved, setSaved] = useState(null),
     [uploadKind, setUploadKind] = useState("image"),
+    [uploadMode,setUploadMode]=useState("documents"),
     [offlineFrom, setOfflineFrom] = useState(""),
     [offlineTo, setOfflineTo] = useState("");
   useEffect(() => {
@@ -36,7 +39,7 @@ export default function Dialogs({
   const titles = {
     tables: "Estate data tables",
     records: `${mode.group?.block || "Block"} · Activity details`,
-    import: "Import a map or image",
+    import: "Upload maps & data",
     estate: "Add estate",
     offline: "Offline maps",
     sources: "Map sources & acquisition",
@@ -138,7 +141,8 @@ export default function Dialogs({
             onSelectBlock={onSelectBlock}
           />
         )}
-        {mode.type === "import" && (
+        {mode.type === "import" && <><div className="table-tabs"><button onClick={()=>setUploadMode('documents')} aria-pressed={uploadMode==='documents'}>Documents & data</button><button onClick={()=>setUploadMode('maps')} aria-pressed={uploadMode==='maps'}>Map boundaries & overlays</button></div>{uploadMode==='documents'&&<p><strong>Location: {s.data.estates.find(e=>e.id===s.selected[0])?.name}</strong></p>}{uploadMode==='documents'&&<DocumentImports key={s.selected[0]} estateId={s.selected[0]} date={s.date} upload onReload={onReload}/>}</>}
+        {mode.type === "import" && uploadMode==='maps' && (
           <form onSubmit={upload}>
             <p>
               Images are saved to your estate’s folder. Choose an acquisition
@@ -249,7 +253,7 @@ export default function Dialogs({
                 <input name="area" type="number" min="0" step="any" />
               </label>
             </div>
-            <p>Add its boundary and images using Import a map or image.</p>
+            <p>Add its boundary and images using Upload maps & data.</p>
             <div className="modal-actions">
               <button className="button primary" disabled={busy || !writable}>
                 Add estate
@@ -259,6 +263,7 @@ export default function Dialogs({
         )}
         {mode.type === "offline" && (
           <>
+            <PwaInstall/>
             <p>
               Download selected estate for offline viewing: boundaries, dated
               images, activity history, elevation, slope and contours when
@@ -344,8 +349,8 @@ export default function Dialogs({
               </button>
             </div>
             <p>
-              Online road tiles are not included. For native fieldwork, use the
-              React Native app or a QField project.
+              Online road tiles are not included. Saved estate imagery, block
+              details and foreground GPS guidance are available offline.
             </p>
             {(s.data.paged ? s.mapAssets || [] : s.data.assets)
               .filter(

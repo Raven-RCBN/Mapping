@@ -1,3 +1,4 @@
+import {installDocumentImports} from './service/document-import.js';
 import {installGeospatialAnalysis} from './service/geospatial-analysis.js';
 import { installUserAccess, requireSuperuser, createLocation } from './service/user-access.js';
 import { menuAccess } from './service/menu-access.js';
@@ -165,6 +166,7 @@ export async function createApp(config) {
   installVehiclePages(api, models);
   installHtsAnalysis(api, models, config);
   installGeospatialAnalysis(api, models, config);
+  installDocumentImports(api, models, config);
   installDecisionWeather(api, models);
   installYieldModel(api, models, config);
   installEstateAI(api, models, config);

@@ -1,5 +1,6 @@
 // Stable keys are persisted in MappingUser.permissions[estateId][menu].
 export const accessMenus = [
+  ['imports','Document & data imports',['view','add']],
   ['map','Map workspace',['view','add','edit']],
   ['monthly','Monthly production',['view','add','edit']],
   ['names','Block names & parameters',['view','add','edit']],
@@ -16,9 +17,9 @@ export const accessMenus = [
   ['history','Map history',['view']],
   ['sources','Map sources',['view','add']],
   ['decisions','Decision support & analytics',['view']],
-  ['geospatial','Geospatial Analysis',['view']],
+  ['geospatial','Geospatial Analysis',['view','add']],
 ];
-export const dataMenus = ['blocks','harvesting','field','monthly','names','yearly','wages','vehicles','trial-balance','comments'];
+export const dataMenus = ['imports','blocks','harvesting','field','monthly','names','yearly','wages','vehicles','trial-balance','comments'];
 export const isSuperuser = access => access?.isSuperuser === true;
 export function permitted(access, estateId, menu, action = 'view') {
   if (isSuperuser(access)) return true;

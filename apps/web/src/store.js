@@ -90,7 +90,9 @@ const slice = createSlice({
       }
       s.selected = oneEstate(s.selected, ids);
       if (payload.offline && s.base === "road") {
-        s.base = payload.assets?.some(
+        s.base = payload.assets?.some(a=>s.selected.includes(a.estateId)&&a.kind==='reference-image')
+          ? 'reference'
+          : payload.assets?.some(
           (a) => s.selected.includes(a.estateId) && a.kind === "terrain"
         )
           ? "topography"

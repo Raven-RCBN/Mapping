@@ -3407,3 +3407,33 @@ button:disabled {
 @media(max-width:650px){.map-dashboard-tabs [role="tab"]{white-space:normal;overflow-wrap:anywhere}.geospatial-analysis select{max-width:100%;width:100%}}
 
 .survey-history{padding:20px;border-bottom:1px solid #dce4dc}.survey-history ol{padding-left:20px}.survey-history li{padding:12px 0}.survey-history dl{display:flex;flex-wrap:wrap;gap:16px}.survey-history dt{font-size:12px;color:#647367}.survey-history dd{margin:4px 0;font-weight:600}
+.document-imports .source-list {display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.document-imports details {border:1px solid #dce4d9;border-radius:10px;padding:14px;margin:12px 0}
+.document-imports summary {cursor:pointer;font-weight:600}
+.document-imports .table-scroll {max-height:480px;overflow:auto;margin-top:16px;border:1px solid #dce4d9;border-radius:8px}
+.document-imports table {width:100%;min-width:650px;border-collapse:collapse}
+.document-imports th,.document-imports td {padding:10px;border-bottom:1px solid #dce4d9;text-align:left;vertical-align:top}
+.document-imports th {position:sticky;top:0;background:#edf2e9;z-index:1}
+.document-imports td:nth-child(3)>div {max-height:220px;overflow:auto;overflow-wrap:anywhere}
+.document-imports .modal-actions {flex-wrap:wrap;gap:10px}
+.gps-navigation {position:absolute;bottom:42px;left:16px;z-index:45;width:310px;max-width:calc(100% - 32px);background:#fff;border:1px solid #dce4d9;border-radius:12px;box-shadow:0 4px 18px #173f2d20;padding:10px;font-size:13px}
+.gps-header {display:flex;gap:8px;justify-content:space-between}
+.gps-header .button {padding:10px;min-height:44px}
+.gps-body {max-height:300px;overflow:auto;padding-top:8px;overscroll-behavior:contain}
+.gps-body p {margin:8px 0;overflow-wrap:anywhere}
+.gps-body label {display:block;margin:8px 0}
+.gps-body input[type=number] {width:100%;min-height:44px}
+.gps-body details,.gps-destination {margin:12px 0;padding-top:8px;border-top:1px solid #dce4d9}
+.gps-body small {display:block;color:#617365;line-height:1.5}
+.gps-body .button {min-height:44px;white-space:normal}
+.pwa-install {padding:16px;background:#f3f6ef;border:1px solid #dce4d9;border-radius:12px;margin-bottom:20px}
+@media(max-width:600px){
+ .gps-navigation {left:10px;bottom:38px;max-width:calc(100% - 20px);width:290px}
+ .gps-navigation.expanded {z-index:60}
+ .gps-body {max-height:230px}
+ .map-block-popup {max-width:calc(100vw - 88px)}
+ .document-imports .form-grid {grid-template-columns:minmax(0,1fr)}
+ .document-imports .button {max-width:100%;white-space:normal;min-height:44px}
+}
+.map-block-popup {width:min(360px,var(--map-popup-width,calc(100vw - 120px)));max-width:var(--map-popup-width,calc(100vw - 120px))}
+@media(max-width:400px){.map-block-popup .block-facts{grid-template-columns:minmax(0,1fr)}.map-block-popup .block-info{padding:12px}}

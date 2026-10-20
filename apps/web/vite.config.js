@@ -22,8 +22,11 @@ export default defineConfig({
             JSON.stringify([
               base,
               base + "index.html",
+              base + "icon.svg",
               base + "manifest.webmanifest",
               base + "branding/agrinexus-icon.png",
+              base + "branding/mapintel-192.png",
+              base + "branding/mapintel-512.png",
               ...(process.env.VITE_STATIC_BRANDING_LOGO
                 ? [process.env.VITE_STATIC_BRANDING_LOGO]
                 : []),

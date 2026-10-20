@@ -339,9 +339,23 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
   ensureIndex(GeospatialReport,{estateId:1,surveyDate:-1,_id:1});
   ensureIndex(GeospatialRow,{estateId:1,reportId:1,sourceRow:1,_id:1});
   ensureIndex(GeospatialRow,{estateId:1,reportId:1,highlight:1,sourceRow:1,_id:1});
+  const DocumentImport=model('MappingDocumentImport',{
+    _id:String,estateId:{type:String,required:true},title:String,originalName:String,extension:String,filePath:String,
+    sha256:String,bytes:Number,surveyDate:String,status:String,uploadedBy:String,uploadedAt:String,appliedBy:String,appliedAt:String,
+    leaseUntil:Date,rowCount:Number,sheets:[String],warnings:[String],error:String,
+  });
+  const DocumentRow=model('MappingDocumentRow',{
+    _id:String,estateId:{type:String,required:true},importId:{type:String,required:true},sequence:Number,
+    sheet:String,sourceRow:Number,kind:String,cells:[String],highlight:Boolean,issues:[String],
+  });
+  ensureIndex(DocumentImport,{estateId:1,sha256:1},{unique:true});
+  ensureIndex(DocumentImport,{estateId:1,_id:-1});
+  ensureIndex(DocumentImport,{status:1,leaseUntil:1,createdAt:1});
+  ensureIndex(DocumentRow,{estateId:1,importId:1,sequence:1},{unique:true});
+  ensureIndex(DocumentRow,{estateId:1,importId:1,highlight:1,sequence:1});
   return {
     ...createTrialBalanceModels(model, Schema, ensureIndex), ...createVehicleModels(model, Schema, ensureIndex),
-    GeospatialReport, GeospatialRow,
+    DocumentImport, DocumentRow, GeospatialReport, GeospatialRow,
     Estate,
     Archive,
     Asset,
@@ -361,7 +375,7 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     AnnualRainfall,
   };
 }
-export const {GeospatialReport,GeospatialRow,TrialBalanceSummary,TrialBalanceDetail,
+export const {DocumentImport,DocumentRow,GeospatialReport,GeospatialRow,TrialBalanceSummary,TrialBalanceDetail,
   Vehicle,
   VehicleImport,
   VehicleTransaction,

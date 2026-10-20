@@ -158,3 +158,8 @@ test("sign out clears all estate and activity data, rejecting outstanding respon
   });
   assert.equal(stale, signedOut);
 });
+
+test('offline opening chooses the saved estate mosaic rather than empty satellite imagery',()=>{
+ const state=atlasReducer(undefined,loaded({...snapshot,offline:true,paged:false,estates:[{id:'dafa'}],assets:[{id:'mosaic',estateId:'dafa',kind:'reference-image'}]}));
+ assert.equal(state.base,'reference');assert.deepEqual(state.selected,['dafa']);
+});

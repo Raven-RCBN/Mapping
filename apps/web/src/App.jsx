@@ -575,7 +575,7 @@ export default function App() {
                   ◈ Back to map
                 </button>
               )}
-              {mapVisible && (can('map','add')||can('map','edit')) && <button className="button primary" onClick={()=>setDialog({type:'import'})}>Upload map</button>}
+              {mapVisible && (can('imports','add')||can('map','add')||can('map','edit')) && <button className="button primary" onClick={()=>setDialog({type:'import'})}>Upload maps & data</button>}
               {mapVisible && (
                 <>
                   {superuser && <button
@@ -616,7 +616,7 @@ export default function App() {
                 key={s.selected.join(",")}
                 productionEstateId={!s.data.offline?s.selected[0]:null}
                 vehicleEstateId={!s.data.offline&&s.selected.length===1?s.selected[0]:null}
-                initialTab={['monthly','parameters','names','yearly','wages','vehicles','trial-balance'].includes(searchParams.get('tab'))?searchParams.get('tab'):'blocks'}
+                initialTab={['imports','monthly','parameters','names','yearly','wages','vehicles','trial-balance'].includes(searchParams.get('tab'))?searchParams.get('tab'):'blocks'}
                 role={s.data.access.role}
                 server={s.data.paged ? { estates: s.selected.join(",") } : null}
                 blocks={(s.data.blocks || []).filter((b) =>
@@ -996,7 +996,7 @@ export default function App() {
             </span>
             {mapVisible && (
               <button onClick={() => setDialog({ type: "import" })}>
-                Import a map or image ↗
+                Upload maps & data ↗
               </button>
             )}
           </div>

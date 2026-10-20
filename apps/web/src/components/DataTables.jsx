@@ -1,3 +1,4 @@
+import DocumentImports from './DocumentImports';
 import {useAccess} from '../useAccess';
 import { useEffect, useMemo, useState } from "react";
 import { queryData } from "../api";
@@ -108,7 +109,7 @@ export default function DataTables({
 }) {
   const {can} = useAccess(productionEstateId || vehicleEstateId);
   const allowedTab = value => can(value==='parameters'?'monthly':value);
-  const firstTab = ['blocks','monthly','names','yearly','wages','vehicles','trial-balance','harvesting','field','comments'].find(allowedTab);
+  const firstTab = ['imports','blocks','monthly','names','yearly','wages','vehicles','trial-balance','harvesting','field','comments'].find(allowedTab);
   const [tab, setTab] = useState(
     popup
       ? rows.some((r) => r.recordKind === "harvesting")
@@ -124,7 +125,7 @@ export default function DataTables({
     [cursors, setCursors] = useState([null]),
     [from, setFrom] = useState(""),
     [to, setTo] = useState("");
-  const productionTab=['monthly','parameters','names','yearly','wages','comments','vehicles','trial-balance'].includes(tab);
+  const productionTab=['imports','monthly','parameters','names','yearly','wages','comments','vehicles','trial-balance'].includes(tab);
   const reset = () => {
     setPage(0);
     setCursors([null]);
@@ -166,7 +167,7 @@ export default function DataTables({
     };
   }, [remoteKey, !!server, productionTab]);
   const tabs = [
-    ...(!popup&&productionEstateId?[["monthly","Monthly production",0],["parameters","Monthly parameters",0],["names","Block-name history",0],["yearly","Yearly production",0],["wages","Wages",0],["vehicles","Vehicle details",0],["trial-balance","Trial balance",0],["comments","Block comments",0]]:[]),
+    ...(!popup&&productionEstateId?[["imports","Imported data",0],["monthly","Monthly production",0],["parameters","Monthly parameters",0],["names","Block-name history",0],["yearly","Yearly production",0],["wages","Wages",0],["vehicles","Vehicle details",0],["trial-balance","Trial balance",0],["comments","Block comments",0]]:[]),
     ["blocks", "Block details", blocks.length],
     [
       "harvesting",
@@ -255,7 +256,7 @@ export default function DataTables({
       ? r.mapBlockNames?.join(", ") || "Pending"
       : format(r[key], key);
   if (!allowedTab(tab)) return <p>This table is not enabled for your account.</p>;
-  if(productionTab) return <div className="data-tables"><div className="table-tabs" role="tablist">{tabs.map(([id,name])=><button key={id} role="tab" aria-selected={tab===id} onClick={()=>{setTab(id);reset();setQuery('');}}>{name}</button>)}</div>{tab==='trial-balance'?<TrialBalanceTables key={vehicleEstateId||'choose-estate'} estateId={vehicleEstateId}/>:tab==='vehicles'?<VehicleTables key={vehicleEstateId||'choose-estate'} estateId={vehicleEstateId}/>:tab==='comments'?<BlockComments key={productionEstateId} estateId={productionEstateId} table role={role} onMap={onSelectBlock}/>:tab==='wages'?<WagesTables key={productionEstateId} estateId={productionEstateId} role={role} onMap={onSelectBlock}/>:<ProductionTables key={productionEstateId} estateId={productionEstateId} role={role} view={tab} onMap={onSelectBlock}/>}</div>;
+  if(productionTab) return <div className="data-tables"><div className="table-tabs" role="tablist">{tabs.map(([id,name])=><button key={id} role="tab" aria-selected={tab===id} onClick={()=>{setTab(id);reset();setQuery('');}}>{name}</button>)}</div>{tab==='imports'?<DocumentImports key={productionEstateId} estateId={productionEstateId} upload/>:tab==='trial-balance'?<TrialBalanceTables key={vehicleEstateId||'choose-estate'} estateId={vehicleEstateId}/>:tab==='vehicles'?<VehicleTables key={vehicleEstateId||'choose-estate'} estateId={vehicleEstateId}/>:tab==='comments'?<BlockComments key={productionEstateId} estateId={productionEstateId} table role={role} onMap={onSelectBlock}/>:tab==='wages'?<WagesTables key={productionEstateId} estateId={productionEstateId} role={role} onMap={onSelectBlock}/>:<ProductionTables key={productionEstateId} estateId={productionEstateId} role={role} view={tab} onMap={onSelectBlock}/>}</div>;
   return (
     <div className="data-tables">
       <div className="table-tabs" role="tablist">

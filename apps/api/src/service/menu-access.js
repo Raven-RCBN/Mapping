@@ -10,6 +10,7 @@ export function routePolicy(method, pathname) {
   if(p==='/production/meta'&&read)return {menus:['names','monthly','yearly','comments'],any:true,action:'view'};
   if(/^\/estates\/[^/]+\/(images|boundary|qgis)$/.test(p)) {menus=['map'];resource=['Estate',p.split('/')[2]];if(p.endsWith('/boundary'))action='edit';}
   else if(/^\/assets\/[^/]+\//.test(p)){menus=['map'];resource=['Asset',p.split('/')[2]];}
+  else if(/^\/document-imports(\/|$)/.test(p))menus=['imports'];
   else if(p==='/map-assets')menus=['map'];
   else if(/^\/geospatial-analysis(\/|$)/.test(p)&&read)menus=['map','geospatial'];
   else if(['/dashboard','/timeline','/map-popup','/activity-options'].includes(p)) {menus=['map','harvesting','field'];action='view';if(p==='/timeline')menus.push('history');if(!read&&method!=='POST')return null;}

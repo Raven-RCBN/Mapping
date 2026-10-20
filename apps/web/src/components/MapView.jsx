@@ -1,3 +1,4 @@
+import GpsNavigation from './GpsNavigation';
 import { createPortal } from "react-dom";
 import Overlay from "ol/Overlay";
 import MapActivityPopup from "./MapActivityPopup";
@@ -58,6 +59,7 @@ export default function MapView({
     popupElement = useMemo(() => document.createElement("div"), []),
     [popup, setPopup] = useState(null),
     fitRef = useRef(""),
+    openingFitRef = useRef(null),
     analyticsFitRef = useRef(null),
     [notice, setNotice] = useState(""),
     [split, setSplit] = useState(50),
@@ -67,6 +69,16 @@ export default function MapView({
   const { data, selected, date, base, terrain, override, compare } = state;
   const blockSelection=state.selectedBlock||(state.block!=="all"?state.block:null);
   const closeBlock=()=>setBlockDetailsOpen(false);
+  const blockDestination=useMemo(()=>{
+    if(!blockSelection)return null;
+    const [estateId,code]=blockSelection.split('::');
+    const feature=data.estates.find(e=>e.id===estateId)?.boundary?.features?.find(f=>(f.properties?.blockName||f.properties?.Block_No)===code);
+    if(!feature)return null;
+    const rendered=featuresOf({type:'FeatureCollection',features:[feature]})[0];
+    if(!rendered)return null;
+    const point=toLonLat(getCenter(rendered.getGeometry().getExtent()));
+    return {longitude:point[0],latitude:point[1],label:code,approximate:feature.geometry.type==='Point'||feature.properties?.approximate===true};
+  },[blockSelection,data.estates]);
   const images = imagesAt(
       state.data.paged ? state.mapAssets || [] : data.assets,
       selected,
@@ -105,7 +117,7 @@ export default function MapView({
       }),
     });
     if (!isEmpty(extent))
-      map.getView().fit(extent, { padding: [60, 60, 60, 60], maxZoom: 16 });
+      map.getView().fit(extent, { padding: [28, 28, 28, 28], maxZoom: 16 });
     initialSource.dispose();
     mapRef.current = map;
     const overlay = new Overlay({
@@ -123,13 +135,21 @@ export default function MapView({
         overlay.panIntoView({ animation: { duration: 160 }, margin: 16 });
     });
     popupResize.observe(popupElement);
+    let manualNavigation=false;
+    const manual=()=>{manualNavigation=true;};
+    map.on('pointerdrag',manual);
+    host.current.addEventListener('wheel',manual,{passive:true});
     const ro = new ResizeObserver(() => {
       map.updateSize();
+      popupElement.style.setProperty('--map-popup-width',`${Math.max(160,(map.getSize()?.[0]||320)-40)}px`);
+      if(!manualNavigation&&openingFitRef.current)map.getView().fit(openingFitRef.current.extent,{padding:[28,28,28,28],maxZoom:openingFitRef.current.maxZoom});
       if(overlay.getPosition())overlay.panIntoView({animation:{duration:160},margin:16});
     });
     ro.observe(host.current);
     return () => {
       ro.disconnect();
+      host.current?.removeEventListener('wheel',manual);
+      map.un('pointerdrag',manual);
       popupResize.disconnect();
       map.setTarget(null);
       map.dispose();
@@ -262,6 +282,7 @@ export default function MapView({
                   ? "#17412b"
                   : types[r?.type]?.color || "#d6bf67";
             return new Style({
+              image: f.getGeometry()?.getType()==='Point' ? new CircleStyle({radius:6,fill:new Fill({color:'#7c3aed'}),stroke:new Stroke({color:'#fff',width:2})}) : undefined,
               stroke: state.showBoundaries
                 ? new Stroke({ color, width: palmWarning ? 3.5 : r ? 2.4 : 1.3 })
                 : undefined,
@@ -280,6 +301,7 @@ export default function MapView({
               text: state.showLabels && analyticsHighlights?.kind !== 'fertiliser'
                 ? new Text({
                     text: f.get("blockName"),
+                    offsetY: f.getGeometry()?.getType()==='Point' ? -13 : 0,
                     font: "12px sans-serif",
                     fill: new Fill({ color: "#173f2d" }),
                     stroke: new Stroke({ color: "#fff6db", width: 3 }),
@@ -305,8 +327,10 @@ export default function MapView({
     const key = selected.join(",") + fs.length + state.block;
     if (key !== fitRef.current && !isEmpty(focusSource.getExtent())) {
       fitRef.current = key;
+      openingFitRef.current={extent:focusSource.getExtent().slice(),maxZoom:state.block==='all'?16:19};
+      map.updateSize();
       map.getView().fit(focusSource.getExtent(), {
-        padding: [60, 60, 60, 60],
+        padding: [28, 28, 28, 28],
         maxZoom: state.block === "all" ? 16 : 19,
       });
     }
@@ -595,7 +619,7 @@ export default function MapView({
       }
       setPopup(null);
       const feature = map.forEachFeatureAtPixel(e.pixel, (f) =>
-        f.get("blockName") ? f : undefined
+        f.get("blockName") ? f : undefined, {hitTolerance:6}
       );
       if (feature){
         setBlockDetailsOpen(true);
@@ -657,6 +681,7 @@ export default function MapView({
   return (
     <div className="map-stage map-expanded">
       <div ref={host} id="estateMap" />
+      <GpsNavigation mapRef={mapRef} blockDestination={blockDestination} estateKey={selected.join(',')}/>
       {popup &&
         createPortal(
           <MapActivityPopup
@@ -782,7 +807,7 @@ export default function MapView({
               />
             </div>
             <button className="text-button" onClick={onImport}>
-              ＋ Import a map or image
+              ＋ Upload maps & data
             </button>
             <button className="text-button" onClick={onOffline}>
               ⇩ Save offline maps
@@ -799,10 +824,10 @@ export default function MapView({
         <span className="status-dot" />
         <b>{label(date)}</b>
         <span>
-          {base === "reference"
-            ? "Activity date · undated reference mosaic"
-            : data.offline
-            ? "Offline map"
+          {data.offline
+            ? (base==='reference'?'Offline · saved estate mosaic':'Offline map')
+            : base === "reference"
+            ? "Activity date · reference mosaic"
             : base === "road"
             ? "Activity date · current road map"
             : "Map + activity timeline"}
