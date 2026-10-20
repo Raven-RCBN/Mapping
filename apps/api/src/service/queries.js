@@ -841,8 +841,11 @@ export function installQueries(api, models, expose) {
           const assets = await Asset.find({
             ...q.scope,
             ...activeAsset,
-            kind: "imagery",
-            acquiredAt: { $gte: windows[0].start, $lt: windows.at(-1).end },
+            kind: {$in: ['imagery','reference-image','qgis','vector']},
+            $or: [
+              {acquiredAt: { $gte: windows[0].start, $lt: windows.at(-1).end }},
+              {importedAt: { $gte: windows[0].start, $lt: windows.at(-1).end }},
+            ],
           })
             .select("-file")
             .sort({ acquiredAt: -1, _id: -1 })
@@ -867,7 +870,10 @@ export function installQueries(api, models, expose) {
                   descriptionsLimited: descriptions.length > 200,
                 }
               : {}),
-            assets: assets.slice(0, 200).map(clean),
+            assets: assets.slice(0, 200).flatMap(a=>[
+              ...(a.acquiredAt>=windows[0].start&&a.acquiredAt<windows.at(-1).end?[{...clean(a),eventOnly:a.kind!=='imagery',eventKind:'capture'}]:[]),
+              ...(a.importedAt>=windows[0].start&&a.importedAt<windows.at(-1).end?[{id:'upload-'+a._id,estateId:a.estateId,name:'Uploaded: '+a.name,acquiredAt:a.importedAt.slice(0,10),eventOnly:true,eventKind:'upload'}]:[]),
+            ]),
             assetsLimited: assets.length > 200,
           };
         }

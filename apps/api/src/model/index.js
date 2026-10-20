@@ -173,6 +173,8 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     plantedDate: String,
     plantingMaterial: String,
     soilType: String,
+    cropType: String, plantingMaterialType: String, replantingPlans: [Schema.Types.Mixed],
+    highlight: Boolean, issues: [String],
     gisAreaHa: Number,
     totalPalms: Number,
     palmsPerHectare: Number,
@@ -322,8 +324,24 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
   ensureIndex(ProductionComment,{estateId:1,year:1,sourceBlockId:1,_id:1});
   ensureIndex(Wage,{estateId:1,basis:1,period:1,_id:1});
   ensureIndex(WageArea,{estateId:1,year:1,sourceBlockCode:1,_id:1});
+  const GeospatialReport=model('MappingGeospatialReport',{
+    _id:String,estateId:{type:String,required:true},title:String,surveyDate:String,reportDate:String,
+    sourceFile:String,sourceFiles:[String],mappingDate:String,importedAt:String,nextSurveyDue:String,cadenceMonths:Number,summary:Schema.Types.Mixed,issues:[String],findings:[Schema.Types.Mixed],
+    files:[Schema.Types.Mixed],layers:[Schema.Types.Mixed],
+  });
+  const GeospatialRow=model('MappingGeospatialRow',{
+    _id:String,estateId:{type:String,required:true},reportId:{type:String,required:true},sourceRow:Number,
+    sourceBlockCode:String,mapBlockCode:String,mapMatch:String,plantingYear:String,cohort:String,
+    surveyAreaHa:Number,currentAreaHa:Number,areaDifferenceHa:Number,oldAreaHa:Number,totalPalms:Number,
+    palmsPerHectare:Number,densityCategory:String,growth:Schema.Types.Mixed,poorPercent:Number,
+    highlight:Boolean,priority:Boolean,issues:[String],sourcePages:[Number],
+  });
+  ensureIndex(GeospatialReport,{estateId:1,surveyDate:-1,_id:1});
+  ensureIndex(GeospatialRow,{estateId:1,reportId:1,sourceRow:1,_id:1});
+  ensureIndex(GeospatialRow,{estateId:1,reportId:1,highlight:1,sourceRow:1,_id:1});
   return {
     ...createTrialBalanceModels(model, Schema, ensureIndex), ...createVehicleModels(model, Schema, ensureIndex),
+    GeospatialReport, GeospatialRow,
     Estate,
     Archive,
     Asset,
@@ -343,7 +361,7 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     AnnualRainfall,
   };
 }
-export const {TrialBalanceSummary,TrialBalanceDetail,
+export const {GeospatialReport,GeospatialRow,TrialBalanceSummary,TrialBalanceDetail,
   Vehicle,
   VehicleImport,
   VehicleTransaction,

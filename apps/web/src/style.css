@@ -3401,3 +3401,9 @@ button:disabled {
 .archive-records summary { cursor:pointer; padding:10px 0; font-weight:600; }
 @media(max-width:1100px) { .archive-columns { grid-template-columns:1fr; } .archive-workspace .archive-stats { grid-template-columns:repeat(2,minmax(0,1fr)); } }
 @media(max-width:650px) { .archive-heading,.archive-toolbar { align-items:stretch; flex-direction:column; } .archive-toolbar label { min-width:0; } .archive-workspace .archive-stats { grid-template-columns:1fr; } .archive-panel { padding:12px; } }
+
+.geo-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:16px;margin:20px 0}.geo-metrics>div{border:1px solid #dce4dc;border-radius:12px;padding:18px}.geo-metrics strong{display:block;font-size:28px;margin-top:8px}.geo-match{display:block;margin-top:6px;max-width:220px}.geo-highlight{background:#f5ebd9}.geo-pagination{display:flex;gap:20px;align-items:center;margin:16px 0}.geospatial-analysis td{vertical-align:top}.geospatial-analysis td p{max-width:360px;font-size:12px}.geospatial-analysis select{max-width:420px}
+
+@media(max-width:650px){.map-dashboard-tabs [role="tab"]{white-space:normal;overflow-wrap:anywhere}.geospatial-analysis select{max-width:100%;width:100%}}
+
+.survey-history{padding:20px;border-bottom:1px solid #dce4dc}.survey-history ol{padding-left:20px}.survey-history li{padding:12px 0}.survey-history dl{display:flex;flex-wrap:wrap;gap:16px}.survey-history dt{font-size:12px;color:#647367}.survey-history dd{margin:4px 0;font-weight:600}

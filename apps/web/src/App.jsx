@@ -1,3 +1,4 @@
+import GeospatialAnalysis from './components/GeospatialAnalysis';
 import UserAccess from './components/UserAccess';
 import TeamOutlined from '@ant-design/icons/es/icons/TeamOutlined';
 import { permitted, isSuperuser, dataMenus } from '../../../packages/shared/access.js';
@@ -55,7 +56,7 @@ import ProductionDashboard from './components/ProductionDashboard';
 import WagesDashboard from './components/WagesDashboard';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import DecisionSupport from './components/DecisionSupport';
-const dashboardTabs=['production','operations','wages','analytics','decisions'];
+const dashboardTabs=['production','operations','wages','analytics','decisions','geospatial'];
 const noHighlights=[];
 import {
   activityName,
@@ -115,7 +116,7 @@ export default function App() {
   const superuser = isSuperuser(s.data?.access);
   const canData = dataMenus.some(menu=>can(menu));
   const canOperations = can('map') && can('harvesting') && can('field');
-  const visibleDashboards=dashboardTabs.filter(tab=>({production:can('monthly'),operations:canOperations&&can('history'),wages:can('wages'),analytics:can('decisions'),decisions:can('decisions')})[tab]);
+  const visibleDashboards=dashboardTabs.filter(tab=>({production:can('monthly'),operations:canOperations&&can('history'),wages:can('wages'),analytics:can('decisions'),decisions:can('decisions'),geospatial:can('map')&&can('geospatial')})[tab]);
   const mapVisible = !dataView && !storageView && !userAccessView && can('map');
   useEffect(()=>{
     if(visibleDashboards.length && !visibleDashboards.includes(dashboardTab)) setDashboardTab(visibleDashboards[0]);
@@ -686,8 +687,8 @@ export default function App() {
                     {estateMapReady(s) ? (
                       <MapView
                         key={s.selected[0]}
-                        productionHighlights={['analytics','decisions'].includes(dashboardTab)?noHighlights:productionHighlights}
-                        analyticsHighlights={['analytics','decisions'].includes(dashboardTab)&&analyticsHighlights?.estateId===s.selected[0]?analyticsHighlights:null}
+                        productionHighlights={['analytics','decisions','geospatial'].includes(dashboardTab)?noHighlights:productionHighlights}
+                        analyticsHighlights={['analytics','decisions','geospatial'].includes(dashboardTab)&&analyticsHighlights?.estateId===s.selected[0]?analyticsHighlights:null}
                         rows={displayRows}
                         pageOffset={(pageCursors.length - 1) * 100}
                         requestedRecord={
@@ -758,7 +759,7 @@ export default function App() {
                     }}>
                     {visibleDashboards.map(tab=><button key={tab} type="button" role="tab" id={'dashboard-tab-'+tab}
                       aria-selected={dashboardTab===tab} aria-controls={'dashboard-panel-'+tab} tabIndex={dashboardTab===tab?0:-1}
-                      onClick={()=>setDashboardTab(tab)}>{tab==='production'?'Production':tab==='operations'?'Operations':tab==='wages'?'Wages':tab==='decisions'?'Decision Support':'Analytics'}</button>)}
+                      onClick={()=>setDashboardTab(tab)}>{tab==='production'?'Production':tab==='operations'?'Operations':tab==='wages'?'Wages':tab==='decisions'?'Decision Support':tab==='geospatial'?'Geospatial Analysis':'Analytics'}</button>)}
                   </div>
                   <div className="map-dashboard-panel" id="dashboard-panel-production" role="tabpanel" aria-labelledby="dashboard-tab-production" hidden={dashboardTab!=='production'}>
                     {can("monthly") && <ProductionDashboard key={"production-"+s.selected[0]} estateId={s.selected[0]} selection={s.selectedBlock || (s.block !== 'all'?s.block:null)} offline={s.data.offline} onHighlights={setProductionHighlights} onData={()=>setSearchParams({view:'data',tab:'monthly'})}/>}
@@ -774,8 +775,12 @@ export default function App() {
                       onBlockChange={code=>dispatch(patch({selectedBlock:code?`${s.selected[0]}::${code}`:null,block:code?`${s.selected[0]}::${code}`:'all'}))}
                       onSelect={code=>{dispatch(patch({selectedBlock:`${s.selected[0]}::${code}`,block:`${s.selected[0]}::${code}`}));document.getElementById('estateMap')?.scrollIntoView({behavior:'smooth',block:'center'});}}/>}
                   </div>
+                  <div className="map-dashboard-panel" id="dashboard-panel-geospatial" role="tabpanel" aria-labelledby="dashboard-tab-geospatial" hidden={dashboardTab!=='geospatial'}>
+                    {dashboardTab==='geospatial'&&can('map')&&can('geospatial')&&<GeospatialAnalysis key={'geospatial-'+s.selected[0]} estateId={s.selected[0]} initialReportId={s.geospatialReportId} offline={s.data.offline} onHighlights={setAnalyticsHighlights} onMap={()=>document.getElementById('estateMap')?.scrollIntoView({behavior:'smooth',block:'center'})}
+                      onSelect={code=>{dispatch(patch({selectedBlock:`${s.selected[0]}::${code}`,block:`${s.selected[0]}::${code}`}));document.getElementById('estateMap')?.scrollIntoView({behavior:'smooth',block:'center'});}}/>}
+                  </div>
                   <div className="map-dashboard-panel" id="dashboard-panel-operations" role="tabpanel" aria-labelledby="dashboard-tab-operations" hidden={dashboardTab!=='operations'}>
-                    {dashboardTab==='operations'&&canOperations&&can('history')&&<Timeline key={s.selected[0]} />}
+                    {dashboardTab==='operations'&&canOperations&&can('history')&&<Timeline key={s.selected[0]} onOpenReport={reportId=>{dispatch(patch({geospatialReportId:reportId}));setDashboardTab('geospatial');}} />}
                   </div>
                   <div className="map-dashboard-panel" id="dashboard-panel-wages" role="tabpanel" aria-labelledby="dashboard-tab-wages" hidden={dashboardTab!=='wages'}>
                     {dashboardTab==='wages'&&can('wages')&&<WagesDashboard key={'wages-'+s.selected[0]} estateId={s.selected[0]} selection={s.selectedBlock || (s.block !== 'all'?s.block:null)} offline={s.data.offline} onData={()=>setSearchParams({view:'data',tab:'wages'})}/>}

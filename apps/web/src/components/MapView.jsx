@@ -152,11 +152,24 @@ export default function MapView({
         fill:state.showBoundaries?new Fill({color:fertiliserColour(analyticsHighlights.values[code],analyticsHighlights.max,analyticsHighlights.bands)+'dd'}):undefined,
         text:state.showLabels?new Text({text:code,font:'12px sans-serif',fill:new Fill({color:'#173f2d'}),stroke:new Stroke({color:'#fff6db',width:3})}):undefined,
       });
-    }:new Style({stroke:new Stroke({color:'#6d28d9',width:3}),fill:new Fill({color:'rgba(124,58,237,0.32)'})})});
+    }:f=>new Style({image:new CircleStyle({radius:8,fill:new Fill({color:analyticsHighlights.colors?.[f.get('blockName')]||'#7c3aed'}),stroke:new Stroke({color:'#fff',width:2})}),stroke:new Stroke({color:'#6d28d9',width:3}),fill:new Fill({color:'rgba(124,58,237,0.32)'})})});
     map.addLayer(layer);
     if(!choropleth&&fitChanged&&!isEmpty(source.getExtent()))map.getView().fit(source.getExtent(),{padding:[65,65,65,65],maxZoom:16,duration:200});
     return()=>{map.removeLayer(layer);layer.dispose();source.dispose();};
   },[analyticsHighlights,data.estates,data.offline,state.selectedBlock,state.showBoundaries,state.showLabels]);
+  useEffect(()=>{
+    const map=mapRef.current,asset=analyticsHighlights?.kind==='geospatial'?analyticsHighlights.raster:null;
+    if(!map||!asset||data.offline)return;
+    let cancelled=false,layer,url;
+    authorisedFile(asset.url).then(blob=>{
+      if(cancelled)return;
+      url=URL.createObjectURL(blob);const b=asset.bounds;
+      const extent=transformExtent([b[0][1],b[0][0],b[1][1],b[1][0]],'EPSG:4326','EPSG:3857');
+      layer=new ImageLayer({source:new ImageStatic({url,imageExtent:extent,projection:'EPSG:3857'}),zIndex:18,opacity:0.9});
+      map.addLayer(layer);map.getView().fit(extent,{padding:[45,45,45,45],maxZoom:16,duration:200});
+    }).catch(()=>{if(!cancelled)setNotice('The survey overlay could not be loaded. Refresh the report to retry.');});
+    return()=>{cancelled=true;if(layer){map.removeLayer(layer);layer.dispose();}if(url)URL.revokeObjectURL(url);};
+  },[analyticsHighlights?.raster,data.offline]);
   // Keep selection above thematic/GIS layers without rebuilding imagery or refitting.
   useEffect(() => {
     const map=mapRef.current;
@@ -171,7 +184,7 @@ export default function MapView({
     const source=new VectorSource({features});
     const layer=new VectorLayer({source,zIndex:40,style:[
       new Style({stroke:new Stroke({color:'#ffffff',width:7})}),
-      new Style({stroke:new Stroke({color:'#7c3aed',width:4}),fill:new Fill({color:'rgba(124,58,237,0.20)'})}),
+      new Style({image:new CircleStyle({radius:11,stroke:new Stroke({color:'#7c3aed',width:4}),fill:new Fill({color:'#fff'})}),stroke:new Stroke({color:'#7c3aed',width:4}),fill:new Fill({color:'rgba(124,58,237,0.20)'})}),
     ]});
     map.addLayer(layer);
     return()=>{map.removeLayer(layer);layer.dispose();source.dispose();};
@@ -828,7 +841,7 @@ export default function MapView({
           <strong>{analyticsHighlights.label} · {analyticsHighlights.unit}</strong>
           <div>{analyticsHighlights.bands?analyticsHighlights.bands.map(band=><span key={band.min}><i style={{background:band.color}}/>{band.label}</span>):<><span><i style={{background:'#e7e9ec'}}/>No record</span><span><i style={{background:'#fff'}}/>0</span>
           {analyticsHighlights.max>0&&fertiliserColours.map((color,i)=><span key={color}><i style={{background:color}}/>{(analyticsHighlights.max*i/5).toLocaleString(undefined,{maximumFractionDigits:1})}–{(analyticsHighlights.max*(i+1)/5).toLocaleString(undefined,{maximumFractionDigits:1})}</span>)}</>}</div>
-        </div>:analyticsHighlights&&<span className="analytics-map-key"><i style={{background:'#7c3aed'}}/>{analyticsHighlights.label} · {analyticsHighlights.blockCodes.length} blocks</span>}
+        </div>:analyticsHighlights&&<span className="analytics-map-key"><i style={{background:'#7c3aed'}}/>{analyticsHighlights.label}{analyticsHighlights.kind==='geospatial'?'':` · ${analyticsHighlights.blockCodes.length} blocks`}</span>}
         {Object.entries(types)
           .filter(([t]) =>
             rows.some((r) => selected.includes(r.estateId) && r.type === t)

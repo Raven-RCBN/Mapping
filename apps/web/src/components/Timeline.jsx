@@ -1,3 +1,4 @@
+import SurveyHistory from './SurveyHistory';
 import { mappedBlocks } from "../../../../packages/shared/mapped-records.js";
 import { useEffect, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
@@ -12,7 +13,7 @@ import {
   addDays,
   records,
 } from "../../../../packages/shared/timeline";
-function LocalTimeline() {
+function LocalTimeline({onOpenReport}) {
   const s = useSelector((s) => s),
     dispatch = useDispatch(),
     [anchor, setAnchor] = useState(s.date),
@@ -109,6 +110,7 @@ function LocalTimeline() {
           ))}
         </div>
       </div>
+      <SurveyHistory estateId={s.selected[0]} offline={s.data.offline} onOpenReport={onOpenReport}/>
       <div className="timeline-filter-bar">
         <div id="timelineFilters">
           <MapActivityList />
@@ -381,7 +383,7 @@ function LocalTimeline() {
   );
 }
 
-export default function Timeline() {
+export default function Timeline(props) {
   const data = useSelector((s) => s.data);
-  return data.paged && !data.offline ? <RemoteTimeline /> : <LocalTimeline />;
+  return data.paged && !data.offline ? <RemoteTimeline {...props} /> : <LocalTimeline {...props} />;
 }

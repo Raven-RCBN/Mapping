@@ -14,7 +14,7 @@ import { secureStoredFile, fileHash, resolveStoredFile } from './files.js';
 const COLLECTIONS = ['Estate', 'Asset', 'Activity', 'Source', 'Block', 'HarvestingActivity',
   'FieldActivity', 'ProductionName', 'ProductionComment', 'MonthlyProduction',
   'YearlyProduction', 'Wage', 'WageArea', 'BlockManday', 'AnnualRainfall',
-  'Vehicle', 'VehicleImport', 'VehicleTransaction', 'VehicleUsage', 'TrialBalanceSummary', 'TrialBalanceDetail'];
+  'Vehicle', 'VehicleImport', 'VehicleTransaction', 'VehicleUsage', 'TrialBalanceSummary', 'TrialBalanceDetail', 'GeospatialReport', 'GeospatialRow'];
 const admin = (req, res, next) => req.access.role === 'admin' ? next() :
   res.status(403).json({ error: 'Administrator access is required to manage archives.' });
 const estateId = z.string().regex(/^[a-zA-Z0-9-]{1,80}$/);

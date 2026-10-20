@@ -20,6 +20,10 @@ export const blockColumns = [
   ["soilType", "Soil type"],
 ];
 const gisBlockColumns = [
+  ["gisAreaHa", "GIS area (ha)"],
+  ["cropType", "Crop / land use"],
+  ["plantingMaterialType", "Planting material type"],
+  ["issues", "Highlight details"],
   ["totalPalms", "Total palms"],
   ["palmsPerHectare", "Palms / ha"],
   ["surveyDate", "Survey date"],

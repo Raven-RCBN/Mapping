@@ -16,6 +16,7 @@ export const accessMenus = [
   ['history','Map history',['view']],
   ['sources','Map sources',['view','add']],
   ['decisions','Decision support & analytics',['view']],
+  ['geospatial','Geospatial Analysis',['view']],
 ];
 export const dataMenus = ['blocks','harvesting','field','monthly','names','yearly','wages','vehicles','trial-balance','comments'];
 export const isSuperuser = access => access?.isSuperuser === true;

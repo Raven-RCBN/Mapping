@@ -1,3 +1,4 @@
+import SurveyHistory from './SurveyHistory';
 import { mappedBlocks } from "../../../../packages/shared/mapped-records.js";
 import { useEffect, useState } from "react";
 import { useSelector, useDispatch } from "react-redux";
@@ -12,7 +13,7 @@ import {
   addDays,
 } from "../../../../packages/shared/timeline.js";
 
-export default function RemoteTimeline() {
+export default function RemoteTimeline({onOpenReport}) {
   const s = useSelector((x) => x),
     dispatch = useDispatch();
   const [anchor, setAnchor] = useState(s.date),
@@ -133,6 +134,7 @@ export default function RemoteTimeline() {
           ))}
         </div>
       </div>
+      <SurveyHistory estateId={s.selected[0]} offline={s.data.offline} onOpenReport={onOpenReport}/>
       <div className="timeline-filter-bar">
         <div id="timelineFilters">
           <MapActivityList />
@@ -226,7 +228,7 @@ export default function RemoteTimeline() {
               ))}
               <div className="event-row-label">
                 <b>▱ Map updates</b>
-                <small>Capture dates</small>
+                <small>Capture and upload dates</small>
               </div>
               {windows.map((w) => (
                 <div key={w.start} className="event-cell map-events">
@@ -244,11 +246,11 @@ export default function RemoteTimeline() {
                           choose(
                             a.acquiredAt,
                             s.activity,
-                            a.boundary ? null : a.id
+                            a.boundary || a.eventOnly ? null : a.id
                           )
                         }
                       >
-                        {a.boundary ? "▱" : "▧"} {label(a.acquiredAt, false)}
+                        {a.eventKind==='upload'?'↑ Upload':a.boundary ? "▱" : "▧"} {label(a.acquiredAt, false)}
                       </button>
                     ))}
                   {!events.some((a) => contains(a.acquiredAt, w)) && (
@@ -298,7 +300,7 @@ export default function RemoteTimeline() {
           )}
 
           <div className="event-notes">
-            <span>Images use their acquisition dates.</span>
+            <span>Capture and upload dates are recorded separately.</span>
             <span>— No event recorded</span>
           </div>
           <div className="activity-date-history">
