@@ -387,11 +387,11 @@ export function installQueries(api, models, expose) {
     const [estates, blocks, sources] = await Promise.all([
       bounded(Estate.find(ids), 100, "Select fewer estates."),
       bounded(
-        Block.find(q.scope).sort({ blockCode: 1 }),
+        Block.find(q.scope).select('-history').sort({ blockCode: 1 }),
         5000,
         "Select fewer estates; maximum 5,000 blocks per map workspace."
       ),
-      bounded(Source.find(q.scope), 1000, "Select fewer estates."),
+      bounded(Source.find(q.scope).select('-history'), 1000, "Select fewer estates."),
     ]);
     res.json({
       estates: estates.map(e => {

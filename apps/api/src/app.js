@@ -101,7 +101,7 @@ export async function createApp(config) {
   } = config.models || defaultModels;
   const apiPath = config.apiPath ?? "/api";
   const productionModels = config.models || defaultModels;
-  await Promise.all([productionModels.ProductionName, productionModels.MonthlyProduction, productionModels.YearlyProduction, productionModels.Wage, productionModels.WageArea, productionModels.Vehicle, productionModels.VehicleImport, productionModels.VehicleTransaction, productionModels.VehicleUsage].filter(Boolean).map(m=>m.createIndexes()));
+  await Promise.all([productionModels.ProductionName, productionModels.MonthlyProduction, productionModels.YearlyProduction, productionModels.Wage, productionModels.WageArea, productionModels.Vehicle, productionModels.VehicleImport, productionModels.VehicleTransaction, productionModels.VehicleUsage, productionModels.StockIssue, productionModels.LedgerEntry, productionModels.CropReceipt].filter(Boolean).map(m=>m.createIndexes()));
   const mount = apiPath || "/";
   const expose = (a) => publicAsset(a, config.publicApiPath || "/api");
   // Build only declared indexes; never drop or synchronize away existing indexes.

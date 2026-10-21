@@ -6,3 +6,18 @@ test('annual net-material analysis combines months for one product without combi
  await m.StockIssue.create({_id:'next-month',estateId:'dafa',mapBlockCode:'A',month:'2025-02',sourceSystem:'sql',sourceKey:'next-month',productId:'P',product:'Product',unit:'BAG',netQuantity:5,approved:true});
  const r=await request(app).get('/operations/materials').query({estateId:'dafa',year:'2025',frequency:'annual',product:'P'}).expect(200);assert.equal(r.body.count,1);assert.equal(r.body.items[0].netQuantity,35);assert.equal(r.body.items[0].netPerPalm,.035);assert.ok(r.body.products.some(p=>p._id==='P'));assert.equal(r.body.items[0].month,'2025');
 });
+test('monthly materials combine different issue dates, paginate every group once and keep full block analysis',async()=>{
+ const rows=Array.from({length:125},(_,i)=>({_id:'bulk'+i,estateId:'dafa',mapBlockCode:'X'+String(i).padStart(3,'0'),month:'2026-01',date:i%2?'2026-01-02':'2026-01-20',sourceSystem:'sql',sourceKey:'bulk'+i,productId:'BULK',product:'Bulk product',unit:'KG',netQuantity:i+1,approved:true,issues:['Review source']}));
+ await m.StockIssue.create([...rows,{...rows[0],_id:'extra-date',sourceKey:'extra-date',date:'2026-01-31',netQuantity:3,issues:['Review source','Second note']},{...rows[0],_id:'different-unit',sourceKey:'different-unit',unit:'BAG',netQuantity:2}]);
+ const params={estateId:'dafa',year:'2026',limit:25};let cursor,all=[];
+ do{const r=await request(app).get('/operations/materials').query({...params,...(cursor?{cursor}:{})}).expect(200);assert.equal(r.body.count,126);assert.ok(r.body.items.length<=25);all.push(...r.body.items);cursor=r.body.nextCursor;}while(cursor);
+ assert.equal(all.length,126);assert.equal(new Set(all.map(r=>r.id)).size,126);const first=all.find(r=>r.mapBlockCode==='X000'&&r.unit==='KG');assert.equal(first.netQuantity,4);assert.equal(first.lines,2);assert.deepEqual([...first.issues].sort(),['Review source','Second note']);assert.equal(first.date,undefined);
+ assert.equal(all.filter(r=>r.unit==='KG').reduce((sum,r)=>sum+r.netQuantity,0),7878);
+ const analysis=await request(app).get('/operations/materials').query({estateId:'dafa',year:'2026',product:'BULK',frequency:'annual',mode:'analysis'}).expect(200);assert.equal(analysis.body.items.length,126);assert.equal(analysis.body.nextCursor,null);
+ const meta=await request(app).get('/operations/materials').query({estateId:'dafa',year:'2026',mode:'metadata'}).expect(200);assert.deepEqual(meta.body.items,[]);assert.ok(meta.body.products.some(r=>r._id==='BULK'));
+ const page1=await request(app).get('/operations/materials').query({...params,limit:1}).expect(200);await request(app).get('/operations/materials').query({...params,year:'2025',limit:1,cursor:page1.body.nextCursor}).expect(400);
+});
+test('ledger and crop receipts use stable cursor pages with estate and filter isolation',async()=>{
+ for(const Model of [m.LedgerEntry,m.CropReceipt])await Model.create(Array.from({length:61},(_,i)=>({_id:'page'+String(i).padStart(3,'0'),estateId:'dafa',mapBlockCode:'A',month:'2026-01',date:'2026-01-02',sourceSystem:'sql',sourceKey:'page'+i,raw:{privateDetail:'omit'}})));
+ for(const kind of ['ledger','crop-receipts']){let cursor,ids=[];do{const r=await request(app).get('/operations/'+kind).query({estateId:'dafa',year:'2026',limit:20,...(cursor?{cursor}:{})}).expect(200);assert.equal(r.body.count,61);assert.ok(r.body.items.every(r=>r.raw===undefined));ids.push(...r.body.items.map(r=>r.id));cursor=r.body.nextCursor;}while(cursor);assert.equal(ids.length,61);assert.equal(new Set(ids).size,61);}
+});

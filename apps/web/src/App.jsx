@@ -232,7 +232,7 @@ export default function App() {
     return () => controller.abort();
   }, [s.selected.join(","), s.data?.refresh, userAccessView]);
   useEffect(() => {
-    if (!s.data?.paged || s.data.offline || !mapVisible || !canOperations) return;
+    if (!s.data?.paged || s.data.offline || !mapVisible || !canOperations || mapSurface==='iot') return;
     const controller = new AbortController();
     dispatch(
       patch({
@@ -276,9 +276,9 @@ export default function App() {
         }
       });
     return () => controller.abort();
-  }, [mapKey, mapCursor, s.data?.refresh, dataView, storageView, userAccessView, canOperations]);
+  }, [mapKey, mapCursor, s.data?.refresh, dataView, storageView, userAccessView, canOperations, mapSurface]);
   useEffect(() => {
-    if (!s.data?.paged || s.data.offline || !can('map') || userAccessView) return;
+    if (!s.data?.paged || s.data.offline || !can('map') || userAccessView || !mapVisible || mapSurface==='iot') return;
     const controller = new AbortController();
     api
       .get("/map-assets", {
@@ -302,6 +302,7 @@ export default function App() {
   }, [
     s.selected.join(","),
     s.date,
+    mapSurface,
     s.override,
     s.compare,
     s.data?.refresh,
@@ -648,7 +649,7 @@ export default function App() {
                 offline={s.data.offline}
                 onReview={() => dispatch(patch({ review: true }))}
               /></div>
-              {s.mapLoading && (
+              {s.mapLoading && mapSurface!=='iot' && (
                 <p role="status">Loading selected activity window…</p>
               )}
               <div className={'workspace'+(mapSurface!=='iot'&&dashboardTab==='operations'?'':' workspace-wide')} id="workspace">
@@ -774,10 +775,10 @@ export default function App() {
                       onClick={()=>setDashboardTab(tab)}>{tab==='production'?'Production':tab==='operations'?'Operations':tab==='wages'?'Wages':tab==='decisions'?'Decision Support':tab==='geospatial'?'Geospatial Analysis':'Analytics'}</button>)}
                   </div>
                   <div className="map-dashboard-panel" id="dashboard-panel-production" role="tabpanel" aria-labelledby="dashboard-tab-production" hidden={dashboardTab!=='production'}>
-                    {can("monthly") && <ProductionDashboard key={"production-"+s.selected[0]} estateId={s.selected[0]} selection={s.selectedBlock || (s.block !== 'all'?s.block:null)} offline={s.data.offline} onHighlights={setProductionHighlights} onData={()=>setSearchParams({view:'data',tab:'monthly'})}/>}
+                    {can("monthly") && <ProductionDashboard enabled={mapSurface!=='iot'&&dashboardTab==='production'} key={"production-"+s.selected[0]} estateId={s.selected[0]} selection={s.selectedBlock || (s.block !== 'all'?s.block:null)} offline={s.data.offline} onHighlights={setProductionHighlights} onData={()=>setSearchParams({view:'data',tab:'monthly'})}/>}
                   </div>
                   <div className="map-dashboard-panel" id="dashboard-panel-analytics" role="tabpanel" aria-labelledby="dashboard-tab-analytics" hidden={dashboardTab!=='analytics'}>
-                    <AnalyticsDashboard key={'analytics-'+s.selected[0]} estateId={s.selected[0]} boundary={estates[0]?.boundary} enabled={dashboardTab==='analytics'&&can('decisions')} offline={s.data.offline} selection={s.selectedBlock} onHighlights={setAnalyticsHighlights}
+                    <AnalyticsDashboard key={'analytics-'+s.selected[0]} estateId={s.selected[0]} boundary={estates[0]?.boundary} enabled={mapSurface!=='iot'&&dashboardTab==='analytics'&&can('decisions')} offline={s.data.offline} selection={s.selectedBlock} onHighlights={setAnalyticsHighlights}
                       onBlockChange={code=>dispatch(patch({selectedBlock:code?`${s.selected[0]}::${code}`:null,block:code?`${s.selected[0]}::${code}`:'all'}))}
                       onSelect={code=>{dispatch(patch({selectedBlock:`${s.selected[0]}::${code}`,block:`${s.selected[0]}::${code}`}));focusEstateMap();}}
                       onMap={()=>{dispatch(patch({block:'all',selectedBlock:null}));focusEstateMap({analysis:true});}}/>

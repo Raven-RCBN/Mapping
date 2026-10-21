@@ -21,3 +21,39 @@ Limits: browser checks above are representative, not every filter permutation. V
 Release `20261021-dafa-overlay-loading` replaces full-resolution map downloads with authenticated `.preview.webp` display derivatives when available. The original PNG/PDF remains unchanged for download. Previews are generated on Malaysia with the existing sharp runtime: resize inside 3072 × 3072 without enlargement, WebP quality 84. Ortho-growth is 2,411,646 bytes versus 19,207,604 bytes originally; other map previews are 418,300–653,034 bytes. Regenerate previews when replacing source images. Missing previews safely fall back to the original with estate access checks unchanged.
 
 The map uses a bounded memory-only download cache keyed by authenticated resource URL, stable URL/bounds dependencies, visible loading status and a retry button on failure. Changing the analysis section no longer restarts a download of the same overlay. Four geospatial API tests passed, including preview/fallback/original and estate access checks. Production build passed (415 modules).
+
+
+## Loading and pagination update
+
+IoT metadata/boundaries, period geometry and paginated table rows now have separate
+request sections. A block or table-page change does not download the footprint or
+estate boundaries again. Movement rows are limited to 50 per page (API maximum
+100); coverage and bunch comparisons retain the complete selected-period totals.
+SVG paths are memoized and bounded browser/API caches reuse recent requests.
+Requests for hidden production/activity views are paused while IoT is active.
+Workspace responses omit revision history; history remains available separately.
+
+The private `scripts/prepare-iot-pages.mjs` utility derives work/month partitions
+from the original IoT index on the data host. An atomic generation manifest selects
+the complete partition set. Requests read one work/month, rather than every year of
+movement history. Original CSVs, the full index and geometry layers are retained.
+Regenerate these partitions after replacing the source index; restart/reload or
+allow up to 60 seconds for the process cache to refresh. Cache entries and total
+bytes are bounded. Estates without a dataset remain empty.
+
+Material net issues aggregate in MongoDB by month, block, product and source unit,
+then use stable cursor pages. Issue dates are not displayed as individual material
+rows. Product-specific annual map analysis receives all block summaries up to the
+explicit safety bound, rather than silently using the first table page. Ledger and
+crop-receipt pages also use indexed cursor navigation. Search requests debounce and
+cancel obsolete requests. Existing production, wage and vehicle cursor-page tests,
+including the deep wage-page index check, pass.
+
+Live validation: all 3,999 IoT rows reconcile across 92 pages and all 652 monthly
+material groups across 14 pages match the previous net-quantity and palm-basis
+calculation. Counts/SHA-256 for 12 existing estate collections are unchanged. The
+sample block-change response fell from 1,161,639 to 13,574 uncompressed bytes (98.8%
+smaller); the period geometry is fetched separately. These are payload measurements,
+not a promise about end-user internet latency. API checks measured 6–8 ms for the
+sample warm block/view requests on the server. Browser checks confirm next-page
+navigation, searchable block filtering/reset and expected selected-block coverage.
