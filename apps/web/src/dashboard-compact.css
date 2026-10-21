@@ -31,3 +31,18 @@
 @media(max-width:650px){.map-dashboard-tabs[role=tablist]{display:flex;padding:5px 10px 0;overflow-x:auto}.map-dashboard-tabs[role=tablist] [role=tab]{flex:0 0 auto;min-height:44px;padding:10px 12px;font-size:12px;white-space:nowrap}.map-dashboard-panel .production-dashboard,.map-dashboard-panel .hts-analysis,.map-dashboard-panel .decision-support{padding:16px 12px}.map-dashboard-panel .production-controls,.geospatial-analysis .production-controls{grid-template-columns:1fr}.map-dashboard-panel .production-controls input,.map-dashboard-panel .production-controls select,.map-dashboard-panel .scroll-select>summary{min-height:44px;font-size:16px}.map-dashboard-panel .button{min-height:44px}.geospatial-analysis .geo-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.geospatial-analysis .geo-metrics strong{font-size:22px}.geo-findings{grid-template-columns:1fr}.geospatial-analysis .geo-source-strip{align-items:flex-start;flex-direction:column}}
 
 .survey-overlay-status{position:absolute;top:18px;left:50%;transform:translateX(-50%);z-index:45;padding:10px 16px;border:1px solid #cad7ce;border-radius:10px;background:#fff;box-shadow:0 3px 14px #173f2d22;font:500 13px 'DM Sans',sans-serif;color:#173f2d;max-width:calc(100% - 36px)}
+
+/* Keep block production figures in a compact summary above the charts. */
+.map-dashboard-panel .production-block-cards{grid-template-columns:minmax(0,1fr);gap:8px}
+.map-dashboard-panel .production-block-cards article{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:0 10px;padding:10px 12px;border-radius:7px}
+.map-dashboard-panel .production-block-cards h3{font:650 13px/1.4 'DM Sans',Arial,sans-serif;margin:0}
+.map-dashboard-panel .production-block-cards h3 small{font-size:11px;font-weight:500}
+.map-dashboard-panel .production-block-cards .receipt{margin:0;padding:2px 7px;font-size:10px;line-height:1.5;border-radius:4px}
+.map-dashboard-panel .production-block-cards dl{grid-column:1/-1;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px 12px;margin:8px 0}
+.map-dashboard-panel .production-block-cards dl>div{min-width:0}
+.map-dashboard-panel .production-block-cards dt{font-size:10.5px;line-height:1.4}
+.map-dashboard-panel .production-block-cards dd{margin:2px 0 0;font-size:20px;line-height:1.25;font-weight:650;font-variant-numeric:tabular-nums;overflow-wrap:normal}
+.map-dashboard-panel .production-block-cards dd small{font-size:10.5px;line-height:1.4}
+.map-dashboard-panel .production-block-cards>article>small{grid-column:1/-1;font-size:10px;line-height:1.4}
+@media(max-width:1100px){.map-dashboard-panel .production-block-cards dl{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(max-width:650px){.map-dashboard-panel .production-block-cards dl{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px 12px}.map-dashboard-panel .production-block-cards dd{font-size:18px}}
