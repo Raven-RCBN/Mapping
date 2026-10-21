@@ -2,7 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 import {api} from '../api';
 import {usePagedTable} from '../usePagedTable';
 import {productionNumber,productionCsvNumber} from './ProductionTables';
-const columns=[['month','Period'],['mapBlockCode','Map block'],['division','Division'],['sourceBlockCode','Source block'],['mt','Block FFB (MT)'],['bunches','Bunches'],['abw','ABW (kg)'],['totalPalms','Block palms'],['palmsPerEffectiveHa','Palm/Ha'],['effectiveHa','Effective ha'],['yieldPerHa','Ton/Ha']];
+const columns=[['month','Period'],['mapBlockCode','Map block'],['division','Division'],['sourceBlockCode','Source block'],['mt','Block FFB (MT)'],['bunches','Bunches'],['abw','ABW (kg)'],['totalPalms','Block palms'],['palmsPerEffectiveHa','Palm/Ha'],['effectiveHa','Effective ha'],['metricSource','Reference source'],['yieldPerHa','Ton/Ha']];
 export default function RecordedProductionReport({estateId,view,onMap}){
  const annual=view==='yearly',reportColumns=annual?[...columns,['periodLabel','Coverage']]:columns;
  const periodScope=estateId+':'+view;
@@ -24,7 +24,7 @@ export default function RecordedProductionReport({estateId,view,onMap}){
  };
  return <section className="production-tables" aria-label="Recorded block production report" aria-busy={busy}><div className="table-toolbar production-toolbar"><label>{annual?'Reporting year':'Reporting month'}<select value={period||data?.period||''} onChange={e=>setPeriod(e.target.value)}>{(data?.periods||[period].filter(Boolean)).map(p=><option key={p}>{p}</option>)}</select></label><label>Search block or division<input type="search" maxLength={160} value={q} onChange={e=>setQ(e.target.value)}/></label><span>{count} blocks</span><button className="button" disabled={busy||exporting||!count} onClick={exportRows}>{exporting?'Preparing export…':'Export selected records'}</button></div>
  {busy&&<p role="status">Loading block production…</p>}{(paged.error||exportError)&&<p role="alert">{paged.error||exportError} <button className="button" onClick={paged.retry}>Retry</button></p>}
- <div className="data-table-scroll" tabIndex="0"><table><caption>Recorded block production · {period||data?.period}</caption><thead><tr>{reportColumns.map(([k,label])=><th key={k}>{label}</th>)}</tr></thead><tbody>{selected.map(r=><tr key={r.id}>{reportColumns.map(([k])=><td key={k}>{k==='mapBlockCode'&&r.mapBlockCode?<button className="analytics-block-link" onClick={()=>onMap?.({estateId,blockCode:r.mapBlockCode})}>{r.mapBlockCode}</button>:productionNumber(r[k],k)}</td>)}</tr>)}</tbody></table></div>
+ <div className="data-table-scroll" tabIndex="0"><table><caption>Recorded block production · {period||data?.period}</caption><thead><tr>{reportColumns.map(([k,label])=><th key={k}>{label}</th>)}</tr></thead><tbody>{selected.map(r=><tr key={r.id} className={r.metricSource==='iPlant fallback'?'production-flag':''}>{reportColumns.map(([k])=><td key={k}>{k==='mapBlockCode'&&r.mapBlockCode?<button className="analytics-block-link" onClick={()=>onMap?.({estateId,blockCode:r.mapBlockCode})}>{r.mapBlockCode}</button>:productionNumber(r[k],k)}</td>)}</tr>)}</tbody></table></div>
  {!busy&&!paged.error&&!count&&<p>No records match this selection.</p>}
  <div className="table-pagination"><button className="button" disabled={!page||busy} onClick={paged.previous}>Previous</button><span>Page {page+1} of {Math.max(1,Math.ceil(count/25))}</span><button className="button" disabled={busy||!data?.nextCursor} onClick={paged.next}>Next</button></div></section>;
 }

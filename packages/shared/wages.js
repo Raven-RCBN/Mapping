@@ -1,4 +1,4 @@
-// Integer kobo allocation. Largest remainders reconcile each original cost exactly.
+// Integer minor-unit allocation. Largest remainders reconcile each original cost exactly.
 export function allocateMinor(amount, areas){
   const weights=areas.map(a=>BigInt(Math.round(a.mapHa*1e10)));
   const total=weights.reduce((a,b)=>a+b,0n);
@@ -15,7 +15,12 @@ export function allocateWages(wages,areas,selectedCode){
   const coverage=new Map(),rows=new Map(),sources=new Map();
   let mappedMinor=0,unmappedMinor=0,unallocatedMinor=0,directMinor=0;
   for(const wage of wages){
-    if(wage.sourceBlockCode){directMinor+=wage.amountMinor;continue;}
+    if(wage.sourceBlockCode){
+      directMinor+=wage.amountMinor;
+      if(wage.mapBlockCode){mappedMinor+=wage.amountMinor;if(!selectedCode||selectedCode===wage.mapBlockCode){const a=areas.find(a=>a.mapBlockCode===wage.mapBlockCode);rows.set('direct-'+wage._id,{...wage,id:'direct-'+wage._id,blockHa:a?.mapHa??null,divisionHa:null,divisionAmountMinor:null,rateMinorPerHa:a?.mapHa>0?wage.amountMinor/a.mapHa:null,taskNumbers:wage.sourceSerial?[wage.sourceSerial]:[],metricSource:a?.sourceFile?.startsWith('ONG_SLD_TEST')?'iPlant fallback':a?.sourceFile?.endsWith('.pdf')?'PDF':null,costBasis:'recorded'});}}
+      else unmappedMinor+=wage.amountMinor;
+      continue;
+    }
     const group=groups.get(wage.division)||[],missing=group.filter(a=>a.mapHa==null),area=group.reduce((n,a)=>n+(a.mapHa||0),0);
     const reason=!group.length?'No mapped blocks assigned to this division':missing.length?`${missing.length} map areas missing`:area<=0?'No positive map area':null;
     if(!coverage.has(wage.division))coverage.set(wage.division,{division:wage.division,blocks:group.length,missing:missing.length,mapHa:area,reason,amountMinor:0});

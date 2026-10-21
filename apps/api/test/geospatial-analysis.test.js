@@ -41,3 +41,16 @@ test('map timeline records reference-map capture and upload separately',async()=
  const capture=await get('/timeline?estates=a&anchor=2025-08-24&period=month');assert.equal(capture.status,200,JSON.stringify(capture.body));assert.ok(capture.body.assets.some(a=>a.id==='map-source'&&a.eventKind==='capture'&&a.eventOnly));
  const upload=await get('/timeline?estates=a&anchor=2026-10-20&period=month');assert.equal(upload.status,200,JSON.stringify(upload.body));assert.ok(upload.body.assets.some(a=>a.id==='upload-map-source'&&a.acquiredAt==='2026-10-20'&&a.eventOnly));assert.ok(!upload.body.assets.some(a=>a.id==='map-source'));
 });
+
+test('optimized overlay is authenticated, preserves original and falls back if absent',async()=>{
+ const original='estates/a/imports/map.png',preview='estates/a/imports/map.preview.webp';
+ await fs.writeFile(path.join(root,original),'original-image');
+ await models.GeospatialReport.updateOne({_id:'a-report'},{$push:{files:{key:'map',path:original,mime:'image/png'}}});
+ let response=await get('/geospatial-analysis/file/a-report/map?estateId=a&preview=1');
+ assert.equal(response.status,200);assert.match(response.headers['content-type'],/image\/png/);assert.equal(response.body.toString(),'original-image');
+ await fs.writeFile(path.join(root,preview),'small-preview');
+ response=await get('/geospatial-analysis/file/a-report/map?estateId=a&preview=1');
+ assert.equal(response.status,200);assert.match(response.headers['content-type'],/image\/webp/);assert.equal(response.body.toString(),'small-preview');
+ assert.equal((await get('/geospatial-analysis/file/a-report/map?estateId=a')).body.toString(),'original-image');
+ assert.equal((await get('/geospatial-analysis/file/a-report/map?estateId=b&preview=1')).status,403);
+});

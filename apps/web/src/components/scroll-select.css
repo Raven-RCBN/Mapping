@@ -1,0 +1,15 @@
+/* Shared with the earlier Decision Support block picker: inline listbox, never
+   a platform popup spanning the page. Native listbox keeps keyboard/type-ahead. */
+.scroll-select{position:relative;min-width:0;width:100%;color:#214735;font:inherit}
+.scroll-select>summary{display:flex;align-items:center;justify-content:space-between;gap:14px;list-style:none;cursor:pointer;padding:11px 13px;min-height:44px;border:1px solid #cfdbce;border-radius:7px;background:white;font:inherit;box-sizing:border-box}
+.scroll-select>summary::-webkit-details-marker{display:none}.scroll-select>summary span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.scroll-select>summary[aria-disabled=true]{opacity:.55;cursor:default}.scroll-select>summary:focus-visible{outline:3px solid #c49a30;outline-offset:2px}
+.scroll-select-menu{position:absolute;top:calc(100% + 4px);left:0;right:0;min-width:160px;z-index:80;padding:4px;background:white;border:1px solid #cfdbce;border-radius:8px;box-shadow:0 8px 24px #173e3526}
+.scroll-select .scroll-select-list{display:block;width:100%;height:224px!important;min-height:0!important;max-height:40vh!important;overflow-y:auto;overscroll-behavior:contain;padding:0!important;border:0!important;border-radius:4px;background:white;color:#214735;font:inherit}
+.scroll-select-list option{padding:7px 10px;min-height:28px;white-space:normal}.scroll-select-list option:checked{background:#e8f0e7;color:#174b35}
+
+.search-select-menu input{display:block;width:100%;height:36px!important;min-height:36px!important;padding:7px 10px!important;box-sizing:border-box;font:inherit!important;border:1px solid #ccd9ce!important;border-radius:5px!important;margin:0 0 5px!important;background:#fff}
+.search-select-options{max-height:224px;max-height:min(224px,32vh);overflow-y:auto;overscroll-behavior:contain}
+.search-select-options>button{display:flex;width:100%;gap:10px;justify-content:space-between;text-align:left;padding:8px 10px;border:0;border-radius:4px;background:white;color:#214735;font:inherit;line-height:1.4;white-space:normal;cursor:pointer}
+.search-select-options>button:hover,.search-select-options>.search-option-active{background:#edf3ec}.search-select-options>button[aria-selected=true]{background:#e3eee2;font-weight:600}.search-select-options>button:disabled{opacity:.5;cursor:default}
+.search-select-count{display:block;margin:5px 8px!important;color:#6b7c6e;font-size:11px!important;line-height:1.4}.search-select-more{display:block;width:100%;padding:7px;border:0;background:#f2f6f0;border-radius:4px;color:#315a40;font:inherit;font-size:12px;cursor:pointer}

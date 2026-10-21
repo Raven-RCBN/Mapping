@@ -117,7 +117,7 @@ export function installProduction(api, models) {
     const estate=await Estate.findById(estateId).select('boundary').lean();
     const codes=[...new Set((estate.boundary?.features||[]).map(f=>f.properties?.blockName||f.properties?.Block_No).filter(Boolean))];
     const annual=q.frequency==='yearly',Model=annual?YearlyProduction:MonthlyProduction,limit=annual?5000:60000;
-    const raw=await Model.find({estateId,...(!annual&&q.month?{month:q.month}:{})}).select('sourceBlockId month year periodLabel receiptStatus mt bunches harvestingDays effectiveHa').limit(limit+1).maxTimeMS(10000).lean();
+    const raw=await Model.find({estateId,...(!annual&&q.month?{month:q.month}:{})}).select('sourceBlockId month year periodLabel receiptStatus mt bunches harvestingDays effectiveHa metricSource parameterNote allocationBasis ffbMt looseFruitMt totalCropMt ownMt contractorMt partial coverageMonths issues').limit(limit+1).maxTimeMS(10000).lean();
     if(raw.length>limit)throw new QueryError('Too many production records',413);
     const result=allocateProduction(raw,names,blocks,codes,{annual});
     // Apply selection only after calculating complete division totals and palm weights.

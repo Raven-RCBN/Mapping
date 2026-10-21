@@ -52,3 +52,5 @@ test('shared polygons sum separate source effective areas once while inventory p
  const a=allocateProduction([row('a',300),row('a2',50,{effectiveHa:3}),row('b',50)],n,blocks,['A','B'],{annual:true});
  assert.equal(a.items[0].totalPalms,100);assert.equal(a.items[0].mt,100);assert.equal(a.items[0].effectiveHa,5);assert.equal(a.items[0].yieldPerHa,20);
 });
+
+test('recorded SQL block tonnes are not redistributed by palms or invalidated by missing palm counts',()=>{const r=[row('a',350,{allocationBasis:'recorded',bunches:10000}),row('b',50,{allocationBasis:'recorded',bunches:20000})];const result=allocateProduction(r,names,blocks.map(b=>({...b,totalPalms:null})),['A','B'],{annual:true});assert.deepEqual(result.items.map(x=>x.mt),[350,50]);assert.equal(result.items[0].abw,35);assert.equal(result.items[0].allocationBasis,'recorded');assert.equal(result.items[0].yieldPerHa,175);});

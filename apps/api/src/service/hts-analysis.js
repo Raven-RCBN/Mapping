@@ -8,6 +8,7 @@ export function installHtsAnalysis(api,models,config){
     if(!/^[a-zA-Z0-9-]{1,80}$/.test(estateId))throw new QueryError('Select an estate',400);
     if(!canAccess(req,estateId))throw new QueryError('Estate access denied',403);
     if(!await models.Estate.exists({_id:estateId}))throw new QueryError('Estate not found',404);
+    if(models.StockIssue&&await models.StockIssue.exists({estateId}))return res.set('Cache-Control','private, no-store').json({estateId,operational:true});
     let snapshot;
     try{snapshot=JSON.parse(await fs.readFile(path.join(config.dataDir,'hts-analysis',estateId+'.json'),'utf8'));}
     catch(e){if(e.code==='ENOENT')throw new QueryError('HTS analysis has not been prepared for this estate',404);throw e;}

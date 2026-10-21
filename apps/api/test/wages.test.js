@@ -10,7 +10,7 @@ const record={basis:'monthly',period:'2025-01',division:'RO',task:'UPKEEP',activ
 before(async()=>{
   await mongoose.connect(`mongodb://127.0.0.1:27018/MappingTest_wages_${Date.now()}`,{serverSelectionTimeoutMS:2500});m=createModels(mongoose,'WagesTest');
   await Promise.all(Object.values(m).map(model=>model.createIndexes()));
-  await m.Estate.create([{_id:'estate-a',name:'Test',boundary:{features:[{properties:{blockName:'G4'}},{properties:{blockName:'G5'}}]}},{_id:'estate-b',name:'Other'}]);
+  await m.Estate.create([{_id:'estate-a',name:'Test',currency:'NGN',boundary:{features:[{properties:{blockName:'G4'}},{properties:{blockName:'G5'}}]}},{_id:'estate-b',name:'Other'}]);
   await m.Block.create([{_id:'block-4',estateId:'estate-a',blockCode:'G4',gisAreaHa:10,division:'RO'},{_id:'block-5',estateId:'estate-a',blockCode:'G5',gisAreaHa:30,division:'RO'}]);
   app=express();app.use(express.json());app.use((req,res,next)=>{req.access={subject:'tester',role:req.get('x-role')||'manager',estateIds:['estate-a']};next();});installWages(app,m);app.use((err,req,res,next)=>res.status(err.status||400).json({error:err.message}));
 });
@@ -103,4 +103,24 @@ test('timeline is scoped by block/year and does not combine annual source wages'
  await request(app).get('/wages/timeline').query({estateId:'estate-b',year:'2025',mapBlockCode:'G4'}).expect(403);
  await request(app).get('/wages/timeline').query({estateId:'estate-a',year:'2025',mapBlockCode:'FAKE'}).expect(400);
  const empty=await request(app).get('/wages/timeline').query({estateId:'estate-a',year:'2024',mapBlockCode:'G4'}).expect(200);assert.deepEqual(empty.body.items,[]);
+});
+
+test('account descriptions are estate-scoped and activities retain distinct task identities',async()=>{
+ const activity='PieceRate Unit 0.21 Rate 130.00';
+ await m.Wage.insertMany(['ACCOUNT-A','ACCOUNT-B'].map((task,i)=>({...record,_id:'description-wage-'+i,estateId:'estate-a',task,activity,sourceKey:'description-'+i})));
+ await m.LedgerEntry.insertMany([
+  {_id:'description-ledger-a',estateId:'estate-a',module:'Checkroll',accountCode:'ACCOUNT-A',account:'PRUNNING - LABOUR',sourceSystem:'description-test',sourceKey:'a'},
+  {_id:'description-ledger-b',estateId:'estate-a',module:'Checkroll',accountCode:'ACCOUNT-B',account:'LOADING - TRANSPORT',sourceSystem:'description-test',sourceKey:'b'},
+  {_id:'description-ledger-other',estateId:'estate-b',module:'Checkroll',accountCode:'ACCOUNT-A',account:'OTHER ESTATE PRIVATE',sourceSystem:'description-test',sourceKey:'other'},
+ ]);
+ const all=await request(app).get('/wages/meta').query({estateId:'estate-a',year:'2025'}).expect(200);
+ assert.equal(all.body.taskDescriptions['ACCOUNT-A'],'PRUNNING - LABOUR');
+ assert.equal(all.body.taskDescriptions['ACCOUNT-B'],'LOADING - TRANSPORT');
+ assert.ok(!JSON.stringify(all.body).includes('OTHER ESTATE PRIVATE'));
+ assert.equal(all.body.activityOptions.filter(r=>r.activity===activity).length,2);
+ const selected=await request(app).get('/wages/meta').query({estateId:'estate-a',year:'2025',task:'ACCOUNT-A'}).expect(200);
+ assert.deepEqual(selected.body.activityOptions,[{task:'ACCOUNT-A',activity}]);
+ const costs=await request(app).get('/wages/allocation').query({estateId:'estate-a',year:'2025',task:'ACCOUNT-A',activity,mapBlockCode:'G4'}).expect(200);
+ assert.equal(costs.body.amountMinor,4000);
+ assert.ok(costs.body.items.every(r=>r.task==='ACCOUNT-A'&&r.activity===activity));
 });

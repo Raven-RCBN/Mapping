@@ -26,10 +26,10 @@ after(async()=>{if(mongoose.connection.name?.startsWith('MappingTest_'))await mo
 test('only the superuser can list users or create locations, including legacy estate endpoint',async()=>{
  assert.equal((await send('get','/user-access/users',undefined,false)).status,403);
  for(const route of ['/estates','/user-access/locations'])assert.equal((await send('post',route,{name:'Denied'},false)).status,403);
- const created=await send('post','/user-access/locations',{name:'New estate',location:'Malaysia'});assert.equal(created.status,201,JSON.stringify(created.body));
+ const created=await send('post','/user-access/locations',{name:'New estate',location:'Malaysia',currency:'MYR'});assert.equal(created.status,201,JSON.stringify(created.body));
  const boot=await send('get','/bootstrap');assert.ok(boot.body.estates.some(e=>e.id===created.body.id));assert.equal(boot.body.access.isSuperuser,true);assert.equal(boot.body.access.estateIds,null);
  assert.ok(created.body.id);for(const dir of ['images','imports','boundaries'])assert.ok((await fs.stat(path.join(root,'estates',created.body.id,dir))).isDirectory());
- assert.equal((await send('post','/user-access/locations',{name:'new estate'})).status,409);
+ assert.equal((await send('post','/user-access/locations',{name:'new estate',currency:'MYR'})).status,409);
  assert.equal((await send('post','/user-access/locations',{name:'  '})).status,400);
 });
 test('account creation validates grants, keeps passwords private and protects Admin',async()=>{
@@ -58,4 +58,16 @@ test('real sessions reread grants and only Admin receives superuser status',asyn
  const signed=await request(identity).post('/identity/login').set('Origin',origin).set('X-Mapping-Client','1').send({login:'AnotherAdmin',password:'another-admin-password'});
  const cookie=signed.headers['set-cookie'][0].split(';')[0];let result=await request(identity).get('/private').set('Cookie',cookie);assert.equal(result.body.isSuperuser,false);assert.deepEqual(result.body.estateIds,['a']);
  await User.updateOne({_id:'AnotherAdmin'},{$set:{estateIds:[]}});result=await request(identity).get('/private').set('Cookie',cookie);assert.deepEqual(result.body.estateIds,[]);
+});
+
+
+test('source connection methods are scoped, versioned and reject secret values',async()=>{
+ const source={estateId:'a',name:'SQL extraction guide',type:'Database API',path:'sql.example.test / test',schedule:'Manual',retention:'Keep every version',extractionMethod:'SELECT BlockID FROM General.BlockMaster WHERE EstateID=@EstateID'};
+ const created=await send('post','/sources',source);assert.equal(created.status,201,JSON.stringify(created.body));
+ const body={detailsRevision:0,details:{profileVersion:'v1',connectionDetails:'Protected environment reference only',extractionMethod:source.extractionMethod,reviewNotes:'Unmatched blocks remain flagged.'}};
+ assert.equal((await send('patch','/sources/'+created.body.id+'/details',body,false)).status,403);
+ const updated=await send('patch','/sources/'+created.body.id+'/details',body);assert.equal(updated.status,200,JSON.stringify(updated.body));
+ assert.equal((await models.Source.findById(created.body.id)).detailsRevision,1);
+ assert.equal((await send('patch','/sources/'+created.body.id+'/details',body)).status,409);
+ assert.equal((await send('post','/sources',{...source,connectionDetails:'password=exposed-value'})).status,400);
 });

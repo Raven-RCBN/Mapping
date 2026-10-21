@@ -1,3 +1,6 @@
+import {installIotMovement} from './service/iot-movement.js';
+import {installOperations} from './service/operations.js';
+import {sourceDetailsShape,sourceDetailsInput} from './service/source-details.js';
 import {installDocumentImports} from './service/document-import.js';
 import {installGeospatialAnalysis} from './service/geospatial-analysis.js';
 import { installUserAccess, requireSuperuser, createLocation } from './service/user-access.js';
@@ -158,6 +161,8 @@ export async function createApp(config) {
   installQueries(api, models, expose);
   archives.install(api);
   installStorage(api, models, config, archives);
+  installIotMovement(api, models);
+  installOperations(api, config.models || defaultModels);
   installProduction(api, models);
   installWages(api, models);
   installVehicles(api, models);
@@ -646,6 +651,7 @@ export async function createApp(config) {
         path: z.string().min(1).max(2000),
         schedule: z.enum(["Manual", "Daily", "Weekly", "Monthly"]),
         retention: z.literal("Keep every version"),
+        ...sourceDetailsShape,
       })
       .parse(req.body);
     if (!canAccess(req, data.estateId)) return res.sendStatus(403);
@@ -656,6 +662,18 @@ export async function createApp(config) {
       .json(
         clean((await Source.create({ _id: randomUUID(), ...data })).toObject())
       );
+  });
+  api.patch('/sources/:id/details',requireWrite,async(req,res)=>{
+    const sourceId=id.parse(req.params.id),body=z.object({detailsRevision:z.number().int().min(0),details:sourceDetailsInput}).strict().parse(req.body);
+    const old=await Source.findById(sourceId).lean();
+    if(!old)return res.sendStatus(404);
+    if(!canAccess(req,old.estateId))return res.sendStatus(403);
+    if((old.detailsRevision||0)!==body.detailsRevision)throw new QueryError('Source details changed. Reload before saving.',409);
+    const where={_id:sourceId,estateId:old.estateId,...(old.detailsRevision===undefined?{$or:[{detailsRevision:0},{detailsRevision:{$exists:false}}]}:{detailsRevision:old.detailsRevision})};
+    const previous=Object.fromEntries(Object.keys(sourceDetailsShape).map(k=>[k,old[k]||'']));
+    const result=await Source.updateOne(where,{$set:{...body.details,updatedBy:req.access.subject},$inc:{detailsRevision:1},$push:{detailsHistory:{at:new Date(),by:req.access.subject,previous}}});
+    if(!result.modifiedCount)throw new QueryError('Source details changed. Reload before saving.',409);
+    res.json({saved:true});
   });
   api.get("/offline", async (req, res) => {
     const wanted = String(req.query.estates || "")

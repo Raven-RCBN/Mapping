@@ -1,0 +1,11 @@
+# Wage account descriptions and compact filters — 21 October 2026
+
+The wage dashboard and cost analytics now use the shared scrolling listbox for Task and Activity. The list is bounded to 224px/40vh instead of opening a full-height platform menu. The wage grid, charts and filters display account descriptions with their original task codes. Activity labels retain account code and rate text so identical activity strings under different accounts remain distinguishable.
+
+`/wages/meta` adds `taskDescriptions` and distinct `{task, activity}` choices. Existing `tasks` and `activities` arrays remain available for compatibility. Descriptions come from estate-scoped Checkroll ledger account fields, which were retained during extraction from `Accounts.COA.COADescp`. No SQL reconnect or financial data rewrite is required. The original account spelling is retained. Selecting an activity sets its associated task and raw activity value; server filtering and cost calculations continue to use the original identities.
+
+DAFA live-data verification: all 95 task descriptions match the extracted account master; 2,850 task/activity choices in 2025; metadata response measured 360ms on the server. The 2025 mapped total remains 79,101,560 minor units (RM 791,015.60). A sampled PRUNNING - LABOUR activity retained its exact task/activity filter. Nine wage API tests passed, including estate isolation and identical rate text under separate tasks. Frontend build passed (417 modules). Verification receipt is saved in private estate imports `iplant-20261021/guide/wage-description-verification.json`.
+
+The Task and Activity controls also support typed search by description, code, or rate. Search text only narrows the available options; a click or Enter commits the exact original task/activity identity. Arrow keys navigate results and Escape closes the list without changing the selection. Initially render up to 100 matches with a Show more control, keeping the 2,850-choice activity list responsive. This is a frontend-only change; wage amounts and server filters are unchanged.
+
+Live browser verification: typing “pest” narrowed Task to four options without changing the existing cost total; arrow keys and Enter selected PEST CONTROL - CONTRACT. Typing “unit 3.00” narrowed Activity to one option and Enter applied the original activity identity.

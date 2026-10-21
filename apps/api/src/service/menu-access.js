@@ -11,7 +11,7 @@ export function routePolicy(method, pathname) {
   if(/^\/estates\/[^/]+\/(images|boundary|qgis)$/.test(p)) {menus=['map'];resource=['Estate',p.split('/')[2]];if(p.endsWith('/boundary'))action='edit';}
   else if(/^\/assets\/[^/]+\//.test(p)){menus=['map'];resource=['Asset',p.split('/')[2]];}
   else if(/^\/document-imports(\/|$)/.test(p))menus=['imports'];
-  else if(p==='/map-assets')menus=['map'];
+  else if(p==='/map-assets'||p==='/iot-movement')menus=['map'];
   else if(/^\/geospatial-analysis(\/|$)/.test(p)&&read)menus=['map','geospatial'];
   else if(['/dashboard','/timeline','/map-popup','/activity-options'].includes(p)) {menus=['map','harvesting','field'];action='view';if(p==='/timeline')menus.push('history');if(!read&&method!=='POST')return null;}
   else if(/^\/records\/(blocks|harvesting|field)$/.test(p)) {menus=[p.split('/')[2]];action='view';if(!read&&method!=='POST')return null;}
@@ -19,13 +19,14 @@ export function routePolicy(method, pathname) {
     const kind=p.split('/')[1];menus=[kind==='field-activities'?'field':kind==='activities'?'map':kind];
     if(p.split('/')[2])resource=[{blocks:'Block',harvesting:'HarvestingActivity','field-activities':'FieldActivity',activities:'Activity'}[kind],p.split('/')[2]];
   }
-  else if(p==='/sources')menus=['sources'];
+  else if(/^\/sources(\/|$)/.test(p)){menus=['sources'];if(p.split('/')[2])resource=['Source',p.split('/')[2]];}
   else if(p.startsWith('/production/')) {
     const kind=p.split('/')[2];
     const mapping={meta:['names'],names:['names'],monthly:['monthly'],yearly:['yearly'],comments:['comments'],recorded:['monthly'],allocated:['monthly','names'],import:['monthly','names'],'decision-support':['decisions','monthly','yearly','names']};
     menus=mapping[kind];
     if(kind==='import')menus=['monthly'];
   }
+  else if(/^\/operations\/(materials|ledger|crop-receipts)$/.test(p)&&read)menus=[p.split('/')[2]];
   else if(p.startsWith('/data-tables/'))menus=[({areas:'wages',parameters:'names'})[p.split('/')[2]]||p.split('/')[2]];
   else if(/^\/wages(\/|$)/.test(p)){menus=['wages'];}
   else if(/^\/vehicles(\/|$)/.test(p))menus=['vehicles'];

@@ -1,3 +1,4 @@
+import {currencyCodes} from "../../../../packages/shared/currency.js";
 // Vehicle costs and operational usage have different grains. Usage is never
 // duplicated onto expense lines or inferred from a parts/fuel requisition.
 export function createVehicleModels(model, Schema, ensureIndex) {
@@ -16,7 +17,7 @@ export function createVehicleModels(model, Schema, ensureIndex) {
     _id: String, estateId: scope, year: { type: Number, required: true },
     status: { type: String, enum: ['staging', 'complete'], default: 'staging' },
     company: String, branch: String, report: String, sourceSystem: String,
-    periodStart: String, periodEnd: String, currency: { type: String, enum: ['NGN'], required: true },
+    periodStart: String, periodEnd: String, currency: { type: String, enum: currencyCodes, required: true },
     sourceHash: String, contentHash: String, sourceFile: String, sourcePath: String,
     capturedAt: String, captureMethod: String, classificationVersion: String,
     vehicleCount: Number, transactionCount: Number, amountMinor: minor,
@@ -29,7 +30,7 @@ export function createVehicleModels(model, Schema, ensureIndex) {
   const VehicleTransaction = model('MappingVehicleTransaction', {
     _id: String, estateId: scope, vehicleId: { type: String, required: true },
     importId: { type: String, required: true }, year: { type: Number, required: true },
-    date: { type: String, required: true }, month: String, currency: { type: String, enum: ['NGN'], required: true },
+    date: { type: String, required: true }, month: String, currency: { type: String, enum: currencyCodes, required: true },
     amountMinor: minor, transactionNo: String, transactionSequence: Number,
     transactionType: String, expenseType: String, description: String, employee: String,
     category: String, subcategory: String, itemName: String,
@@ -48,6 +49,7 @@ export function createVehicleModels(model, Schema, ensureIndex) {
     task: { type: String, default: null }, activityCode: { type: String, default: null },
     activityDescription: { type: String, required: true },
     activityId: { type: String, default: null }, activityKind: { type: String, enum: ['field', 'harvesting', 'other', null], default: null },
+    usageBasis:String, sourceDetails:Schema.Types.Mixed,
     blockCode: { type: String, default: null },
     runningHours: nullableMeasure, distanceKm: nullableMeasure,
     hourMeterStart: nullableMeasure, hourMeterEnd: nullableMeasure,

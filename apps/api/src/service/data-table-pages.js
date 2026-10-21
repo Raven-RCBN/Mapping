@@ -1,3 +1,4 @@
+import {estateCurrency} from './estate-currency.js';
 import {z} from 'zod';
 import {canAccess} from './auth.js';
 import {QueryError} from './performance.js';
@@ -38,7 +39,7 @@ export function installDataTablePages(api,models){
    Model=ProductionName;order={sourceBlockCode:1,_id:1};if(q.q)where.$or=['sourceBlockCode','mapBlockCode','division'].map(k=>({[k]:regex}));if(q.match==='mapped')where.mapBlockCode={$ne:null};if(q.match==='unmapped')where.mapBlockCode=null;
   }else{
    Model=kind==='wages'?Wage:WageArea;if(!q.year)throw new QueryError('Select a year');
-   if(kind==='wages'){where.basis=q.basis;where.period={$gte:q.year,$lt:String(Number(q.year)+1)};order={period:1,_id:1};}
+   if(kind==='wages'){extra.currency=await estateCurrency(Estate,q.estateId,[Wage]);where.basis=q.basis;where.period={$gte:q.year,$lt:String(Number(q.year)+1)};order={period:1,_id:1};}
    else{where.year=Number(q.year);order={sourceBlockCode:1,_id:1};}
    if(q.division)where.division=q.division;
    if(q.match==='mapped')where.mapBlockCode={$ne:null};

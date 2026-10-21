@@ -1,6 +1,6 @@
 """Download monthly estate crops from public Sentinel-2 COGs, not whole scenes.
 
-Select among the six least scene-cloudy full-footprint candidates per month,
+Select among the configured number of least scene-cloudy full-footprint candidates per month,
 ranked by estate-local SCL cloud/shadow/snow and invalid coverage. Preserve
 actual dates and quality scores. No optical image is used as elevation.
 """
@@ -120,7 +120,7 @@ def main():
     records=[]; evaluations=[]; failures=[]
     def process_month(month,items):
         best=None
-        for item in sorted(items,key=lambda x:x['properties'].get('eo:cloud_cover',100))[:6]:
+        for item in sorted(items,key=lambda x:x['properties'].get('eo:cloud_cover',100))[:cfg.get('maxCandidates',6)]:
             try:
                 q,path=quality(item); evaluations.append({'id':item['id'],**q})
                 rank=(100-q['estate_valid_percent'],q['estate_cloud_shadow_snow_percent'])
@@ -142,9 +142,9 @@ def main():
         for future in as_completed(tasks):
             row=future.result()
             if row:records.append(row)
-            manifest={'requested_start':'2024-10-05','requested_end':'2026-10-04','downloaded':'2026-10-05',
+            manifest={'requested_start':cfg.get('requestedStart','2024-10-05'),'requested_end':cfg.get('requestedEnd','2026-10-04'),'downloaded':cfg.get('downloadedAt','2026-10-05'),
                       'dataset':'Copernicus Sentinel-2 Collection 1 Level-2A','provider':'ESA / Copernicus via Element 84 Earth Search',
-                      'selection':'Monthly selection: evaluate up to six least scene-cloudy full-footprint candidates, stop at <=2% estate cloud/shadow; otherwise keep least obscured evaluated candidate with >=99% valid estate coverage.',
+                      'selection':f"Monthly selection: evaluate up to {cfg.get('maxCandidates',6)} least scene-cloudy full-footprint candidates, stop at <=2% estate cloud/shadow; otherwise keep least obscured evaluated candidate with >=99% valid estate coverage.",
                       'records':sorted(records,key=lambda r:r['acquired_at']),'catalog_months':sorted(groups),'evaluations':evaluations,'failures':failures,
                       'caveat':'Individual optical acquisitions, not monthly composites. Clouds, haze, sun angle and seasonal effects can resemble land-cover change. No ground-height changes are measured.'}
             (ROOT/'history.json').write_text(json.dumps(manifest,indent=2))

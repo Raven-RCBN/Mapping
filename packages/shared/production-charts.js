@@ -1,3 +1,4 @@
+export const productionPeriodLabel=value=>typeof value==='string'?value.replace(/\s*\(partial source coverage\)/gi,'').replace(/\s*\bYTD\b/gi,'').trim():value;
 export const monthlySeries=(rows,year,metric,comparisonYear=Number(year)-1)=>{
   const groups=new Map(),years=[String(year),...(comparisonYear==null||comparisonYear===''?[]:[String(comparisonYear)])];
   for(const r of rows){
@@ -15,5 +16,5 @@ export const annualSeries=(rows,metric)=>{
     if(!groups.has(r.sourceBlockId))groups.set(r.sourceBlockId,{key:r.sourceBlockId,label:`${r.sourceBlockCode} · ${r.division}`,values:years.map(()=>null)});
     groups.get(r.sourceBlockId).values[years.indexOf(r.year)]=r.receiptStatus==='received'&&Number.isFinite(r[metric])?r[metric]:null;
   }
-  return {labels:years.map(y=>rows.some(r=>r.year===y&&r.periodLabel!=='Full year')?`${y} YTD`:String(y)),series:[...groups.values()]};
+  return {labels:years.map(String),series:[...groups.values()]};
 };

@@ -1,3 +1,4 @@
+import {estateCurrency} from './estate-currency.js';
 import {z} from 'zod';
 import {canAccess} from './auth.js';
 import {QueryError,SummaryCache} from './performance.js';
@@ -9,13 +10,13 @@ const literal=s=>s.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
 export function installTrialBalance(api,{Estate}){
  const db=()=>Estate.db.db;
  const totalsCache=new SummaryCache({ttl:20000,maxEntries:100,maxBytes:1024*1024});
- const scope=async req=>{const q=query.parse(req.query);if(!canAccess(req,q.estateId))throw new QueryError('Estate access denied',403);if(!await Estate.exists({_id:q.estateId}))throw new QueryError('Estate not found',404);return q};
+ const scope=async req=>{const q=query.parse(req.query);if(!canAccess(req,q.estateId))throw new QueryError('Estate access denied',403);if(!await Estate.exists({_id:q.estateId}))throw new QueryError('Estate not found',404);req.estateCurrency=await estateCurrency(Estate,q.estateId,[db().collection(TB_COLLECTIONS.summary),db().collection(TB_COLLECTIONS.details)]);return q};
  api.get('/trial-balance/meta',async(req,res)=>{
   const q=await scope(req),where={estateId:q.estateId,year:q.year,importState:'complete'};
   const accounts=await db().collection(TB_COLLECTIONS.summary).find(where,{projection:{contentHash:0,datasetHash:0,sourceHash:0}}).sort({sourceSequence:1}).limit(5001).maxTimeMS(5000).toArray();
   if(accounts.length>5000)throw new QueryError('Too many accounts',413);
   const years=await db().collection(TB_COLLECTIONS.summary).distinct('year',{estateId:q.estateId,importState:'complete'});
-  res.json({accounts:accounts.map(row),years:years.sort((a,b)=>b-a),year:q.year,currency:'NGN',reportIntegrity:accounts[0]?.reportIntegrity||null,summary:{accounts:accounts.length,accountsWithDetails:accounts.filter(a=>a.detailsStatus==='reconciled').length,transactionCount:accounts.reduce((s,a)=>s+a.transactionCount,0),highlightCount:accounts.reduce((s,a)=>s+a.beigeDetailCount,0),blockMismatchCount:accounts.reduce((s,a)=>s+a.blockReviewDetailCount,0)}});
+  res.json({accounts:accounts.map(row),years:years.sort((a,b)=>b-a),year:q.year,currency:req.estateCurrency,reportIntegrity:accounts[0]?.reportIntegrity||null,summary:{accounts:accounts.length,accountsWithDetails:accounts.filter(a=>a.detailsStatus==='reconciled').length,transactionCount:accounts.reduce((s,a)=>s+a.transactionCount,0),highlightCount:accounts.reduce((s,a)=>s+a.beigeDetailCount,0),blockMismatchCount:accounts.reduce((s,a)=>s+a.blockReviewDetailCount,0)}});
  });
  api.get('/trial-balance',async(req,res)=>{
   const q=await scope(req),where={estateId:q.estateId,year:q.year,importState:'complete',rowKind:'transaction'};
@@ -44,6 +45,6 @@ export function installTrialBalance(api,{Estate}){
   try{[found,totals]=await Promise.all([col.find(pageWhere,{projection:{contentHash:0,datasetHash:0,sourceHash:0,sourceExtraction:0}}).sort(order).limit(26).maxTimeMS(8000).toArray(),totalsPromise()]);}
   catch(e){if(e.code===50)throw new QueryError('This selection is too broad. Select an account or narrow the search and try again.',413);throw e;}
   const items=found.slice(0,25),last=items.at(-1),nextCursor=found.length>25?Buffer.from(JSON.stringify({fingerprint,...Object.fromEntries(Object.keys(order).map(k=>[k,last[k]]))})).toString('base64url'):null;
-  res.json({items:items.map(row),count:totals.count,summary:totals,nextCursor,pageSize:25,year:q.year,currency:'NGN'});
+  res.json({items:items.map(row),count:totals.count,summary:totals,nextCursor,pageSize:25,year:q.year,currency:req.estateCurrency});
  });
 }

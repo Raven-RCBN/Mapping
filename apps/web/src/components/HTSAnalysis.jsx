@@ -1,3 +1,8 @@
+import MaterialAnalysis from './MaterialAnalysis';
+import WagesDashboard from './WagesDashboard';
+import BlockScopeSelect from './BlockScopeSelect';
+import ScrollSelect from './ScrollSelect';
+import {useEstateCurrency} from '../useEstateCurrency';
 import {fertiliserYield} from '../../../../packages/shared/fertiliser-yield.js';
 import FertiliserYieldChart from './FertiliserYieldChart';
 import FertiliserWageHistory from './FertiliserWageHistory';
@@ -7,8 +12,6 @@ import {api} from '../api';
 import {fertiliserAnalysis,wageAnalysis,fertiliserMapLayer,allocateActivityWages} from '../../../../packages/shared/hts-analysis.js';
 import './hts-analysis.css';
 const n=(v,d=2)=>v==null?'—':Number(v).toLocaleString(undefined,{maximumFractionDigits:d});
-const money=v=>'₦'+n(v/100,2);
-const compactMoney=v=>Math.abs(v)>=1e11?'₦'+n(v/1e11)+'bn':Math.abs(v)>=1e8?'₦'+n(v/1e8)+'m':money(v);
 function download(rows,name){
   if(!rows.length)return;
   const keys=Object.keys(rows[0]),cell=x=>'"'+String(x??'').replaceAll('"','""')+'"';
@@ -48,7 +51,7 @@ function Fertiliser({data,estateId,selection,onBlockChange,onSelect,onHighlights
     <div className="production-controls">
       <label>Year<select value={year} onChange={e=>setYear(e.target.value)}>{[...new Set(data.fertiliserSections.map(r=>r.year))].sort((a,b)=>b-a).map(y=><option key={y}>{y}</option>)}</select></label>
       <label>Division<select value={division} onChange={e=>{setDivision(e.target.value);onBlockChange('');}}><option value="">All divisions</option>{divisions.map(d=><option key={d}>{d}</option>)}</select></label>
-      <label>Map block<select value={block} onChange={e=>onBlockChange(e.target.value)}><option value="">All mapped blocks</option>{block&&!codes.includes(block)&&<option>{block}</option>}{codes.map(c=><option key={c}>{c}</option>)}</select></label>
+      <label>Map block<ScrollSelect value={block} onChange={e=>onBlockChange(e.target.value)}><option value="">All mapped blocks</option>{block&&!codes.includes(block)&&<option>{block}</option>}{codes.map(c=><option key={c}>{c}</option>)}</ScrollSelect></label>
       <label>Product<select value={product} onChange={e=>{setProduct(e.target.value);setMetric('quantity');}}><option value="solids">All solid fertilisers</option>{data.products.map((p,i)=><option key={p.name} value={i}>{p.name} ({p.unit})</option>)}</select></label>
       <label>Measure<select value={metric} onChange={e=>setMetric(e.target.value)}><option value="quantity">Quantity ({baseUnit})</option>{baseUnit==='kg'&&<option value="bags">50 kg bag equivalents</option>}<option value="perHa">{baseUnit} per mapped hectare</option></select></label>
     </div>
@@ -66,6 +69,9 @@ function Fertiliser({data,estateId,selection,onBlockChange,onSelect,onHighlights
   </section>;
 }
 function Wages({data,estateId,selection,boundary,onBlockChange}){
+  const {code:currencyCode,label:currency}=useEstateCurrency(estateId);
+  const money=v=>currency+' '+n(v/100,2);
+  const compactMoney=v=>Math.abs(v)>=1e11?currency+' '+n(v/1e11)+'bn':Math.abs(v)>=1e8?currency+' '+n(v/1e8)+'m':money(v);
   const [year,setYear]=useState('2025'),[month,setMonth]=useState(''),[task,setTask]=useState(''),[activity,setActivity]=useState(''),[measure,setMeasure]=useState('amountMinor');
   const block=selection?.startsWith(estateId+'::')?selection.slice(estateId.length+2):'';
   const mapCodes=useMemo(()=>[...new Set((boundary?.features||[]).map(f=>f.properties?.blockName||f.properties?.Block_No).filter(Boolean))],[boundary]);
@@ -75,18 +81,18 @@ function Wages({data,estateId,selection,boundary,onBlockChange}){
   const changeYear=y=>{setYear(String(y));setMonth('');};
   const format=measure==='amountMinor'?v=>v==null?'—':money(v):v=>n(v)+' md';
   return <section className="hts-analysis" aria-label="Monthly activity wages">
-    <div className="production-heading"><h2>Monthly activity wages · {block||'All mapped blocks'}</h2><button className="button" onClick={()=>download(a.rows.map(({amountMinor,...r})=>({...r,allocatedWagesNGN:amountMinor/100})),`oban-allocated-wages-${block||'mapped-blocks'}-${month||year}.csv`)} disabled={!a.rows.length}>Export selected records</button></div>
+    <div className="production-heading"><h2>Monthly activity wages · {block||'All mapped blocks'}</h2><button className="button" onClick={()=>download(a.rows.map(({amountMinor,...r})=>({...r,allocatedWages:amountMinor/100,currency:currencyCode})),`oban-allocated-wages-${block||'mapped-blocks'}-${month||year}.csv`)} disabled={!a.rows.length}>Export selected records</button></div>
     <div className="production-controls">
       <label>Year<select value={year} onChange={e=>changeYear(e.target.value)}>{['2025'].map(y=><option key={y}>{y}</option>)}</select></label>
-      <label>Map block<select value={block} onChange={e=>onBlockChange(e.target.value)}><option value="">All mapped blocks</option>{block&&!allocation.blockCodes.includes(block)&&<option>{block}</option>}{allocation.blockCodes.map(code=><option key={code}>{code}</option>)}</select></label>
+      <label>Map block<ScrollSelect value={block} onChange={e=>onBlockChange(e.target.value)}><option value="">All mapped blocks</option>{block&&!allocation.blockCodes.includes(block)&&<option>{block}</option>}{allocation.blockCodes.map(code=><option key={code}>{code}</option>)}</ScrollSelect></label>
       <label>Payroll month<select value={month} onChange={e=>setMonth(e.target.value)}><option value="">All months</option>{a.monthly.map(m=><option key={m.period}>{m.period}</option>)}</select></label>
       <label>Task<select value={task} onChange={e=>{setTask(e.target.value);setActivity('');}}><option value="">All tasks</option>{tasks.map(t=><option key={t}>{t}</option>)}</select></label>
       <label>Activity<select value={activity} onChange={e=>setActivity(e.target.value)}><option value="">All activities</option>{activities.map(t=><option key={t}>{t}</option>)}</select></label>
-      <label>Chart measure<select value={measure} onChange={e=>setMeasure(e.target.value)}><option value="amountMinor">Wages (NGN)</option><option value="manDays">Man-days</option></select></label>
+      <label>Chart measure<select value={measure} onChange={e=>setMeasure(e.target.value)}><option value="amountMinor">Wages ({currency})</option><option value="manDays">Man-days</option></select></label>
     </div>
     <div className="hts-kpis"><article><span>Allocated wages</span><strong title={money(a.amountMinor)}>{compactMoney(a.amountMinor)}</strong></article><article><span>Allocated man-days</span><strong>{n(a.manDays)}</strong></article><article><span>Cost / man-day</span><strong>{a.manDays>0?money(a.amountMinor/a.manDays):'—'}</strong></article><article><span>Activities / source rows</span><strong>{a.activities.length} / {a.count}</strong></article></div>
     <div className="hts-grid"><Bars rows={a.monthly} valueKey={measure} labelKey="period" format={format} onSelect={p=>setMonth(month===p?'':p)} selected={month} caption={`${year} payroll months · click to filter`}/><Bars rows={a.annual} valueKey={measure} labelKey="year" format={format} onSelect={changeYear} selected={year} caption={`Year comparison · ${month?'same payroll month':'full year'}`}/></div>
-    <div className="data-table-scroll"><table><caption>Activity breakdown · {month||year}</caption><thead><tr><th>Task</th><th>Activity</th><th>Allocated wages (NGN)</th><th>Allocated man-days</th><th>Cost / man-day</th><th>Rows</th></tr></thead><tbody>{a.activities.map(r=><tr key={r.task+'|'+r.activity}><td>{r.task}</td><td><button className="analytics-block-link" onClick={()=>{setTask(r.task);setActivity(r.activity);}}>{r.activity}</button></td><td>{money(r.amountMinor)}</td><td>{n(r.manDays)}</td><td>{r.manDays>0?money(r.amountMinor/r.manDays):'—'}</td><td>{r.count}</td></tr>)}</tbody></table>{!a.count&&<p>No activity records for this selection.</p>}</div>
+    <div className="data-table-scroll"><table><caption>Activity breakdown · {month||year}</caption><thead><tr><th>Task</th><th>Activity</th><th>Allocated wages ({currency})</th><th>Allocated man-days</th><th>Cost / man-day</th><th>Rows</th></tr></thead><tbody>{a.activities.map(r=><tr key={r.task+'|'+r.activity}><td>{r.task}</td><td><button className="analytics-block-link" onClick={()=>{setTask(r.task);setActivity(r.activity);}}>{r.activity}</button></td><td>{money(r.amountMinor)}</td><td>{n(r.manDays)}</td><td>{r.manDays>0?money(r.amountMinor/r.manDays):'—'}</td><td>{r.count}</td></tr>)}</tbody></table>{!a.count&&<p>No activity records for this selection.</p>}</div>
 
   </section>;
 }
@@ -96,6 +102,7 @@ export default function HTSAnalysis({estateId,boundary,selection,onBlockChange,o
   if(offline)return <p>Connect to load HTS analysis.</p>;
   if(error)return <p role="alert">{error}</p>;
   if(!data)return <p role="status">Loading HTS analysis…</p>;
+  if(data.operational)return mode==='wages'?<><BlockScopeSelect blocks={(boundary?.features||[]).map(f=>f.properties?.blockName||f.properties?.Block_No).filter(Boolean)} value={selection?.startsWith(estateId+'::')?selection.slice(estateId.length+2):''} onChange={onBlockChange}/><WagesDashboard estateId={estateId} selection={selection} offline={offline}/></>:<MaterialAnalysis estateId={estateId} selection={selection} onBlockChange={onBlockChange} onSelect={onSelect} onHighlights={onHighlights} enabled={enabled} offline={offline}/>;
   if(!Array.isArray(data.fertiliser)||!Array.isArray(data.fertiliserSections)||!Array.isArray(data.products)||!Array.isArray(data.wages))return <p role="alert">The analysis data is incomplete. Refresh the page or reconnect to the estate data service.</p>;
   return mode==='wages'?<Wages data={data} estateId={estateId} boundary={boundary} selection={selection} onBlockChange={onBlockChange}/>:<Fertiliser data={data} estateId={estateId} selection={selection} onBlockChange={onBlockChange} onSelect={onSelect} onHighlights={onHighlights} enabled={enabled} offline={offline}/>;
 }

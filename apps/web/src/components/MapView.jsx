@@ -1,3 +1,5 @@
+import useSurveyOverlay from '../map/useSurveyOverlay';
+import useMapFocus from '../map/useMapFocus';
 import GpsNavigation from './GpsNavigation';
 import { createPortal } from "react-dom";
 import Overlay from "ol/Overlay";
@@ -68,6 +70,8 @@ export default function MapView({
     [blockDetailsOpen,setBlockDetailsOpen]=useState(true);
   const { data, selected, date, base, terrain, override, compare } = state;
   const blockSelection=state.selectedBlock||(state.block!=="all"?state.block:null);
+  useMapFocus(mapRef,data.estates,selected,analyticsHighlights,blockSelection);
+  const surveyOverlay=useSurveyOverlay(mapRef,analyticsHighlights?.kind==='geospatial'?analyticsHighlights.raster:null,data.offline);
   const closeBlock=()=>setBlockDetailsOpen(false);
   const blockDestination=useMemo(()=>{
     if(!blockSelection)return null;
@@ -168,28 +172,16 @@ export default function MapView({
     const layer=new VectorLayer({source,zIndex:25,style:choropleth?f=>{
       const code=f.get('blockName'),chosen=state.selectedBlock===`${f.get('estateId')}::${code}`;
       return new Style({
+        image:state.showBoundaries?new CircleStyle({radius:chosen?10:8,fill:new Fill({color:fertiliserColour(analyticsHighlights.values[code],analyticsHighlights.max,analyticsHighlights.bands)+'dd'}),stroke:new Stroke({color:chosen?'#e0951c':'#fff',width:chosen?3:2})}):undefined,
         stroke:state.showBoundaries?new Stroke({color:chosen?'#e0951c':'#456b59',width:chosen?4:1}):undefined,
         fill:state.showBoundaries?new Fill({color:fertiliserColour(analyticsHighlights.values[code],analyticsHighlights.max,analyticsHighlights.bands)+'dd'}):undefined,
         text:state.showLabels?new Text({text:code,font:'12px sans-serif',fill:new Fill({color:'#173f2d'}),stroke:new Stroke({color:'#fff6db',width:3})}):undefined,
       });
-    }:f=>new Style({image:new CircleStyle({radius:8,fill:new Fill({color:analyticsHighlights.colors?.[f.get('blockName')]||'#7c3aed'}),stroke:new Stroke({color:'#fff',width:2})}),stroke:new Stroke({color:'#6d28d9',width:3}),fill:new Fill({color:'rgba(124,58,237,0.32)'})})});
+    }:f=>new Style({image:new CircleStyle({radius:8,fill:new Fill({color:analyticsHighlights.colors?.[f.get('blockName')]||'#7c3aed'}),stroke:new Stroke({color:'#fff',width:2})}),stroke:new Stroke({color:analyticsHighlights.colors?.[f.get('blockName')]||'#6d28d9',width:3}),fill:new Fill({color:(analyticsHighlights.colors?.[f.get('blockName')]||'#7c3aed')+'52'})})});
     map.addLayer(layer);
     if(!choropleth&&fitChanged&&!isEmpty(source.getExtent()))map.getView().fit(source.getExtent(),{padding:[65,65,65,65],maxZoom:16,duration:200});
     return()=>{map.removeLayer(layer);layer.dispose();source.dispose();};
   },[analyticsHighlights,data.estates,data.offline,state.selectedBlock,state.showBoundaries,state.showLabels]);
-  useEffect(()=>{
-    const map=mapRef.current,asset=analyticsHighlights?.kind==='geospatial'?analyticsHighlights.raster:null;
-    if(!map||!asset||data.offline)return;
-    let cancelled=false,layer,url;
-    authorisedFile(asset.url).then(blob=>{
-      if(cancelled)return;
-      url=URL.createObjectURL(blob);const b=asset.bounds;
-      const extent=transformExtent([b[0][1],b[0][0],b[1][1],b[1][0]],'EPSG:4326','EPSG:3857');
-      layer=new ImageLayer({source:new ImageStatic({url,imageExtent:extent,projection:'EPSG:3857'}),zIndex:18,opacity:0.9});
-      map.addLayer(layer);map.getView().fit(extent,{padding:[45,45,45,45],maxZoom:16,duration:200});
-    }).catch(()=>{if(!cancelled)setNotice('The survey overlay could not be loaded. Refresh the report to retry.');});
-    return()=>{cancelled=true;if(layer){map.removeLayer(layer);layer.dispose();}if(url)URL.revokeObjectURL(url);};
-  },[analyticsHighlights?.raster,data.offline]);
   // Keep selection above thematic/GIS layers without rebuilding imagery or refitting.
   useEffect(() => {
     const map=mapRef.current;
@@ -204,15 +196,23 @@ export default function MapView({
     const source=new VectorSource({features});
     const layer=new VectorLayer({source,zIndex:40,style:[
       new Style({stroke:new Stroke({color:'#ffffff',width:7})}),
-      new Style({image:new CircleStyle({radius:11,stroke:new Stroke({color:'#7c3aed',width:4}),fill:new Fill({color:'#fff'})}),stroke:new Stroke({color:'#7c3aed',width:4}),fill:new Fill({color:'rgba(124,58,237,0.20)'})}),
+      new Style({image:new CircleStyle({radius:11,stroke:new Stroke({color:'#0369a1',width:4}),fill:new Fill({color:'#fff'})}),stroke:new Stroke({color:'#0369a1',width:4}),fill:analyticsHighlights?undefined:new Fill({color:'rgba(3,105,161,0.12)'})}),
     ]});
     map.addLayer(layer);
     return()=>{map.removeLayer(layer);layer.dispose();source.dispose();};
-  },[state.selectedBlock,data.estates,selected]);
+  },[state.selectedBlock,data.estates,selected,analyticsHighlights]);
   useEffect(() => {
     roadRef.current?.setVisible(base === "road" && !data.offline);
   }, [base, data.offline]);
   useEffect(()=>{setPopup(null);setBlockDetailsOpen(true);},[blockSelection]);
+  // A new analysis replaces the previous map inspection; later explicit clicks can inspect its results.
+  useEffect(()=>{
+    if(!analyticsHighlights)return;
+    dispatch(patch({selectedBlock:null,block:'all'}));
+    setPopup(null);
+    setBlockDetailsOpen(false);
+    overlayRef.current?.setPosition(undefined);
+  },[analyticsHighlights,dispatch]);
   useEffect(()=>{
     if(!blockSelection||!blockDetailsOpen||popup)return;
     const dismiss=e=>{if(e.key==='Escape')setBlockDetailsOpen(false);};
@@ -282,7 +282,7 @@ export default function MapView({
                   ? "#17412b"
                   : types[r?.type]?.color || "#d6bf67";
             return new Style({
-              image: f.getGeometry()?.getType()==='Point' ? new CircleStyle({radius:6,fill:new Fill({color:'#7c3aed'}),stroke:new Stroke({color:'#fff',width:2})}) : undefined,
+              image: f.getGeometry()?.getType()==='Point' ? new CircleStyle({radius:palmWarning?8:analyticsHighlights?4:6,fill:new Fill({color:palmWarning?'#c75c22':analyticsHighlights?'#a7b5aa':'#426d53'}),stroke:new Stroke({color:'#fff',width:2})}) : undefined,
               stroke: state.showBoundaries
                 ? new Stroke({ color, width: palmWarning ? 3.5 : r ? 2.4 : 1.3 })
                 : undefined,
@@ -677,6 +677,7 @@ export default function MapView({
     pageOffset,
     productionHighlights,
     analyticsHighlights?.kind,
+    Boolean(analyticsHighlights),
   ]);
   return (
     <div className="map-stage map-expanded">
@@ -820,11 +821,13 @@ export default function MapView({
           Surface elevation ≈ {sample} m · Copernicus 30 m cells ×
         </button>
       )}
-      <div className="map-caption">
+      <div className="map-caption" style={base==='satellite'&&images.length?{maxWidth:'calc(100% - 32px)',flexWrap:'wrap'}:undefined}>
         <span className="status-dot" />
         <b>{label(date)}</b>
-        <span>
-          {data.offline
+        <span style={base==='satellite'&&images.length?{display:'block'}:undefined}>
+          {base==='satellite'&&images.length
+            ? images.map(image=>image.name||`Satellite capture ${label(image.acquiredAt)}`).join(' · ')
+            : data.offline
             ? (base==='reference'?'Offline · saved estate mosaic':'Offline map')
             : base === "reference"
             ? "Activity date · reference mosaic"
@@ -833,6 +836,8 @@ export default function MapView({
             : "Map + activity timeline"}
         </span>
       </div>
+      {surveyOverlay.status==='loading'&&<div className="survey-overlay-status" role="status">Loading survey overlay…</div>}
+      {surveyOverlay.status==='error'&&<div className="survey-overlay-status" role="alert">Survey overlay could not load. <button className="button" onClick={surveyOverlay.retry}>Retry overlay</button></div>}
       {notice && <div id="mapNotice">{notice}</div>}
       {base === "topography" && (
         <div id="terrainLegend">
@@ -867,6 +872,8 @@ export default function MapView({
           <div>{analyticsHighlights.bands?analyticsHighlights.bands.map(band=><span key={band.min}><i style={{background:band.color}}/>{band.label}</span>):<><span><i style={{background:'#e7e9ec'}}/>No record</span><span><i style={{background:'#fff'}}/>0</span>
           {analyticsHighlights.max>0&&fertiliserColours.map((color,i)=><span key={color}><i style={{background:color}}/>{(analyticsHighlights.max*i/5).toLocaleString(undefined,{maximumFractionDigits:1})}–{(analyticsHighlights.max*(i+1)/5).toLocaleString(undefined,{maximumFractionDigits:1})}</span>)}</>}</div>
         </div>:analyticsHighlights&&<span className="analytics-map-key"><i style={{background:'#7c3aed'}}/>{analyticsHighlights.label}{analyticsHighlights.kind==='geospatial'?'':` · ${analyticsHighlights.blockCodes.length} blocks`}</span>}
+        {state.selectedBlock&&selected.includes(state.selectedBlock.split('::')[0])&&<span><i style={{background:'transparent',border:'2px solid #0369a1'}}/>Selected block: {state.selectedBlock.split('::').at(-1)}</span>}
+        {data.estates.some(e=>selected.includes(e.id)&&(e.boundary?.features||[]).some(f=>f.geometry?.type==='Point'))&&<span><i style={{background:'#426d53',borderRadius:'50%'}}/>Temporary block points</span>}
         {Object.entries(types)
           .filter(([t]) =>
             rows.some((r) => selected.includes(r.estateId) && r.type === t)

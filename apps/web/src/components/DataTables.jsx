@@ -1,3 +1,4 @@
+import OperationTables from './OperationTables';
 import DocumentImports from './DocumentImports';
 import {useAccess} from '../useAccess';
 import { useEffect, useMemo, useState } from "react";
@@ -21,7 +22,7 @@ export const blockColumns = [
   ["soilType", "Soil type"],
 ];
 const gisBlockColumns = [
-  ["gisAreaHa", "GIS area (ha)"],
+  ["gisAreaHa", "GIS area (ha)"], ["referenceHa", "Metric reference ha"], ["metricSource", "Metric source"], ["palmCountSource", "Palm count source"],
   ["cropType", "Crop / land use"],
   ["plantingMaterialType", "Planting material type"],
   ["issues", "Highlight details"],
@@ -72,7 +73,7 @@ export function BlockInformation({ blocks, selection, estates, onClose, offline,
       {matches.map((b) => (
         <div key={b.id}>
           <dl className="block-facts">
-            {[...blockColumns, ...extraBlockColumns(matches)].map(
+            {[...blockColumns, ...extraBlockColumns(matches)].filter(([key])=>!compact||!['issues','metricSource','palmCountSource','sourceYieldLastYear','sourceYieldTwoYears'].includes(key)).map(
               ([key, title]) => (
                 <div key={key}>
                   <dt>{title}</dt>
@@ -109,7 +110,7 @@ export default function DataTables({
 }) {
   const {can} = useAccess(productionEstateId || vehicleEstateId);
   const allowedTab = value => can(value==='parameters'?'monthly':value);
-  const firstTab = ['imports','blocks','monthly','names','yearly','wages','vehicles','trial-balance','harvesting','field','comments'].find(allowedTab);
+  const firstTab = ['materials','ledger','crop-receipts','imports','blocks','monthly','names','yearly','wages','vehicles','trial-balance','harvesting','field','comments'].find(allowedTab);
   const [tab, setTab] = useState(
     popup
       ? rows.some((r) => r.recordKind === "harvesting")
@@ -125,7 +126,7 @@ export default function DataTables({
     [cursors, setCursors] = useState([null]),
     [from, setFrom] = useState(""),
     [to, setTo] = useState("");
-  const productionTab=['imports','monthly','parameters','names','yearly','wages','comments','vehicles','trial-balance'].includes(tab);
+  const productionTab=['materials','ledger','crop-receipts','imports','monthly','parameters','names','yearly','wages','comments','vehicles','trial-balance'].includes(tab);
   const reset = () => {
     setPage(0);
     setCursors([null]);
@@ -167,7 +168,7 @@ export default function DataTables({
     };
   }, [remoteKey, !!server, productionTab]);
   const tabs = [
-    ...(!popup&&productionEstateId?[["imports","Imported data",0],["monthly","Monthly production",0],["parameters","Monthly parameters",0],["names","Block-name history",0],["yearly","Yearly production",0],["wages","Wages",0],["vehicles","Vehicle details",0],["trial-balance","Trial balance",0],["comments","Block comments",0]]:[]),
+    ...(!popup&&productionEstateId?[["materials","Material net issues",0],["ledger","Block ledger",0],["crop-receipts","Crop receipts",0],["imports","Imported data",0],["monthly","Monthly production",0],["parameters","Monthly parameters",0],["names","Block-name history",0],["yearly","Yearly production",0],["wages","Wages",0],["vehicles","Vehicle details",0],["trial-balance","Trial balance",0],["comments","Block comments",0]]:[]),
     ["blocks", "Block details", blocks.length],
     [
       "harvesting",
@@ -256,7 +257,7 @@ export default function DataTables({
       ? r.mapBlockNames?.join(", ") || "Pending"
       : format(r[key], key);
   if (!allowedTab(tab)) return <p>This table is not enabled for your account.</p>;
-  if(productionTab) return <div className="data-tables"><div className="table-tabs" role="tablist">{tabs.map(([id,name])=><button key={id} role="tab" aria-selected={tab===id} onClick={()=>{setTab(id);reset();setQuery('');}}>{name}</button>)}</div>{tab==='imports'?<DocumentImports key={productionEstateId} estateId={productionEstateId} upload/>:tab==='trial-balance'?<TrialBalanceTables key={vehicleEstateId||'choose-estate'} estateId={vehicleEstateId}/>:tab==='vehicles'?<VehicleTables key={vehicleEstateId||'choose-estate'} estateId={vehicleEstateId}/>:tab==='comments'?<BlockComments key={productionEstateId} estateId={productionEstateId} table role={role} onMap={onSelectBlock}/>:tab==='wages'?<WagesTables key={productionEstateId} estateId={productionEstateId} role={role} onMap={onSelectBlock}/>:<ProductionTables key={productionEstateId} estateId={productionEstateId} role={role} view={tab} onMap={onSelectBlock}/>}</div>;
+  if(productionTab) return <div className="data-tables"><div className="table-tabs" role="tablist">{tabs.map(([id,name])=><button key={id} role="tab" aria-selected={tab===id} onClick={()=>{setTab(id);reset();setQuery('');}}>{name}</button>)}</div>{['materials','ledger','crop-receipts'].includes(tab)?<OperationTables key={`${productionEstateId}-${tab}`} estateId={productionEstateId} kind={tab} onMap={onSelectBlock}/>:tab==='imports'?<DocumentImports key={productionEstateId} estateId={productionEstateId} upload/>:tab==='trial-balance'?<TrialBalanceTables key={vehicleEstateId||'choose-estate'} estateId={vehicleEstateId}/>:tab==='vehicles'?<VehicleTables key={vehicleEstateId||'choose-estate'} estateId={vehicleEstateId}/>:tab==='comments'?<BlockComments key={productionEstateId} estateId={productionEstateId} table role={role} onMap={onSelectBlock}/>:tab==='wages'?<WagesTables key={productionEstateId} estateId={productionEstateId} role={role} onMap={onSelectBlock}/>:<ProductionTables key={productionEstateId} estateId={productionEstateId} role={role} view={tab} onMap={onSelectBlock}/>}</div>;
   return (
     <div className="data-tables">
       <div className="table-tabs" role="tablist">
@@ -369,7 +370,7 @@ export default function DataTables({
           </thead>
           <tbody>
             {visible.map((r) => (
-              <tr key={r.id}>
+              <tr key={r.id} className={r.metricSource==='iPlant fallback'?'production-flag':''}>
                 {columns.map(([key]) => (
                   <td key={key}>{cell(r, key)}</td>
                 ))}

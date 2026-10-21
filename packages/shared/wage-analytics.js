@@ -5,7 +5,7 @@ export function summarizeAllocatedBlocks(items, mandays=[]) {
   for(const row of items) {
     if(!row.mapBlockCode)continue;
     if(!blocks.has(row.mapBlockCode))blocks.set(row.mapBlockCode,{
-      mapBlockCode:row.mapBlockCode,division:row.division,mapHa:row.blockHa,
+      mapBlockCode:row.mapBlockCode,division:row.division,mapHa:row.blockHa,metricSource:row.metricSource,
       amountMinor:0,periods:new Set(),mandayKeys:new Set(),mandayUnits:0,hasMandays:false,mandaysComplete:true,
     });
     const block=blocks.get(row.mapBlockCode);

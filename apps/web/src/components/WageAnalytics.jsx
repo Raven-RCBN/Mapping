@@ -1,3 +1,6 @@
+import WageFilterSelects from './WageFilterSelects';
+import {wageTaskLabel,wageActivityLabel} from '../wage-labels';
+import {useEstateCurrency} from '../useEstateCurrency';
 import {useEffect,useMemo,useState} from 'react';
 import {api} from '../api';
 import {displayNumber} from './ProductionTables';
@@ -8,6 +11,7 @@ export default function WageAnalytics({estateId,boundary,enabled,offline,selecti
   const [year,setYear]=useState('2025'),[basis,setBasis]=useState('monthly'),[task,setTask]=useState(''),[activity,setActivity]=useState('');
   const [operator,setOperator]=useState('gt'),[threshold,setThreshold]=useState('100000'),[meta,setMeta]=useState(null),[rows,setRows]=useState([]);
   const [busy,setBusy]=useState(false),[metaBusy,setMetaBusy]=useState(false),[error,setError]=useState(''),[metaError,setMetaError]=useState(''),[applied,setApplied]=useState(null),[refresh,setRefresh]=useState(0);
+  const {label:currency}=useEstateCurrency(estateId,meta?.currency);
   const mapCodes=useMemo(()=>[...new Set((boundary?.features||[]).map(f=>f.properties?.blockName||f.properties?.Block_No).filter(Boolean))],[boundary]);
   useEffect(()=>{
     if(!enabled||offline)return;
@@ -28,7 +32,7 @@ export default function WageAnalytics({estateId,boundary,enabled,offline,selecti
     return()=>c.abort();
   },[estateId,year,basis,task,activity,enabled,offline,refresh]);
   const analysis=useMemo(()=>applied?analyseWageCost(rows,mapCodes,applied):null,[rows,mapCodes,applied]);
-  const description=applied?`${year} · ${task||'All tasks'} · ${activity||'All activities'} · ${operator==='gt'?'Above':'Below'} NGN ${money(Math.round(Number(threshold)*100))}`:'';
+  const description=applied?`${year} · ${task?wageTaskLabel(task,meta):'All tasks'} · ${activity?wageActivityLabel(task,activity,meta):'All activities'} · ${operator==='gt'?'Above':'Below'} ${currency} ${money(Math.round(Number(threshold)*100))}`:'';
   useEffect(()=>{
     onHighlights(enabled&&!offline&&!busy&&!metaBusy&&!error&&!metaError&&analysis?{estateId,blockCodes:analysis.blockCodes,label:description}:null);
   },[enabled,offline,busy,metaBusy,error,metaError,analysis,description,estateId,onHighlights]);
@@ -38,15 +42,14 @@ export default function WageAnalytics({estateId,boundary,enabled,offline,selecti
   const loading=busy||metaBusy;
   const selectedCode=selection?.startsWith(estateId+'::')?selection.slice(estateId.length+2):null;
   return <section className="production-dashboard analytics-dashboard wage-analytics" aria-label="Activity cost analytics">
-    <div className="production-heading"><div><h2>Activity cost analytics</h2><p>Find mapped blocks by allocated wage cost · NGN.</p></div><button className="button" disabled={loading||offline} onClick={()=>{setApplied(null);setRefresh(v=>v+1);}}>Refresh data</button></div>
+    <div className="production-heading"><div><h2>Activity cost analytics</h2><p>Find mapped blocks by recorded / allocated wage cost · {currency}.</p></div><button className="button" disabled={loading||offline} onClick={()=>{setApplied(null);setRefresh(v=>v+1);}}>Refresh data</button></div>
     {offline?<p>Connect to load wage costs for map analytics.</p>:<>
       <form className="production-controls" onSubmit={e=>{e.preventDefault();if(valid&&!loading&&!error&&!metaError)setApplied({operator,threshold});}}>
         <label>Wage year<select value={year} disabled={metaBusy} onChange={e=>{setYear(e.target.value);setTask('');setActivity('');setApplied(null);}}>{!(meta?.years||[]).includes(year)&&<option value={year}>{year}</option>}{(meta?.years||[]).map(y=><option key={y}>{y}</option>)}</select></label>
         <label>Cost source<select value={basis} onChange={change(setBasis)}><option value="monthly">Monthly wage records</option><option value="annual_summary">Annual division summary</option></select></label>
-        <label>Task<select value={task} disabled={metaBusy} onChange={e=>{setTask(e.target.value);setActivity('');setApplied(null);}}><option value="">All tasks</option>{task&&!(meta?.tasks||[]).includes(task)&&<option>{task}</option>}{(meta?.tasks||[]).map(t=><option key={t}>{t}</option>)}</select></label>
-        <label>Activity<select value={activity} disabled={metaBusy} onChange={change(setActivity)}><option value="">All activities</option>{(meta?.activities||[]).map(a=><option key={a}>{a}</option>)}</select></label>
+        <WageFilterSelects meta={meta} task={task} activity={activity} disabled={metaBusy} onChange={v=>{setTask(v.task);setActivity(v.activity);setApplied(null);}}/>
         <label>Allocated cost<select value={operator} onChange={change(setOperator)}><option value="gt">Above (&gt;)</option><option value="lt">Below (&lt;)</option></select></label>
-        <label>Threshold (NGN)<input type="number" min="0" step="0.01" value={threshold} onChange={change(setThreshold)} required/></label>
+        <label>Threshold ({currency})<input type="number" min="0" step="0.01" value={threshold} onChange={change(setThreshold)} required/></label>
         <div className="analytics-form-actions">
         <button className="button primary" type="submit" disabled={!valid||loading||!!error||!!metaError||!rows.length||!mapCodes.length}>Show matching blocks</button>
         {applied&&<button className="button" type="button" onClick={()=>setApplied(null)}>Clear highlights</button>}
@@ -57,7 +60,7 @@ export default function WageAnalytics({estateId,boundary,enabled,offline,selecti
       {analysis&&!loading&&!error&&!metaError&&<>
         <div className="analytics-result-summary" role="status"><span className="analytics-swatch"/><strong>{analysis.blockCodes.length} matching blocks</strong><span>{description}</span><button className="button" onClick={onMap}>View on map</button></div>
         <p>{analysis.eligibleBlocks} of {mapCodes.length} mapped blocks have allocated costs for this selection. {analysis.missingBlocks.length} without allocation records are excluded.</p>
-        {analysis.matches.length?<div className="data-table-scroll"><table className="analytics-results"><caption>Allocated block costs · {basis==='monthly'?'Monthly wage records':'Annual division summary'} · {description}</caption><thead><tr><th>Map block</th><th>Division</th><th>Allocated cost (NGN)</th><th>Allocated mandays (annual)</th><th>Cost / manday (NGN)</th><th>Map ha</th><th>Rate (NGN/ha)</th><th>{basis==='monthly'?'Months with records':'Year'}</th></tr></thead><tbody>{analysis.matches.map(r=><tr key={r.mapBlockCode} aria-selected={r.mapBlockCode===selectedCode}><td><button className="analytics-block-link" onClick={()=>onSelect(r.mapBlockCode)}>{r.mapBlockCode}</button></td><td>{r.division}</td><td>{money(r.amountMinor)}</td><td>{displayNumber(r.mandays,2)}</td><td>{r.costPerMandayMinor==null?'—':money(r.costPerMandayMinor)}</td><td>{displayNumber(r.mapHa,4)}</td><td>{money(r.rateMinorPerHa)}</td><td>{basis==='monthly'?r.periods.map(p=>p.slice(5)).join(', '):year}</td></tr>)}</tbody></table></div>:<p>No blocks match this threshold. Try another task, activity or amount.</p>}
+        {analysis.matches.length?<div className="data-table-scroll"><table className="analytics-results"><caption>Block costs · {basis==='monthly'?'Monthly wage records':'Annual division summary'} · {description}</caption><thead><tr><th>Map block</th><th>Division</th><th>Block cost ({currency})</th><th>Allocated mandays (annual)</th><th>Cost / manday ({currency})</th><th>Reference ha</th><th>Reference source</th><th>Rate ({currency}/ha)</th><th>{basis==='monthly'?'Months with records':'Year'}</th></tr></thead><tbody>{analysis.matches.map(r=><tr key={r.mapBlockCode} className={r.metricSource==='iPlant fallback'?'production-flag':''} aria-selected={r.mapBlockCode===selectedCode}><td><button className="analytics-block-link" onClick={()=>onSelect(r.mapBlockCode)}>{r.mapBlockCode}</button></td><td>{r.division}</td><td>{money(r.amountMinor)}</td><td>{displayNumber(r.mandays,2)}</td><td>{r.costPerMandayMinor==null?'—':money(r.costPerMandayMinor)}</td><td>{displayNumber(r.mapHa,4)}</td><td>{r.metricSource||'Source record'}</td><td>{money(r.rateMinorPerHa)}</td><td>{basis==='monthly'?r.periods.map(p=>p.slice(5)).join(', '):year}</td></tr>)}</tbody></table></div>:<p>No blocks match this threshold. Try another task, activity or amount.</p>}
       </>}
     </>}
   </section>;

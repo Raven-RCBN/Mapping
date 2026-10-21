@@ -5,6 +5,7 @@ import { BrowserRouter } from "react-router-dom";
 import { store } from "./store";
 import App from "./App";
 import "./style.css";
+import "./dashboard-compact.css";
 createRoot(document.getElementById("root")).render(
   <Provider store={store}>
     <BrowserRouter basename={import.meta.env.BASE_URL}>

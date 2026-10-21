@@ -1,3 +1,4 @@
+import SourceDetails from './SourceDetails';
 import PwaInstall from './PwaInstall';
 import DocumentImports from './DocumentImports';
 import {useAccess} from '../useAccess';
@@ -372,8 +373,7 @@ export default function Dialogs({
         {mode.type === "sources" && (
           <>
             <p>
-              Preserve dated map versions. Folder polling and provider
-              credentials will be configured with the hosting environment.
+              Keep map and database source connections, extraction methods and validation notes here. Credentials stay in the protected hosting environment.
             </p>
             {s.data.sources
               .filter((x) => s.selected.includes(x.estateId))
@@ -381,6 +381,7 @@ export default function Dialogs({
                 <div className="source-row" key={x.id}>
                   <div>
                     <strong>{x.name}</strong>
+                    <SourceDetails source={x} onReload={onReload} offline={s.data.offline}/>
                     <small>
                       {x.path} · {x.schedule}
                     </small>
@@ -441,6 +442,9 @@ export default function Dialogs({
                   </select>
                 </label>
               </div>
+              <label>Connection details (no secret values)<textarea name="connectionDetails" rows={3} maxLength={40000}/></label>
+              <label>Extraction method and queries<textarea name="extractionMethod" rows={6} maxLength={40000}/></label>
+              <label>Validation and block matching notes<textarea name="reviewNotes" rows={4} maxLength={40000}/></label>
               <div className="modal-actions">
                 <button className="button primary" disabled={busy || !writable}>
                   Save configuration

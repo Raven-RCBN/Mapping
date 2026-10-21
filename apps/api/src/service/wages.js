@@ -1,3 +1,5 @@
+import {estateCurrency} from './estate-currency.js';
+import {currencyCodes} from '../../../../packages/shared/currency.js';
 import {createHash} from 'node:crypto';
 import {z} from 'zod';
 import {canAccess, requireWrite} from './auth.js';
@@ -13,7 +15,7 @@ export const wageInput=z.object({
   basis:z.enum(['monthly','annual_summary']), period:z.string().regex(/^\d{4}(-(0[1-9]|1[0-2]))?$/),
   division:label, task:label, activity:label,
   sourceBlockCode:label.nullable().default(null), mapBlockCode:label.nullable().default(null),
-  amountMinor:z.number().int().min(-1e13).max(1e13), currency:z.literal('NGN'),
+  amountMinor:z.number().int().min(-1e13).max(1e13), currency:z.enum(currencyCodes),
   sourceSystem:label, sourceKey:z.string().trim().min(1).max(300),
   sourceDivision:z.string().max(200).optional(), sourceSerial:z.string().max(100).optional(),
   sourceFile:z.string().max(300).optional(), sourceSheet:z.string().max(100).optional(),
@@ -34,11 +36,15 @@ export function installWages(api,models){
   const {Estate,Block,Wage,WageArea,BlockManday}=models;if(!Wage)return;
   const scope=async req=>{const estateId=id.parse(req.query.estateId||req.body?.estateId);
     if(!canAccess(req,estateId))throw new QueryError('Estate access denied',403);
-    if(!await Estate.exists({_id:estateId}))throw new QueryError('Estate not found',404);return estateId;};
+    if(!await Estate.exists({_id:estateId}))throw new QueryError('Estate not found',404);
+    req.estateCurrency=await estateCurrency(Estate,estateId,[Wage]);return estateId;};
   const polygons=async estateId=>{const e=await Estate.findById(estateId).select('boundary').lean();return [...new Set((e.boundary?.features||[]).map(f=>f.properties?.blockName||f.properties?.Block_No).filter(Boolean))].sort();};
   const verify=async(estateId,rows)=>{const codes=new Set(await polygons(estateId));
     if(rows.some(r=>r.mapBlockCode&&!codes.has(r.mapBlockCode)))throw new QueryError('Choose an existing map block in this estate');
     const costs=rows.filter(r=>r.period);if(!costs.length)return;
+    const configured=await Estate.findById(estateId).select('currency').lean();
+    if(!configured.currency)throw new QueryError('Choose the currency in estate setup before adding costs.');
+    if(costs.some(r=>r.currency!==configured.currency))throw new QueryError('Wage currency must match estate setup.');
     if(costs.some(r=>r.sourceBlockCode&&!r.mapBlockCode))throw new QueryError('Only costs linked to mapped blocks can be stored.');
     const years=[...new Set(costs.map(r=>Number(r.period.slice(0,4))))];
     const areas=await WageArea.find({estateId,year:{$in:years}}).select('year division mapHa mapBlockCode').lean();
@@ -52,7 +58,7 @@ export function installWages(api,models){
     const estateId=await scope(req),year=z.coerce.number().int().min(1900).max(2200).parse(req.query.year);
     const items=await WageArea.find({estateId,year}).select('-history').sort({division:1,sourceBlockCode:1}).limit(5001).maxTimeMS(10000).lean();
     if(items.length>5000)throw new QueryError('Too many area records',413);
-    res.json({items:items.map(r=>({...r,id:r._id}))});
+    res.json({currency:req.estateCurrency,items:items.map(r=>({...r,id:r._id}))});
   });
   const mapArea=async(estateId,code)=>{
     await verify(estateId,[{mapBlockCode:code}]);
@@ -76,7 +82,7 @@ export function installWages(api,models){
       throw new QueryError('This is the last mapped block for a division with allocated costs. Keep a mapped block in that division.');
     const source=await mapArea(estateId,old.mapBlockCode);
     const changed=await WageArea.updateOne(where,{$set:{...body,...source,updatedBy:req.access.subject},$inc:{revision:1},$push:{history:{at:new Date(),by:req.access.subject,previous:old}}});
-    if(!changed.modifiedCount)throw new QueryError('Area changed. Reload before saving.',409);res.json({saved:true});
+    if(!changed.modifiedCount)throw new QueryError('Area changed. Reload before saving.',409);res.json({currency:req.estateCurrency,saved:true});
   });
   api.get('/wages/allocation',async(req,res)=>{
     const estateId=await scope(req),q=z.object({year:z.string().regex(/^\d{4}$/),basis:z.enum(['monthly','annual_summary']).default('monthly'),
@@ -96,7 +102,7 @@ export function installWages(api,models){
     const sorted=[...items].sort((a,b)=>a.id.localeCompare(b.id,'en'));
     const eligible=sorted.filter(r=>!lastId||r.id.localeCompare(lastId,'en')>0),offset=q.cursor?0:q.page*25;
     const pageRows=nextPage(eligible.slice(offset,offset+26),25,order,fingerprint);
-    res.json({...allocation,...totals,byBlock:summarizeAllocatedBlocks(items,mandays),...pageRows,count:items.length,
+    res.json({currency:req.estateCurrency,...allocation,...totals,byBlock:summarizeAllocatedBlocks(items,mandays),...pageRows,count:items.length,
       selectedAreas:areas.filter(a=>a.mapBlockCode===q.mapBlockCode),unknownDivisionBlocks:areas.filter(a=>a.division==='DIVISION NOT SET').map(a=>a.mapBlockCode)});
   });
   api.get('/wages/timeline',async(req,res)=>{
@@ -105,24 +111,34 @@ export function installWages(api,models){
     const areas=await WageArea.find({estateId,year:Number(q.year)}).select('-history').limit(5001).maxTimeMS(10000).lean();
     if(areas.length>5000)throw new QueryError('Too many area records',413);
     const area=areas.find(a=>a.mapBlockCode===q.mapBlockCode);
-    if(!area)return res.json({year:q.year,mapBlockCode:q.mapBlockCode,items:[]});
+    if(!area)return res.json({currency:req.estateCurrency,year:q.year,mapBlockCode:q.mapBlockCode,items:[]});
     const [wages,mandays]=await Promise.all([
       Wage.find({estateId,basis:'monthly',division:area.division,period:{$gte:q.year+'-01',$lte:q.year+'-12'}}).select('-history').limit(50001).maxTimeMS(10000).lean(),
       BlockManday.find({estateId,year:Number(q.year),mapBlockCode:q.mapBlockCode}).select('mapBlockCode division task activity mandayUnits').limit(5001).maxTimeMS(10000).lean(),
     ]);
     if(wages.length>50000||mandays.length>5000)throw new QueryError('Too many timeline records',413);
     const allocated=allocateWages(wages,areas,q.mapBlockCode).items.filter(r=>r.mapBlockCode===q.mapBlockCode);
-    res.json({year:q.year,mapBlockCode:q.mapBlockCode,items:buildWageTimeline(allocated,mandays,q.year)});
+    res.json({currency:req.estateCurrency,year:q.year,mapBlockCode:q.mapBlockCode,items:buildWageTimeline(allocated,mandays,q.year)});
   });
   api.get('/wages/meta',async(req,res)=>{
     const estateId=await scope(req),year=z.string().regex(/^\d{4}$/).default('2025').parse(req.query.year);
     const task=z.string().max(200).optional().parse(req.query.task);
-    const [periods,divisions,tasks,mapBlocks,areaDivisions,activities]=await Promise.all([
+    const [periods,divisions,tasks,mapBlocks,areaDivisions,activities,activityPairs]=await Promise.all([
       Wage.distinct('period',{estateId}),Wage.distinct('division',{estateId}),Wage.distinct('task',{estateId}),polygons(estateId),
       WageArea.distinct('division',{estateId,year:Number(year)}),
       Wage.distinct('activity',{estateId,period:{$gte:year,$lt:String(Number(year)+1)},...(task?{task}:{})}),
+      Wage.aggregate([{$match:{estateId,period:{$gte:year,$lt:String(Number(year)+1)},...(task?{task}:{})}},{$group:{_id:{task:'$task',activity:'$activity'}}},{$sort:{'_id.task':1,'_id.activity':1}},{$limit:5001}]).option({maxTimeMS:10000}),
     ]);
-    res.json({years:[...new Set(periods.map(p=>p.slice(0,4)))].sort().reverse(),divisions:[...new Set([...divisions,...areaDivisions])].sort(),tasks:tasks.filter(t=>t.toUpperCase()!=='MILL').sort(),activities:activities.sort(),mapBlocks});
+    if(activityPairs.length>5000)throw new QueryError('Select a task to narrow the activity list',413);
+    // Account descriptions already retained from the source COA in the block ledger.
+    // Estate-scoped and read-only; never change task/activity identities or amounts.
+    const accounts=models.LedgerEntry?await models.LedgerEntry.aggregate([
+      {$match:{estateId,module:'Checkroll',accountCode:{$in:tasks},account:{$type:'string',$ne:''}}},
+      {$group:{_id:'$accountCode',descriptions:{$addToSet:'$account'}}},{$limit:1001},
+    ]).option({maxTimeMS:10000}):[];
+    if(accounts.length>1000)throw new QueryError('Too many account descriptions',413);
+    const taskDescriptions=Object.fromEntries(accounts.map(r=>[r._id,[...new Set(r.descriptions.map(s=>s.trim()).filter(s=>s&&s!==r._id))].sort().join(' / ')]).filter(([,v])=>v));
+    res.json({taskDescriptions,activityOptions:activityPairs.map(r=>r._id),currency:req.estateCurrency,years:[...new Set(periods.map(p=>p.slice(0,4)))].sort().reverse(),divisions:[...new Set([...divisions,...areaDivisions])].sort(),tasks:tasks.filter(t=>t.toUpperCase()!=='MILL').sort(),activities:activities.sort(),mapBlocks});
   });
   api.get('/wages',async(req,res)=>{
     const estateId=await scope(req),q=z.object({basis:z.enum(['monthly','annual_summary']).default('monthly'),year:z.string().regex(/^\d{4}$/),
@@ -136,7 +152,7 @@ export function installWages(api,models){
     let rows=await Wage.find(where).select('-history').sort({period:1,division:1,task:1,activity:1,_id:1}).limit(50001).maxTimeMS(10000).lean();
     if(rows.length>50000)throw new QueryError('Select a division or block to narrow the results',413);
     if(q.q)rows=rows.filter(r=>[r.task,r.activity,r.division,r.sourceBlockCode,r.mapBlockCode].join(' ').toLowerCase().includes(q.q.toLowerCase()));
-    res.json({items:rows.slice(q.page*q.limit,(q.page+1)*q.limit).map(r=>({...r,id:r._id})),count:rows.length,...wageTotals(rows),
+    res.json({currency:req.estateCurrency,items:rows.slice(q.page*q.limit,(q.page+1)*q.limit).map(r=>({...r,id:r._id})),count:rows.length,...wageTotals(rows),
       counts:{mapped:rows.filter(r=>r.mapBlockCode).length,unmapped:rows.filter(r=>r.sourceBlockCode&&!r.mapBlockCode).length,group:rows.filter(r=>!r.sourceBlockCode).length}});
   });
   api.post('/wages',requireWrite,async(req,res)=>{
@@ -153,7 +169,7 @@ export function installWages(api,models){
       if(old[k]!==record[k])throw new QueryError('Original record identity cannot change. Create a separate record instead.');
     // Preserve imported provenance even when an editor submits only business fields.
     const changed=await Wage.updateOne(where,{$set:{...record,updatedBy:req.access.subject},$inc:{revision:1},$push:{history:{at:new Date(),by:req.access.subject,previous:old}}});
-    if(!changed.modifiedCount)throw new QueryError('Record changed. Reload before saving.',409);res.json({saved:true});
+    if(!changed.modifiedCount)throw new QueryError('Record changed. Reload before saving.',409);res.json({currency:req.estateCurrency,saved:true});
   });
   api.get('/wages/:id/history',async(req,res)=>{const estateId=await scope(req),r=await Wage.findOne({_id:id.parse(req.params.id),estateId}).select('history').lean();
     if(!r)throw new QueryError('Wage record not found',404);res.json(r.history||[]);});
@@ -161,8 +177,8 @@ export function installWages(api,models){
     const estateId=await scope(req),records=z.array(wageInput).min(1).max(5000).parse(req.body.records);await verify(estateId,records);
     const keys=records.map(r=>wageId(estateId,r));if(new Set(keys).size!==keys.length)throw new QueryError('Duplicate source system/key in upload');
     const existing=await Wage.countDocuments({estateId,_id:{$in:keys}});
-    if(req.body.preview!==false)return res.json({records:records.length,newRecords:records.length-existing,existingRecords:existing});
+    if(req.body.preview!==false)return res.json({currency:req.estateCurrency,records:records.length,newRecords:records.length-existing,existingRecords:existing});
     const result=await Wage.bulkWrite(records.map((r,i)=>({updateOne:{filter:{_id:keys[i],estateId},update:{$setOnInsert:{estateId,...r,revision:0,updatedBy:req.access.subject}},upsert:true}})));
-    res.json({inserted:result.upsertedCount,existing:records.length-result.upsertedCount});
+    res.json({currency:req.estateCurrency,inserted:result.upsertedCount,existing:records.length-result.upsertedCount});
   });
 }

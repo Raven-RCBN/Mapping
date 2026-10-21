@@ -16,3 +16,5 @@ test('source serial numbers, months and activities remain separate in allocation
   const r=allocateWages([wage,{...wage,sourceKey:'two',sourceSerial:'8'},{...wage,period:'2025-02'},{...wage,activity:'WEEDING'}],areas,'G4');
   assert.equal(r.items.length,4);assert.equal(r.items.reduce((n,r)=>n+r.amountMinor,0),10000);
 });
+
+test('direct matched block costs are included once without requiring an allocation area',()=>{const x=allocateWages([{_id:'direct',sourceBlockCode:'04LB1',mapBlockCode:'04-B1',period:'2025-01',division:'SLD',task:'HARVEST',activity:'Harvesting',amountMinor:12345}],[]);assert.equal(x.items.length,1);assert.equal(x.items[0].amountMinor,12345);assert.equal(x.items[0].rateMinorPerHa,null);assert.equal(x.mappedMinor,12345);});

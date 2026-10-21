@@ -1,3 +1,4 @@
+import {estateCurrency} from './estate-currency.js';
 import { z } from 'zod';
 import { canAccess } from './auth.js';
 import { QueryError } from './performance.js';
@@ -21,6 +22,7 @@ export function installVehicles(api, models) {
     const estateId = id.parse(req.query.estateId);
     if (!canAccess(req,estateId)) throw new QueryError('Estate access denied',403);
     if (!await Estate.exists({_id:estateId})) throw new QueryError('Estate not found',404);
+    req.estateCurrency=await estateCurrency(Estate,estateId,[VehicleImport,VehicleTransaction]);
     return estateId;
   };
   const reportsFor = (estateId, year) => VehicleImport.find({estateId,status:'complete',...(year?{year}:{})})
@@ -31,12 +33,15 @@ export function installVehicles(api, models) {
     if(reports.length>500) throw new QueryError('Too many vehicle reports',413);
     const importIds = reports.filter(r=>r.year===year).map(r=>r._id);
     const where = {estateId,importId:{$in:importIds}};
-    const [vehicleIds, categories] = await Promise.all([
+    const [costVehicleIds, categories, usageIds, usageYears] = await Promise.all([
       VehicleTransaction.distinct('vehicleId',where), VehicleTransaction.distinct('category',where),
+      VehicleUsage.distinct('vehicleId',{estateId,workDate:{$gte:`${year}-01-01`,$lt:`${year+1}-01-01`}}),
+      VehicleUsage.aggregate([{$match:{estateId}},{$group:{_id:{$substrBytes:['$workDate',0,4]}}}]).option({maxTimeMS:5000}),
     ]);
+    const vehicleIds=[...new Set([...costVehicleIds,...usageIds])];
     const vehicles = await Vehicle.find({estateId,_id:{$in:vehicleIds}}).select('name sourceIdentifier identityStatus').sort({name:1}).limit(5001).lean();
     if(vehicles.length>5000) throw new QueryError('Too many vehicles',413);
-    res.json({years:[...new Set(reports.map(r=>r.year))],vehicles:vehicles.map(publicRow),categories:categories.sort(),reports:reports.filter(r=>r.year===year).map(publicRow)});
+    res.json({currency:req.estateCurrency,years:[...new Set([...reports.map(r=>r.year),...usageYears.map(r=>Number(r._id))])].sort((a,b)=>b-a),vehicles:vehicles.map(publicRow),categories:categories.sort(),reports:reports.filter(r=>r.year===year).map(publicRow)});
   });
   api.get('/vehicles',async(req,res)=>{
     const estateId = await scope(req), q = queries.parse(req.query);
@@ -89,6 +94,6 @@ export function installVehicles(api, models) {
       {amountMinor:sum(costs,'amountMinor'),transactionCount:costs.length,vehicleCount:new Set(costs.map(r=>r.vehicleId)).size,
         zeroAmountCount:costs.filter(r=>r.amountMinor===0).length};
     res.json({items:items.slice(q.page*25,(q.page+1)*25),count:items.length,page:q.page,pageSize:25,summary,
-      reports:reports.map(publicRow),year:q.year,currency:'NGN'});
+      reports:reports.map(publicRow),year:q.year,currency:req.estateCurrency});
   });
 }

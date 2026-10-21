@@ -1,4 +1,6 @@
+import {createOperationModels} from './operations.js';
 import mongoose from "mongoose";
+import {currencyCodes} from "../../../../packages/shared/currency.js";
 import { createVehicleModels } from './vehicles.js';
 import { createTrialBalanceModels } from './trial-balance.js';
 const { Schema } = mongoose;
@@ -24,6 +26,8 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     name: { type: String, required: true },
     nameKey: { type: String, unique: true, sparse: true },
     location: String,
+    currency: {type:String,enum:currencyCodes},
+    currencyUpdatedAt: Date, currencyUpdatedBy:String, currencyHistory:[Schema.Types.Mixed],
     totalAreaHa: Number,
     boundary: Schema.Types.Mixed,
     boundaryDate: String,
@@ -128,6 +132,8 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     path: String,
     schedule: String,
     retention: String,
+    profileVersion:String, connectionDetails:String, extractionMethod:String, reviewNotes:String,
+    updatedBy:String, detailsRevision:{type:Number,default:0}, detailsHistory:[Schema.Types.Mixed],
   });
   ensureIndex(Activity, { estateId: 1, date: -1, _id: -1 });
   const AccessGrant = model("MappingAccessGrant", {
@@ -168,6 +174,7 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     blockCode: { type: String, required: true },
     plantingYear: String,
     plantingYearDescription: String,
+    sourceSql:Schema.Types.Mixed,pdfSurveyAreaHa:Number,palmCountSource:String,metricSource:String,referenceHa:Number,referenceDate:String,
     blockStatus: String,
     plantedHectares: Number,
     plantedDate: String,
@@ -191,7 +198,7 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
   ensureIndex(Block, { estateId: 1, blockCode: -1, _id: -1 });
   const ProductionName = model("MappingProductionName", {
     _id: String, estateId: {type:String,required:true,index:true},
-    sourceBlockCode: {type:String,required:true}, division:String,
+    sourceBlockCode: {type:String,required:true}, division:String, sourceSqlBlockId:String, assumption:String,
     mapBlockCode: {type:String,default:null}, linkMethod:String,
     firstMonth:String, lastMonth:String, note:String,
     revision:{type:Number,default:0}, updatedBy:String, history:[Schema.Types.Mixed],
@@ -207,6 +214,7 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     _id:String, estateId:{type:String,required:true,index:true},
     sourceBlockId:{type:String,required:true}, month:{type:String,required:true},
     receiptStatus:{type:String,enum:['received','not_received','unavailable'],required:true},
+    metricSource:String,allocationBasis:String,ffbMt:Number,looseFruitMt:Number,totalCropMt:Number,ownMt:Number,contractorMt:Number,partial:Boolean,coverageMonths:[String],
     mt:Number,bunches:Number,workbookPalms:Number,gpsHa:Number,effectiveHa:Number,yieldAreaHa:Number,
     sourceAbw:Number,sourceYield:Number,sourceBunchesHa:Number,sourceBunchesPalm:Number,harvestingDays:Number,plantingYear:String,
     parameterNote:String,note:String,sourceSystem:String,sourceKey:String,sourceHash:String,
@@ -225,7 +233,7 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     period: {type:String,required:true}, division: {type:String,required:true},
     task: {type:String,required:true}, activity: {type:String,required:true},
     sourceBlockCode: {type:String,default:null}, mapBlockCode: {type:String,default:null},
-    amountMinor: {type:Number,required:true}, currency: {type:String,default:'NGN'},
+    amountMinor: {type:Number,required:true}, currency: {type:String,enum:currencyCodes,required:true},
     sourceSystem: {type:String,required:true}, sourceKey: {type:String,required:true},
     sourceDivision:String, sourceSerial:String, sourceCell:String, sourceHash:String,
     ...provenance, note:String, revision:{type:Number,default:0}, updatedBy:String,
@@ -266,14 +274,14 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     ...provenance,
   };
   const HarvestingActivity = model("MappingHarvestingActivity", {
-    ...activityFields,
+    ...activityFields, sourceSystem:String,sourceKey:String,sourceDetails:Schema.Types.Mixed,
     employeeNo: String,
     employeeName: String,
     activity: String,
     bunches: { type: Number, required: true, min: 0 },
   });
   const FieldActivity = model("MappingFieldActivity", {
-    ...activityFields,
+    ...activityFields, sourceSystem:String,sourceKey:String,sourceDetails:Schema.Types.Mixed,
     activityCode: String,
     activityDescription: String,
     mandays: { type: Number, required: true, min: 0 },
@@ -354,7 +362,7 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
   ensureIndex(DocumentRow,{estateId:1,importId:1,sequence:1},{unique:true});
   ensureIndex(DocumentRow,{estateId:1,importId:1,highlight:1,sequence:1});
   return {
-    ...createTrialBalanceModels(model, Schema, ensureIndex), ...createVehicleModels(model, Schema, ensureIndex),
+    ...createOperationModels(model, Schema, ensureIndex), ...createTrialBalanceModels(model, Schema, ensureIndex), ...createVehicleModels(model, Schema, ensureIndex),
     DocumentImport, DocumentRow, GeospatialReport, GeospatialRow,
     Estate,
     Archive,
@@ -375,7 +383,7 @@ export function createModels(connection = mongoose, prefix = "Mapping") {
     AnnualRainfall,
   };
 }
-export const {DocumentImport,DocumentRow,GeospatialReport,GeospatialRow,TrialBalanceSummary,TrialBalanceDetail,
+export const {StockIssue,LedgerEntry,CropReceipt,DocumentImport,DocumentRow,GeospatialReport,GeospatialRow,TrialBalanceSummary,TrialBalanceDetail,
   Vehicle,
   VehicleImport,
   VehicleTransaction,

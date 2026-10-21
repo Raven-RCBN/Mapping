@@ -1,6 +1,18 @@
 // Division production is pooled by period; current inventory palms weight each map block once.
 // Source production records remain unchanged. Missing weights invalidate the division allocation.
 export function allocateProduction(records,names,blocks,mapCodes,{annual=false}={}){
+  const direct=records.filter(r=>r.allocationBasis==='recorded');
+  if(direct.length){
+    const legacy=allocateProduction(records.filter(r=>r.allocationBasis!=='recorded'),names,blocks,mapCodes,{annual});
+    const nm=new Map(names.map(n=>[n._id||n.id,n])),bm=new Map(blocks.map(b=>[b.blockCode,b])),allowed=new Set(mapCodes);
+    const groups=new Map();
+    for(const r of direct){const n=nm.get(r.sourceBlockId);if(!allowed.has(n?.mapBlockCode))continue;const key=JSON.stringify([n.mapBlockCode,annual?r.year:r.month]);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r);}
+    for(const [key,rows]of groups){const [code,period]=JSON.parse(key),b=bm.get(code),n=nm.get(rows[0].sourceBlockId);const complete=rows.every(r=>r.receiptStatus==='received'&&Number.isFinite(r.mt));const sum=k=>rows.every(r=>Number.isFinite(r[k]))?rows.reduce((a,r)=>a+r[k],0):null;const mt=complete?sum('mt'):null,bunches=sum('bunches'),ha=rows.every(r=>r.effectiveHa>0)?sum('effectiveHa'):null,palms=b?.totalPalms>0?b.totalPalms:null;
+      legacy.items.push({...rows[0],id:'recorded-'+key,sourceBlockCode:n.sourceBlockCode,mapBlockCode:code,division:n.division,mt,bunches,totalPalms:palms,effectiveHa:ha,yieldAreaHa:ha,abw:mt!=null&&bunches>0?mt*1000/bunches:null,yieldPerHa:mt!=null&&ha>0?mt/ha:null,bunchesPerHa:bunches!=null&&ha>0?bunches/ha:null,bunchesPerPalm:bunches!=null&&palms?bunches/palms:null,tonnesPerPalm:mt!=null&&palms?mt/palms:null,allocationBasis:'recorded',allocationReason:null});
+      legacy.coverage.push({division:n.division,period,reason:null,basis:'recorded'});
+    }
+    return legacy;
+  }
   const allowed=new Set(mapCodes),nm=new Map(names.map(n=>[n._id||n.id,n]));
   const inventory=[...new Map(blocks.filter(b=>allowed.has(b.blockCode)).map(b=>[b.blockCode,b])).values()];
   const divisions=new Map(),groups=new Map(),items=[],coverage=[];

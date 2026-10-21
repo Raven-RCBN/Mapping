@@ -7,6 +7,9 @@ export const accessMenus = [
   ['yearly','Yearly production',['view','add','edit']],
   ['wages','Wages',['view','add','edit']],
   ['vehicles','Vehicle details',['view']],
+  ['materials','Material net issues',['view']],
+  ['ledger','Block ledger',['view']],
+  ['crop-receipts','Crop receipts',['view']],
   ['trial-balance','Trial balance',['view']],
   ['blocks','Block details',['view','edit']],
   ['harvesting','Harvesting',['view','add','edit']],
@@ -15,11 +18,11 @@ export const accessMenus = [
   ['storage','Image storage',['view','edit','delete']],
   ['archive','Archive inventory',['view']],
   ['history','Map history',['view']],
-  ['sources','Map sources',['view','add']],
+  ['sources','Map sources',['view','add','edit']],
   ['decisions','Decision support & analytics',['view']],
   ['geospatial','Geospatial Analysis',['view','add']],
 ];
-export const dataMenus = ['imports','blocks','harvesting','field','monthly','names','yearly','wages','vehicles','trial-balance','comments'];
+export const dataMenus = ['materials','ledger','crop-receipts','imports','blocks','harvesting','field','monthly','names','yearly','wages','vehicles','trial-balance','comments'];
 export const isSuperuser = access => access?.isSuperuser === true;
 export function permitted(access, estateId, menu, action = 'view') {
   if (isSuperuser(access)) return true;

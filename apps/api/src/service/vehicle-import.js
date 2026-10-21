@@ -1,3 +1,4 @@
+import {estateCurrency} from './estate-currency.js';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 
@@ -83,6 +84,8 @@ export async function importVehicleDataset(models, dataset, { estateId, apply = 
   const prepared = prepareVehicleImport(dataset, estateId);
   assert.ok(await models.Estate.exists({_id:estateId}), 'OBAN estate not found');
   const {report, vehicles, transactions} = prepared;
+  const configured=await estateCurrency(models.Estate,estateId,[models.VehicleImport,models.VehicleTransaction]);
+  assert.ok(!configured||configured===report.currency,'Vehicle source currency differs from estate setup');
   // Check the entire batch before any write. A new/changed snapshot for the same
   // year requires explicit reconciliation; it cannot silently replace or double costs.
   const existingImport = await models.VehicleImport.findById(report._id).lean();

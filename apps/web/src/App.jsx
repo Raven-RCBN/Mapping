@@ -1,3 +1,5 @@
+import {userAccessLanding} from './permission-selection';
+import {focusEstateMap} from './map-navigation';
 import GeospatialAnalysis from './components/GeospatialAnalysis';
 import UserAccess from './components/UserAccess';
 import TeamOutlined from '@ant-design/icons/es/icons/TeamOutlined';
@@ -47,6 +49,7 @@ import EstatePicker from "./components/EstatePicker";
 import GlobalBrandLogo from "./components/GlobalBrandLogo";
 const loadMapView = () => import("./components/MapView");
 const MapView = lazy(loadMapView);
+const IotMovement = lazy(() => import('./components/IotMovement'));
 import Timeline from "./components/Timeline";
 import Dialogs from "./components/Dialogs";
 import Storage from "./components/Storage";
@@ -110,6 +113,7 @@ export default function App() {
     [productionHighlights, setProductionHighlights] = useState([]),
     [analyticsHighlights, setAnalyticsHighlights] = useState(null),
     [dashboardTab, setDashboardTab] = useState("production"),
+    [mapSurface, setMapSurface] = useState("estate"),
     [mapPaging, setMapPaging] = useState({ key: "", cursors: [undefined] }),
     [token, setInputToken] = useState("");
   const can = (menu,action='view') => permitted(s.data?.access,s.selected[0],menu,action);
@@ -118,6 +122,10 @@ export default function App() {
   const canOperations = can('map') && can('harvesting') && can('field');
   const visibleDashboards=dashboardTabs.filter(tab=>({production:can('monthly'),operations:canOperations&&can('history'),wages:can('wages'),analytics:can('decisions'),decisions:can('decisions'),geospatial:can('map')&&can('geospatial')})[tab]);
   const mapVisible = !dataView && !storageView && !userAccessView && can('map');
+  useEffect(()=>{
+    if(!s.data||!userAccessView||superuser)return;
+    setSearchParams(userAccessLanding(s.data.access,s.selected[0]),{replace:true});
+  },[s.data?.access,s.selected[0],userAccessView,superuser,setSearchParams]);
   useEffect(()=>{
     if(visibleDashboards.length && !visibleDashboards.includes(dashboardTab)) setDashboardTab(visibleDashboards[0]);
   },[visibleDashboards.join(','),dashboardTab]);
@@ -421,6 +429,7 @@ export default function App() {
       .filter((a) => s.selected.includes(a.estateId) && a.kind === "imagery")
       .sort((a, b) => a.acquiredAt.localeCompare(b.acquiredAt));
   const goHistory = () => {
+    setMapSurface('estate');
     setDashboardTab("operations");
     openMap();
     requestAnimationFrame(() =>
@@ -595,7 +604,7 @@ export default function App() {
             </div>
           </div>
           }
-          {userAccessView ? (superuser ? <UserAccess estates={s.data.estates} onReload={reload}/> : <p className="callout">Superuser access is required.</p>) : <EstatePicker onAdd={()=>setSearchParams({view:'user-access'})}/>}
+          {userAccessView ? (superuser ? <UserAccess estates={s.data.estates} onReload={reload}/> : <p role="status">Opening your permitted workspace…</p>) : <EstatePicker onAdd={()=>setSearchParams({view:'user-access'})}/>}
           {!userAccessView && ((dataView&&!canData)||(storageView&&!can(archiveView?'archive':'storage'))||(!dataView&&!storageView&&!can('map'))) && <p className="callout">This menu is not enabled for your account in this location. Choose an available menu.</p>}
           {!estates.length && (
             <div className="callout">
@@ -632,24 +641,25 @@ export default function App() {
           )}
           {mapVisible && (
             <div>
-              <SummaryCards
+              <div hidden={mapSurface==='iot'}><SummaryCards
                 showEmptyMessage={dashboardTab === "operations"}
                 state={cardState}
                 scope={scope}
                 offline={s.data.offline}
                 onReview={() => dispatch(patch({ review: true }))}
-              />
+              /></div>
               {s.mapLoading && (
                 <p role="status">Loading selected activity window…</p>
               )}
-              <div className={'workspace'+(dashboardTab==='operations'?'':' workspace-wide')} id="workspace">
+              <div className={'workspace'+(mapSurface!=='iot'&&dashboardTab==='operations'?'':' workspace-wide')} id="workspace">
                 <section className="map-workspace">
                   <div className="map-topbar">
                     <div className="tabs">
-                      <button className="active">Estate map</button>
-                      <button onClick={goHistory}>Time machine</button>
+                      <button className={mapSurface==='estate'?'active':''} onClick={()=>setMapSurface('estate')}>Estate map</button>
+                      <button onClick={()=>{setMapSurface('estate');goHistory();}}>Time machine</button>
+                      <button className={mapSurface==='iot'?'active':''} onClick={()=>setMapSurface('iot')}>IOT Movement</button>
                     </div>
-                    <div className="map-tools">
+                    <div className="map-tools" style={mapSurface==='iot'?{display:'none'}:undefined}>
                       <button
                         disabled={near.length < 2}
                         onClick={() =>
@@ -674,6 +684,8 @@ export default function App() {
                       </button>
                     </div>
                   </div>
+                  {mapSurface==='iot'&&<Suspense fallback={<p role="status">Loading IOT Movement…</p>}><IotMovement key={s.selected[0]} estateId={s.selected[0]} estateName={estates[0]?.name} offline={s.data.offline}/></Suspense>}
+                  <div hidden={mapSurface==='iot'}>
                   <Suspense
                     fallback={
                       <div
@@ -767,17 +779,17 @@ export default function App() {
                   <div className="map-dashboard-panel" id="dashboard-panel-analytics" role="tabpanel" aria-labelledby="dashboard-tab-analytics" hidden={dashboardTab!=='analytics'}>
                     <AnalyticsDashboard key={'analytics-'+s.selected[0]} estateId={s.selected[0]} boundary={estates[0]?.boundary} enabled={dashboardTab==='analytics'&&can('decisions')} offline={s.data.offline} selection={s.selectedBlock} onHighlights={setAnalyticsHighlights}
                       onBlockChange={code=>dispatch(patch({selectedBlock:code?`${s.selected[0]}::${code}`:null,block:code?`${s.selected[0]}::${code}`:'all'}))}
-                      onSelect={code=>{dispatch(patch({selectedBlock:`${s.selected[0]}::${code}`,block:`${s.selected[0]}::${code}`}));document.getElementById('estateMap')?.scrollIntoView({behavior:'smooth',block:'center'});}}
-                      onMap={()=>{dispatch(patch({block:'all',selectedBlock:null}));document.getElementById('estateMap')?.scrollIntoView({behavior:'smooth',block:'center'});}}/>
+                      onSelect={code=>{dispatch(patch({selectedBlock:`${s.selected[0]}::${code}`,block:`${s.selected[0]}::${code}`}));focusEstateMap();}}
+                      onMap={()=>{dispatch(patch({block:'all',selectedBlock:null}));focusEstateMap({analysis:true});}}/>
                   </div>
                   <div className="map-dashboard-panel" id="dashboard-panel-decisions" role="tabpanel" aria-labelledby="dashboard-tab-decisions" hidden={dashboardTab!=='decisions'}>
                     {dashboardTab==='decisions'&&can('decisions')&&<DecisionSupport key={'decisions-'+s.selected[0]} estateId={s.selected[0]} selection={s.selectedBlock} offline={s.data.offline} onHighlights={setAnalyticsHighlights}
                       onBlockChange={code=>dispatch(patch({selectedBlock:code?`${s.selected[0]}::${code}`:null,block:code?`${s.selected[0]}::${code}`:'all'}))}
-                      onSelect={code=>{dispatch(patch({selectedBlock:`${s.selected[0]}::${code}`,block:`${s.selected[0]}::${code}`}));document.getElementById('estateMap')?.scrollIntoView({behavior:'smooth',block:'center'});}}/>}
+                      onSelect={code=>{dispatch(patch({selectedBlock:`${s.selected[0]}::${code}`,block:`${s.selected[0]}::${code}`}));focusEstateMap();}}/>}
                   </div>
                   <div className="map-dashboard-panel" id="dashboard-panel-geospatial" role="tabpanel" aria-labelledby="dashboard-tab-geospatial" hidden={dashboardTab!=='geospatial'}>
-                    {dashboardTab==='geospatial'&&can('map')&&can('geospatial')&&<GeospatialAnalysis key={'geospatial-'+s.selected[0]} estateId={s.selected[0]} initialReportId={s.geospatialReportId} offline={s.data.offline} onHighlights={setAnalyticsHighlights} onMap={()=>document.getElementById('estateMap')?.scrollIntoView({behavior:'smooth',block:'center'})}
-                      onSelect={code=>{dispatch(patch({selectedBlock:`${s.selected[0]}::${code}`,block:`${s.selected[0]}::${code}`}));document.getElementById('estateMap')?.scrollIntoView({behavior:'smooth',block:'center'});}}/>}
+                    {dashboardTab==='geospatial'&&can('map')&&can('geospatial')&&<GeospatialAnalysis key={'geospatial-'+s.selected[0]} estateId={s.selected[0]} initialReportId={s.geospatialReportId} offline={s.data.offline} onHighlights={setAnalyticsHighlights} onMap={()=>{dispatch(patch({block:'all',selectedBlock:null}));focusEstateMap({analysis:true});}}
+                      onSelect={code=>{dispatch(patch({selectedBlock:`${s.selected[0]}::${code}`,block:`${s.selected[0]}::${code}`}));focusEstateMap();}}/>}
                   </div>
                   <div className="map-dashboard-panel" id="dashboard-panel-operations" role="tabpanel" aria-labelledby="dashboard-tab-operations" hidden={dashboardTab!=='operations'}>
                     {dashboardTab==='operations'&&canOperations&&can('history')&&<Timeline key={s.selected[0]} onOpenReport={reportId=>{dispatch(patch({geospatialReportId:reportId}));setDashboardTab('geospatial');}} />}
@@ -785,8 +797,9 @@ export default function App() {
                   <div className="map-dashboard-panel" id="dashboard-panel-wages" role="tabpanel" aria-labelledby="dashboard-tab-wages" hidden={dashboardTab!=='wages'}>
                     {dashboardTab==='wages'&&can('wages')&&<WagesDashboard key={'wages-'+s.selected[0]} estateId={s.selected[0]} selection={s.selectedBlock || (s.block !== 'all'?s.block:null)} offline={s.data.offline} onData={()=>setSearchParams({view:'data',tab:'wages'})}/>}
                   </div>
+                  </div>
                 </section>
-                {dashboardTab==='operations'&&<aside className="activity-panel">
+                {mapSurface!=='iot'&&dashboardTab==='operations'&&<aside className="activity-panel">
                   <div className="activity-header">
                     <div>
                       <div className="eyebrow">FIELD OPERATIONS</div>

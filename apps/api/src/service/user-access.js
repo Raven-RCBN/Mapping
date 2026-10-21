@@ -4,6 +4,7 @@ import path from 'node:path';
 import fs from 'node:fs/promises';
 import { sessionModels, passwordHash } from './session-auth.js';
 import { QueryError } from './performance.js';
+import {currencyCodes,resolveCurrency} from '../../../../packages/shared/currency.js';
 import { accessMenus, isSuperuser } from '../../../../packages/shared/access.js';
 const key = z.string().regex(/^[a-zA-Z0-9-]{1,100}$/);
 const input = z.object({
@@ -18,7 +19,7 @@ export function requireSuperuser(req, res, next) {
   next();
 }
 export async function createLocation(models, config, body) {
-  const data = z.object({name:z.string().trim().min(1).max(100), location:z.string().trim().max(150).default(''), totalAreaHa:z.number().finite().min(0).nullable().optional()}).strict().parse(body);
+  const data = z.object({name:z.string().trim().min(1).max(100), location:z.string().trim().max(150).default(''), currency:z.enum(currencyCodes), totalAreaHa:z.number().finite().min(0).nullable().optional()}).strict().parse(body);
   if (await models.Estate.exists({name:{$regex:`^${data.name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}$`,$options:'i'}})) throw new QueryError('A location with this name already exists.',409);
   const estateId = randomUUID();
   const folder = path.join(config.dataDir,'estates',estateId);
@@ -70,4 +71,16 @@ export function installUserAccess(api, models, config) {
   api.post('/user-access/users',requireSuperuser,save);
   api.patch('/user-access/users/:id',requireSuperuser,save);
   api.post('/user-access/locations',requireSuperuser,async(req,res)=>res.status(201).json(await createLocation(models,config,req.body)));
+  api.patch('/user-access/locations/:id/currency',requireSuperuser,async(req,res)=>{
+    const estateId=key.parse(req.params.id),body=z.object({currency:z.enum(currencyCodes),expectedCurrency:z.enum(currencyCodes).nullable()}).strict().parse(req.body);
+    const estate=await models.Estate.findById(estateId).select('name currency').lean();
+    if(!estate)throw new QueryError('Estate not found',404);
+    if((estate.currency||null)!==body.expectedCurrency)throw new QueryError('Estate settings changed. Reload before saving.',409);
+    const sources=['Wage','VehicleImport','VehicleTransaction','TrialBalanceSummary','TrialBalanceDetail'].map(n=>models[n]).filter(Boolean);
+    const values=(await Promise.all(sources.map(m=>m.distinct('currency',{estateId})))).flat();
+    try{resolveCurrency(body.currency,values);}catch(e){throw new QueryError(e.message+' Changing setup does not convert existing amounts.',409);}
+    const changed=await models.Estate.updateOne({_id:estateId,currency:estate.currency||null},{$set:{currency:body.currency,currencyUpdatedAt:new Date(),currencyUpdatedBy:req.access.subject},$push:{currencyHistory:{at:new Date(),by:req.access.subject,previous:estate.currency||null,currency:body.currency}}});
+    if(!changed.matchedCount)throw new QueryError('Estate settings changed. Reload before saving.',409);
+    res.json({id:estateId,currency:body.currency});
+  });
 }

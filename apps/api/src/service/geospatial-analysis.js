@@ -1,3 +1,4 @@
+import {access} from 'node:fs/promises';
 import {canAccess} from './auth.js';
 import {QueryError} from './performance.js';
 import {secureStoredFile} from './files.js';
@@ -31,8 +32,14 @@ export function installGeospatialAnalysis(api,models,config){
     const report=await models.GeospatialReport.findOne({_id:req.params.reportId,estateId}).select('files').lean();
     const file=report?.files?.find(f=>f.key===req.params.key);
     if(!file)throw new QueryError('Survey file not found.',404);
-    const filename=await secureStoredFile(config.dataDir,file.path);
+    let storedPath=file.path,mime=file.mime;
+    // Optional optimized display derivative; originals remain available for download.
+    if(req.query.preview==='1'&&/^image\//.test(file.mime)&&/\.png$/i.test(file.path)){
+      const preview=file.path.replace(/\.png$/i,'.preview.webp');
+      try{const candidate=await secureStoredFile(config.dataDir,preview);await access(candidate);storedPath=preview;mime='image/webp';}catch(error){if(error.code!=='ENOENT'&&error.status!==404)throw error;}
+    }
+    const filename=await secureStoredFile(config.dataDir,storedPath);
     if(!file.path.startsWith(`estates/${estateId}/`))throw new QueryError('Survey file location mismatch.',409);
-    res.set('Cache-Control','private, no-store').type(file.mime).sendFile(filename);
+    res.set('Cache-Control','private, no-store').type(mime).sendFile(filename);
   });
 }
