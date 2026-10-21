@@ -57,3 +57,30 @@ smaller); the period geometry is fetched separately. These are payload measureme
 not a promise about end-user internet latency. API checks measured 6–8 ms for the
 sample warm block/view requests on the server. Browser checks confirm next-page
 navigation, searchable block filtering/reset and expected selected-block coverage.
+
+
+## Combined production yield — 21 October 2026
+
+Ton/Ha = (recorded block FFB tonnes + block-attributed loose-fruit tonnes) divided
+by the production record's effective hectares. The same definition applies to
+monthly/yearly production APIs, cursor grids/CSV, charts, yield analytics and map
+thresholds, decision-support comparisons, annual reference and fertiliser/yield
+comparisons. FFB, loose fruit, total crop and bunches are displayed separately.
+The stored `mt` remains FFB; average bunch weight remains FFB kg / bunches. Stored
+`totalCropMt` is not added again: derived responses calculate it from the components.
+Source-reported yield values retain their source meaning and are labelled as such.
+
+Existing accepted iPlant block records already contain the loose-fruit component;
+no duplicate import or redistribution of unmatched loose fruit is needed. The
+source audit passes 604 monthly and 72 annual groups against 5,470 accepted source
+rows and 35 approved block links. The existing exclusions and PDF hectare/palm basis
+remain in force. Missing or zero hectares withhold yield; no block allocation is
+inferred from estate-only loose-fruit quantities. Historical records lacking a
+loose-fruit field retain FFB plus any explicitly recorded loose fruit, and their
+missing loose-fruit value remains unavailable in the grid.
+
+Existing FFB-only model snapshots cannot estimate combined crop yield. Their tonnes
+remain visible; combined Ton/Ha is withheld unless a snapshot explicitly identifies
+its target as `productionBasis: ffb_plus_loose_fruit`. Forecast inputs are not changed
+by adding observed loose fruit to a future prediction. Observed chart yield and AI
+production evidence use the combined recorded components.

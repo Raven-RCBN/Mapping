@@ -122,3 +122,10 @@ test('decision support bounds and projects evidence while retaining baseline and
  assert.equal(body.items.find(r=>r.month===body.latest).mapBlockCode,'E-4');
  await request(app).get('/production/decision-support').query({estateId:'estate-b'}).expect(403);
 });
+test('monthly and yearly APIs retain loose fruit and use total crop for yield, FFB only for ABW',async()=>{
+ const r={...record,month:'2024-01',mt:100,looseFruitMt:5,bunches:10000,effectiveHa:10};
+ await request(app).post('/production/monthly').send({estateId:'estate-a',record:r}).expect(201);
+ await request(app).post('/production/yearly').send({estateId:'estate-a',record:{...r,year:2024,periodLabel:'Full year'}}).expect(201);
+ for(const route of ['monthly','yearly','recorded']){const q=route==='monthly'?{month:r.month}:route==='recorded'?{frequency:'yearly'}:{};const response=await request(app).get('/production/'+route).query({estateId:'estate-a',...q}).expect(200);const row=response.body.items.find(row=>route==='monthly'?row.month===r.month:row.year===2024);assert.equal(row.looseFruitMt,5);assert.equal(row.totalCropMt,105);assert.equal(row.yieldPerHa,10.5);assert.equal(row.abw,10);assert.equal(row.mt,100);}
+ await request(app).post('/production/monthly').send({estateId:'estate-a',record:{...r,month:'2024-02',receiptStatus:'not_received',mt:0,bunches:0,looseFruitMt:5}}).expect(400);
+});

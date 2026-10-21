@@ -1,3 +1,4 @@
+import {productionTonnes,productionYield} from './production-tonnage.js';
 // Division production is pooled by period; current inventory palms weight each map block once.
 // Source production records remain unchanged. Missing weights invalidate the division allocation.
 export function allocateProduction(records,names,blocks,mapCodes,{annual=false}={}){
@@ -8,7 +9,8 @@ export function allocateProduction(records,names,blocks,mapCodes,{annual=false}=
     const groups=new Map();
     for(const r of direct){const n=nm.get(r.sourceBlockId);if(!allowed.has(n?.mapBlockCode))continue;const key=JSON.stringify([n.mapBlockCode,annual?r.year:r.month]);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(r);}
     for(const [key,rows]of groups){const [code,period]=JSON.parse(key),b=bm.get(code),n=nm.get(rows[0].sourceBlockId);const complete=rows.every(r=>r.receiptStatus==='received'&&Number.isFinite(r.mt));const sum=k=>rows.every(r=>Number.isFinite(r[k]))?rows.reduce((a,r)=>a+r[k],0):null;const mt=complete?sum('mt'):null,bunches=sum('bunches'),ha=rows.every(r=>r.effectiveHa>0)?sum('effectiveHa'):null,palms=b?.totalPalms>0?b.totalPalms:null;
-      legacy.items.push({...rows[0],id:'recorded-'+key,sourceBlockCode:n.sourceBlockCode,mapBlockCode:code,division:n.division,mt,bunches,totalPalms:palms,effectiveHa:ha,yieldAreaHa:ha,abw:mt!=null&&bunches>0?mt*1000/bunches:null,yieldPerHa:mt!=null&&ha>0?mt/ha:null,bunchesPerHa:bunches!=null&&ha>0?bunches/ha:null,bunchesPerPalm:bunches!=null&&palms?bunches/palms:null,tonnesPerPalm:mt!=null&&palms?mt/palms:null,allocationBasis:'recorded',allocationReason:null});
+      const looseFruitMt=rows.some(r=>Number.isFinite(r.looseFruitMt))?rows.reduce((a,r)=>a+(Number.isFinite(r.looseFruitMt)?r.looseFruitMt:0),0):null;const tonnes=productionTonnes({mt,looseFruitMt});
+      legacy.items.push({...rows[0],...tonnes,id:'recorded-'+key,sourceBlockCode:n.sourceBlockCode,mapBlockCode:code,division:n.division,mt,bunches,totalPalms:palms,effectiveHa:ha,yieldAreaHa:ha,abw:mt!=null&&bunches>0?mt*1000/bunches:null,yieldPerHa:productionYield({...tonnes,mt,receiptStatus:complete?'received':'unavailable'},ha),bunchesPerHa:bunches!=null&&ha>0?bunches/ha:null,bunchesPerPalm:bunches!=null&&palms?bunches/palms:null,tonnesPerPalm:mt!=null&&palms?mt/palms:null,allocationBasis:'recorded',allocationReason:null});
       legacy.coverage.push({division:n.division,period,reason:null,basis:'recorded'});
     }
     return legacy;
@@ -33,13 +35,14 @@ export function allocateProduction(records,names,blocks,mapCodes,{annual=false}=
       // Preserve the period's recorded effective area, including separate source sub-blocks.
       const effectiveHa=blockRecords.length&&blockRecords.every(r=>Number.isFinite(r.effectiveHa)&&r.effectiveHa>0)?blockRecords.reduce((n,r)=>n+r.effectiveHa,0):null;
       const bunches=recordedTotal('bunches'),harvestingDays=recordedTotal('harvestingDays');
+      const looseFruitMt=blockRecords.some(r=>Number.isFinite(r.looseFruitMt))?blockRecords.reduce((a,r)=>a+(Number.isFinite(r.looseFruitMt)?r.looseFruitMt:0),0):null,tonnes=productionTonnes({mt,looseFruitMt});
       const sourceBlockId=`palm-${b.blockCode}`,id=`${sourceBlockId}-${period}`;
-      items.push({id,sourceBlockId,sourceBlockCode:b.blockCode,mapBlockCode:b.blockCode,division,month:rows[0].month,
+      items.push({...tonnes,id,sourceBlockId,sourceBlockCode:b.blockCode,mapBlockCode:b.blockCode,division,month:rows[0].month,
         ...(annual?{year:Number(period),periodLabel:periods.size===1?rows[0].periodLabel:'Mixed periods'}:{}),
         bunches,harvestingDays,abw:mt!==null&&bunches>0?mt*1000/bunches:null,
         bunchesPerHa:bunches!==null&&effectiveHa>0?bunches/effectiveHa:null,bunchesPerPalm:bunches!==null&&b.totalPalms>0?bunches/b.totalPalms:null,
         receiptStatus:reason?'unavailable':'received',mt,totalPalms:b.totalPalms,palmsPerHectare:b.palmsPerHectare,
-        effectiveHa,yieldAreaHa:effectiveHa,yieldPerHa:mt!==null&&effectiveHa>0?mt/effectiveHa:null,
+        effectiveHa,yieldAreaHa:effectiveHa,yieldPerHa:productionYield({mt,looseFruitMt,receiptStatus:reason?'unavailable':'received'},effectiveHa),
         divisionMt,divisionPalms,tonnesPerPalm:!reason?divisionMt/divisionPalms:null,allocationBasis:'palms',allocationReason:reason});
     }
   }

@@ -2,7 +2,7 @@ import {useEffect,useRef,useState} from 'react';
 import {api} from '../api';
 import {usePagedTable} from '../usePagedTable';
 import {productionNumber,productionCsvNumber} from './ProductionTables';
-const columns=[['month','Period'],['mapBlockCode','Map block'],['division','Division'],['sourceBlockCode','Source block'],['mt','Block FFB (MT)'],['bunches','Bunches'],['abw','ABW (kg)'],['totalPalms','Block palms'],['palmsPerEffectiveHa','Palm/Ha'],['effectiveHa','Effective ha'],['metricSource','Reference source'],['yieldPerHa','Ton/Ha']];
+const columns=[['month','Period'],['mapBlockCode','Map block'],['division','Division'],['sourceBlockCode','Source block'],['mt','Block FFB (MT)'],['looseFruitMt','Loose fruit (MT)'],['totalCropMt','Total crop (MT)'],['bunches','Bunches'],['abw','ABW (kg)'],['totalPalms','Block palms'],['palmsPerEffectiveHa','Palm/Ha'],['effectiveHa','Effective ha'],['metricSource','Reference source'],['yieldPerHa','Ton/Ha']];
 export default function RecordedProductionReport({estateId,view,onMap}){
  const annual=view==='yearly',reportColumns=annual?[...columns,['periodLabel','Coverage']]:columns;
  const periodScope=estateId+':'+view;

@@ -1,3 +1,4 @@
+import {productionTonnes} from './production-tonnage.js';
 import {fertiliserAnalysis} from './hts-analysis.js';
 // Compare identical mapped-block cohorts within each year. Do not impute missing records.
 export function fertiliserYield(data,production,{division='',block='',product='solids'}={}){
@@ -10,7 +11,7 @@ export function fertiliserYield(data,production,{division='',block='',product='s
   for(const b of f.blocks){
    const rs=annual.filter(r=>r.mapBlockCode===b.mapBlockCode),p=palms.get(b.mapBlockCode);
    if(!Number.isFinite(b.quantity)||!(p>0)||!rs.length||rs.some(r=>r.receiptStatus!=='received'||!Number.isFinite(r.mt)||!(r.effectiveHa>0)))continue;
-   pairs.push({kg:b.quantity,palms:p,mt:rs.reduce((n,r)=>n+r.mt,0),ha:rs.reduce((n,r)=>n+r.effectiveHa,0),partial:rs.some(r=>r.periodLabel!=='Full year')});
+   pairs.push({kg:b.quantity,palms:p,mt:rs.reduce((n,r)=>n+productionTonnes(r).totalCropMt,0),ha:rs.reduce((n,r)=>n+r.effectiveHa,0),partial:rs.some(r=>r.periodLabel!=='Full year')});
   }
   const sum=k=>pairs.reduce((n,r)=>n+r[k],0),partial=pairs.some(r=>r.partial);
   return {year,kgPerPalm:pairs.length?sum('kg')/sum('palms'):null,mtPerHa:pairs.length?sum('mt')/sum('ha'):null,blocks:pairs.length,excluded:f.blocks.length-pairs.length,partial};

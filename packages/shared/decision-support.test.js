@@ -30,3 +30,6 @@ test('future placeholder months do not displace latest actual production',()=>{
  const result=decisionSupport([row('2026-07',70),row('2026-08',null,{receiptStatus:'not_received'}),row('2026-09',0,{receiptStatus:'not_received'})],[],{asOf:'2026-10'});
  assert.equal(result.latest,'2026-07');assert.ok(result.alerts.some(a=>a.id==='stale-2026-07'));
 });
+test('performance compares combined crop yield across years while preserving separate FFB quantities',()=>{
+ const a=decisionSupport([row('2025-09',100,{looseFruitMt:10}),row('2026-09',100,{looseFruitMt:20})],[],{asOf:'2026-10'}).performance[0];assert.equal(a.currentYield,12);assert.equal(a.previousYield,11);assert.ok(Math.abs(a.change-100/11)<1e-9);assert.equal(a.mt,100);
+});

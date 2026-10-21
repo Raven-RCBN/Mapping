@@ -1,3 +1,4 @@
+import {productionTonnes,productionYield} from '../../../../packages/shared/production-tonnage.js';
 import {permitted} from '../../../../packages/shared/access.js';
 import {allocateProduction} from '../../../../packages/shared/production-allocation.js';
 import {installProductionComments} from './production-comments.js';
@@ -11,7 +12,7 @@ const id = z.string().regex(/^[a-zA-Z0-9-]{1,100}$/);
 const number = z.number().finite().min(0).nullable();
 export const monthlyInput = z.object({
   sourceBlockId: id, month, receiptStatus: z.enum(['received', 'not_received', 'unavailable']),
-  mt: number, bunches: number, workbookPalms: number.optional(), gpsHa: number.optional(),
+  mt: number, looseFruitMt:number.optional(), bunches: number, workbookPalms: number.optional(), gpsHa: number.optional(),
   effectiveHa: number.optional(), yieldAreaHa: number.optional(), sourceAbw: number.optional(),
   sourceYield: number.optional(), sourceBunchesHa:number.optional(), sourceBunchesPalm:number.optional(), harvestingDays: number.optional(),
   plantingYear: z.string().max(60).optional(), parameterNote: z.string().max(2000).optional(),
@@ -20,7 +21,7 @@ export const monthlyInput = z.object({
   sourceSystem: z.string().max(100).default('manual'), sourceKey: z.string().max(300).optional(),
   sourceHash: z.string().max(64).optional(), sourceCells: z.record(z.string(), z.string().max(100)).optional(),
   issues: z.array(z.string().max(500)).max(30).default([]),
-}).strict().refine(r => r.receiptStatus !== 'not_received' || [r.mt,r.bunches].every(v=>v===0 || v===null),
+}).strict().refine(r => r.receiptStatus !== 'not_received' || [r.mt,r.looseFruitMt??0,r.bunches].every(v=>v===0 || v===null),
   'Not received records must have zero or unavailable production.');
 export const nameInput = z.object({
   sourceBlockCode: z.string().trim().min(1).max(100), division: z.string().max(100),
@@ -35,7 +36,7 @@ export function productionView(r, name, block) {
   const comparable = !shared && r.workbookPalms != null && block?.totalPalms != null;
   const effectiveHa = Number.isFinite(r.effectiveHa) && r.effectiveHa > 0 ? r.effectiveHa : null;
   const received = r.receiptStatus === 'received';
-  return {...r, id:r._id, sourceBlockCode:name?.sourceBlockCode, division:name?.division,
+  return {...r,...productionTonnes(r), id:r._id, sourceBlockCode:name?.sourceBlockCode, division:name?.division,
     mapBlockCode:name?.mapBlockCode ?? null, linkMethod:name?.linkMethod ?? 'unmapped',
     totalPalms:block?.totalPalms ?? null, yieldAreaHa:effectiveHa,
     palmsPerEffectiveHa:effectiveHa && Number.isFinite(block?.totalPalms) ? block.totalPalms/effectiveHa : null,
@@ -45,7 +46,7 @@ export function productionView(r, name, block) {
     palmStatus:shared ? 'Shared polygon — counts not comparable' : !comparable ? 'Count unavailable' :
       r.workbookPalms===block.totalPalms ? 'Agrees' : 'Palm count differs',
     abw:received && r.bunches>0 && r.mt!=null ? r.mt*1000/r.bunches : null,
-    yieldPerHa:received && effectiveHa>0 && r.mt!=null ? r.mt/effectiveHa : null,
+    yieldPerHa:productionYield(r,effectiveHa),
     bunchesPerHa:received && effectiveHa>0 && r.bunches!=null ? r.bunches/effectiveHa : null,
     bunchesPerPalm:received && r.workbookPalms>0 && r.bunches!=null ? r.bunches/r.workbookPalms : null,
   };
@@ -92,13 +93,13 @@ export function installProduction(api, models) {
     const [year,monthNumber]=(latest?.month||asOf).split('-').map(Number);
     const start=new Date(Date.UTC(year,monthNumber-15,1)).toISOString().slice(0,7);
     const [raw,names,rainfall]=await Promise.all([
-      MonthlyProduction.find({estateId,month:{$gte:start,$lte:latest?.month||asOf}}).select('sourceBlockId month receiptStatus mt effectiveHa plantingYear -_id').limit(75001).maxTimeMS(10000).lean(),
+      MonthlyProduction.find({estateId,month:{$gte:start,$lte:latest?.month||asOf}}).select('sourceBlockId month receiptStatus mt ffbMt looseFruitMt effectiveHa plantingYear -_id').limit(75001).maxTimeMS(10000).lean(),
       ProductionName.find({estateId}).select('sourceBlockCode mapBlockCode').limit(5001).maxTimeMS(10000).lean(),
       models.AnnualRainfall?models.AnnualRainfall.find({estateId,active:true}).select('year monthly -_id').sort({year:1}).limit(501).maxTimeMS(10000).lean():[],
     ]);
     if(raw.length>75000||names.length>5000||rainfall.length>500)throw new QueryError('Decision support exceeds the supported estate size',413);
     const nm=new Map(names.map(n=>[n._id,n]));
-    res.set('Cache-Control','private, no-store').json({items:raw.map(r=>({...r,sourceBlockCode:nm.get(r.sourceBlockId)?.sourceBlockCode,mapBlockCode:nm.get(r.sourceBlockId)?.mapBlockCode??null})),rainfall,fromMonth:start,latest:latest?.month||null});
+    res.set('Cache-Control','private, no-store').json({items:raw.map(r=>({...r,...productionTonnes(r),sourceBlockCode:nm.get(r.sourceBlockId)?.sourceBlockCode,mapBlockCode:nm.get(r.sourceBlockId)?.mapBlockCode??null})),rainfall,fromMonth:start,latest:latest?.month||null});
   });
   api.get('/production/recorded',async(req,res)=>{
     const estateId=await scope(req);

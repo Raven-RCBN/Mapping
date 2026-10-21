@@ -1,3 +1,4 @@
+import {productionYield} from './production-tonnage.js';
 const finite = v => Number.isFinite(v) && v >= 0;
 export function shiftMonth(month, offset) {
  const [y,m]=month.split('-').map(Number);return new Date(Date.UTC(y,m-1+offset,1)).toISOString().slice(0,7);
@@ -14,7 +15,7 @@ export function decisionSupport(rows, rainfall=[], {asOf=new Date().toISOString(
  const index=new Map(unique.map(r=>[key(r),r]));
  const performance=unique.filter(r=>r.month===latest).map(r=>{
   const previous=index.get(`${r.sourceBlockId}|${shiftMonth(latest,-12)}`);
-  const currentYield=valid(r)?r.mt/r.effectiveHa:null,previousYield=previous&&valid(previous)?previous.mt/previous.effectiveHa:null;
+  const currentYield=valid(r)?productionYield(r):null,previousYield=previous&&valid(previous)?productionYield(previous):null;
   const comparable=currentYield!==null&&previousYield>0&&r.mapBlockCode===previous.mapBlockCode&&Math.abs(r.effectiveHa/previous.effectiveHa-1)<=.05&&r.plantingYear===previous.plantingYear;
   const change=comparable?(currentYield/previousYield-1)*100:null;
   return {...r,currentYield,previousYield,change,status:!valid(r)?'Missing data':change!==null&&change<=-dropPercent?'Review decline':change===null?'No comparable baseline':'Within threshold'};

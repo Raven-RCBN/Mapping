@@ -54,3 +54,11 @@ test('shared polygons sum separate source effective areas once while inventory p
 });
 
 test('recorded SQL block tonnes are not redistributed by palms or invalidated by missing palm counts',()=>{const r=[row('a',350,{allocationBasis:'recorded',bunches:10000}),row('b',50,{allocationBasis:'recorded',bunches:20000})];const result=allocateProduction(r,names,blocks.map(b=>({...b,totalPalms:null})),['A','B'],{annual:true});assert.deepEqual(result.items.map(x=>x.mt),[350,50]);assert.equal(result.items[0].abw,35);assert.equal(result.items[0].allocationBasis,'recorded');assert.equal(result.items[0].yieldPerHa,175);});
+test('recorded block components combine FFB and loose fruit once for monthly and annual yield',()=>{
+ const r=[row('a',100,{allocationBasis:'recorded',looseFruitMt:5,totalCropMt:105,bunches:10000}),row('b',50,{allocationBasis:'recorded',looseFruitMt:2,bunches:1000})];
+ for(const annual of [false,true]){const a=allocateProduction(r,names,blocks,['A','B'],{annual});assert.equal(a.items[0].mt,100);assert.equal(a.items[0].looseFruitMt,5);assert.equal(a.items[0].totalCropMt,105);assert.equal(a.items[0].yieldPerHa,52.5);assert.equal(a.items[0].abw,10);assert.equal(a.items[1].yieldPerHa,52/3);}
+ const sharedNames=names.map(n=>({...n,mapBlockCode:'A'}));const shared=allocateProduction(r,sharedNames,blocks,['A']);assert.equal(shared.items[0].totalCropMt,157);assert.equal(shared.items[0].looseFruitMt,7);assert.equal(shared.items[0].yieldPerHa,157/5);
+});
+test('division allocations add only the loose fruit recorded against each block',()=>{
+ const a=allocateProduction([row('a',350,{looseFruitMt:8}),row('b',50,{looseFruitMt:0})],names,blocks,['A','B']);assert.deepEqual(a.items.map(r=>r.totalCropMt),[108,300]);assert.equal(a.items[0].yieldPerHa,54);assert.equal(a.items[1].yieldPerHa,100);
+});
