@@ -84,3 +84,18 @@ remain visible; combined Ton/Ha is withheld unless a snapshot explicitly identif
 its target as `productionBasis: ffb_plus_loose_fruit`. Forecast inputs are not changed
 by adding observed loose fruit to a future prediction. Observed chart yield and AI
 production evidence use the combined recorded components.
+
+
+## Material pack normalization and initial estate totals (21 October)
+
+User confirmed that every net issued quantity is a count of its explicit product pack, including legacy GM/ML/KG/MT labels. For example, BM CERGAS (500 GMS) multiplies the issue count by 0.5 KG. When no pack size is stated, use the issued quantity: known source units convert to standard KG/L, while undefined BAG/BOTTLE counts retain their original quantity and unit. No pack size is inferred.
+
+Policy `product-pack-count-source-fallback-v2` stores normalized quantities, units and conversion basis alongside original source quantities. Net returns are already deducted once. The migration checks a digest of every original StockIssue field before and after, takes a private server backup, and records the method in source details. Future imports apply the same policy.
+
+- 5,081 approved material net issue records reconcile to 32 mapped blocks with zero missing map targets or source quantity differences.
+- 4,873 records convert to KG/L; 208 retain BAG/BOTTLE source quantities.
+- First analysis load shows estate totals by product and unit with cursor pagination. Selecting a product shows block totals, per-palm values and map colours. KG and L are kept separate.
+- Source audit confirms 602.85 MT loose fruit is allocated to 35 approved source blocks. The remaining 246.85 MT stays excluded under the earlier unmatched-record instruction. No new block aliases were inferred.
+- Validation: 11 material/shared/API tests passed, production frontend build passed; server verification covers all four years of estate pages, converted and source-unit per-palm values, other-estate isolation and preservation of ten unrelated collections.
+
+Private migration receipts and originals remain on Malaysia; they are not committed or published.
