@@ -1,3 +1,4 @@
+import RecordActions from './RecordActions';
 import {useEstateCurrency} from '../useEstateCurrency';
 import {useEffect, useState} from 'react';
 import {api} from '../api';
@@ -49,13 +50,13 @@ export default function VehicleTables({estateId}) {
     {view==='usage'&&<p className="table-note">iPlant rows are allocated block hours from vehicle distributions. They are not actual running-log totals. Usage is never inferred from fuel or parts costs.</p>}
     {view==='vehicles'&&<p className="table-note">Running hours and distance are separate activity usage totals for the selected period. “Not supplied” means no value has been recorded.</p>}
     {view==='items'&&<p className="table-note">Quantities come from source descriptions. Items and units are kept separate; cans, tins and sets are not converted to litres. Lines without a quantity remain in the cost total.</p>}
-    {result&&<div className="data-table-scroll" tabIndex="0"><table><thead><tr>{columns.map(h=><th key={h}>{h}</th>)}</tr></thead><tbody>
+    {result&&<div className="data-table-scroll" tabIndex="0"><table><thead><tr>{columns.map(h=><th key={h}>{h}</th>)}<th>Actions</th></tr></thead><tbody>
       {items.map(r=><tr key={r.id}>
         {view==='vehicles'?<><td><button className="text-button vehicle-name" onClick={()=>drillIntoVehicle(r.id)}>{r.name}</button>{r.identityStatus==='truncated_label'&&<small className="vehicle-flag">Source ID truncated</small>}</td><td>{r.sourceIdentifier||'Incomplete in source'}</td><td>{r.transactionCount}</td><td className="vehicle-number">{r.transactionCount?money(r.amountMinor):'Not supplied'}</td><td>{measure(r.runningHours)}</td><td>{measure(r.distanceKm)}</td><td><button className="text-button" onClick={()=>drillIntoVehicle(r.id)}>View transactions</button></td></>:
         view==='transactions'?<><td>{r.date}</td><td className="vehicle-name">{r.vehicleName}</td><td>{r.transactionNo}<small>{r.transactionType}</small></td><td>{r.category}<small>{r.subcategory}</small></td><td className="vehicle-description">{r.description}{r.reviewFlags.length>0&&<small className="vehicle-flag">Source notes available</small>}</td><td>{r.quantity==null?'Not stated':`${measure(r.quantity)} ${r.quantityUnit||''}`}</td><td className="vehicle-number">{money(r.amountMinor)}</td><td><button className="text-button" onClick={()=>setDetail(r)}>Details</button></td></>:
         view==='items'?<><td>{r.category}<small>{r.subcategory}</small></td><td className="vehicle-description">{r.itemName}</td><td>{r.quantityUnit||'Not stated'}</td><td>{r.quantity==null?'Not stated':measure(r.quantity)}</td><td>{r.missingQuantityCount}</td><td>{r.transactionCount}</td><td className="vehicle-number">{money(r.amountMinor)}</td></>:
         <><td>{r.workDate}</td><td>{r.vehicleName}</td><td>{r.task||'—'}</td><td>{r.activityDescription}<small>{r.activityCode||''}</small></td><td>{r.blockCode||'Not linked'}</td><td>{measure(r.runningHours)}</td><td>{measure(r.distanceKm)}</td><td>{r.usageBasis||'Recorded usage'}</td><td>{r.sourceSystem}</td></>}
-      </tr>)}
+      <td><RecordActions kind={view==='vehicles'?'vehicles':view==='usage'?'usage':'vehicle-expenses'} estateId={estateId} id={view==='items'?undefined:r.id}/></td></tr>)}
       {!items.length&&<tr><td colSpan={columns.length} className="vehicle-empty">{view==='usage'?'No running hours or kilometre records have been added for this selection.':'No vehicle records match this selection.'}</td></tr>}
     </tbody></table></div>}
     {result&&count>0&&<nav className="table-pagination" aria-label="Vehicle table pagination"><button className="button" disabled={page===0} onClick={()=>{paged.previous();setDetail(null)}}>Previous</button><span>{page*25+1}–{Math.min((page+1)*25,count)} of {count.toLocaleString()} · Page {page+1} of {pages}</span><button className="button" disabled={!result?.nextCursor} onClick={()=>{paged.next();setDetail(null)}}>Next</button></nav>}

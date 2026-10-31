@@ -4,8 +4,8 @@ import {accessMenus} from '../../../packages/shared/access.js';
 test('column selection affects only supported actions in the selected estate and preserves its input',()=>{
  const original={dafa:{comments:['view','edit'],storage:['view','edit']},other:{map:['view']}};
  const before=JSON.stringify(original),added=selectPermissionColumn(original,'dafa','add',true);
- assert.equal(JSON.stringify(original),before);assert.equal(added.other,original.other);assert.deepEqual(added.dafa.vehicles,undefined);assert.deepEqual(added.dafa.comments,['view','edit','add']);assert.equal(columnSelection(added.dafa,'add').all,true);assert.equal(columnSelection(added.dafa,'view').some,true);
- const deleted=selectPermissionColumn(original,'dafa','delete',true);assert.deepEqual(deleted.dafa.storage,['view','edit','delete']);assert.deepEqual(deleted.dafa.comments,['view','edit']);
+ assert.equal(JSON.stringify(original),before);assert.equal(added.other,original.other);assert.deepEqual(added.dafa.vehicles,['view','add']);assert.deepEqual(added.dafa.storage,['view','edit']);assert.deepEqual(added.dafa.comments,['view','edit','add']);assert.equal(columnSelection(added.dafa,'add').all,true);assert.equal(columnSelection(added.dafa,'view').some,true);
+ const deleted=selectPermissionColumn(original,'dafa','delete',true);assert.deepEqual(deleted.dafa.storage,['view','edit','delete']);assert.deepEqual(deleted.dafa.comments,['view','edit','delete']);assert.equal(deleted.dafa.map,undefined);
  const cleared=selectPermissionColumn(deleted,'dafa','view',false);assert.ok(accessMenus.every(([k])=>!cleared.dafa[k].length));assert.deepEqual(cleared.other,original.other);
 });
 test('clearing an action column retains view and other actions',()=>{

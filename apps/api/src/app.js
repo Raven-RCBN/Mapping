@@ -1,3 +1,5 @@
+import {installEstateRecords} from './service/estate-records.js';
+import {installEstateWorkbook} from './service/estate-workbook.js';
 import {installIotMovement} from './service/iot-movement.js';
 import {installOperations} from './service/operations.js';
 import {sourceDetailsShape,sourceDetailsInput} from './service/source-details.js';
@@ -172,6 +174,8 @@ export async function createApp(config) {
   installHtsAnalysis(api, models, config);
   installGeospatialAnalysis(api, models, config);
   installDocumentImports(api, models, config);
+  installEstateWorkbook(api, models, config);
+  installEstateRecords(api, models, config);
   installDecisionWeather(api, models);
   installYieldModel(api, models, config);
   installEstateAI(api, models, config);

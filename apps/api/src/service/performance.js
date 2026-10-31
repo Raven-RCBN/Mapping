@@ -1,5 +1,8 @@
 import { gzip } from "node:zlib";
 
+let summaryRevision=0;
+export function invalidateSummaries(){summaryRevision++;}
+
 // Bounded, process-local cache. No personnel records, credentials or images here.
 export class SummaryCache {
   constructor({
@@ -8,6 +11,7 @@ export class SummaryCache {
     maxEntries = 100,
   } = {}) {
     Object.assign(this, { ttl, maxBytes, maxEntries });
+    this.revision=summaryRevision;
     this.entries = new Map();
     this.bytes = 0;
   }
@@ -16,6 +20,7 @@ export class SummaryCache {
     this.bytes = 0;
   }
   get(key) {
+    if(this.revision!==summaryRevision){this.clear();this.revision=summaryRevision;}
     const e = this.entries.get(key);
     if (!e) return null;
     if (e.until < Date.now()) {
@@ -28,6 +33,7 @@ export class SummaryCache {
     return e.value;
   }
   set(key, value) {
+    if(this.revision!==summaryRevision){this.clear();this.revision=summaryRevision;}
     const bytes = Buffer.byteLength(JSON.stringify(value));
     if (bytes > this.maxBytes) return value;
     if (this.entries.has(key)) {

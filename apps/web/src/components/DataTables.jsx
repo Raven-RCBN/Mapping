@@ -1,3 +1,5 @@
+import RecordActions from './RecordActions';
+import EstateWorkbook from './EstateWorkbook';
 import OperationTables from './OperationTables';
 import DocumentImports from './DocumentImports';
 import {useAccess} from '../useAccess';
@@ -257,7 +259,7 @@ export default function DataTables({
       ? r.mapBlockNames?.join(", ") || "Pending"
       : format(r[key], key);
   if (!allowedTab(tab)) return <p>This table is not enabled for your account.</p>;
-  if(productionTab) return <div className="data-tables"><div className="table-tabs" role="tablist">{tabs.map(([id,name])=><button key={id} role="tab" aria-selected={tab===id} onClick={()=>{setTab(id);reset();setQuery('');}}>{name}</button>)}</div>{['materials','ledger','crop-receipts'].includes(tab)?<OperationTables key={`${productionEstateId}-${tab}`} estateId={productionEstateId} kind={tab} onMap={onSelectBlock}/>:tab==='imports'?<DocumentImports key={productionEstateId} estateId={productionEstateId} upload/>:tab==='trial-balance'?<TrialBalanceTables key={vehicleEstateId||'choose-estate'} estateId={vehicleEstateId}/>:tab==='vehicles'?<VehicleTables key={vehicleEstateId||'choose-estate'} estateId={vehicleEstateId}/>:tab==='comments'?<BlockComments key={productionEstateId} estateId={productionEstateId} table role={role} onMap={onSelectBlock}/>:tab==='wages'?<WagesTables key={productionEstateId} estateId={productionEstateId} role={role} onMap={onSelectBlock}/>:<ProductionTables key={productionEstateId} estateId={productionEstateId} role={role} view={tab} onMap={onSelectBlock}/>}</div>;
+  if(productionTab) return <div className="data-tables"><div className="table-tabs" role="tablist">{tabs.map(([id,name])=><button key={id} role="tab" aria-selected={tab===id} onClick={()=>{setTab(id);reset();setQuery('');}}>{name}</button>)}</div>{!popup&&<EstateWorkbook key={vehicleEstateId||'none'} estateId={vehicleEstateId} tab={tab}/>}{['materials','ledger','crop-receipts'].includes(tab)?<OperationTables key={`${productionEstateId}-${tab}`} estateId={productionEstateId} kind={tab} onMap={onSelectBlock}/>:tab==='imports'?<DocumentImports key={productionEstateId} estateId={productionEstateId} upload/>:tab==='trial-balance'?<TrialBalanceTables key={vehicleEstateId||'choose-estate'} estateId={vehicleEstateId}/>:tab==='vehicles'?<VehicleTables key={vehicleEstateId||'choose-estate'} estateId={vehicleEstateId}/>:tab==='comments'?<BlockComments key={productionEstateId} estateId={productionEstateId} table role={role} onMap={onSelectBlock}/>:tab==='wages'?<WagesTables key={productionEstateId} estateId={productionEstateId} role={role} onMap={onSelectBlock}/>:<ProductionTables key={productionEstateId} estateId={productionEstateId} role={role} view={tab} onMap={onSelectBlock}/>}</div>;
   return (
     <div className="data-tables">
       <div className="table-tabs" role="tablist">
@@ -285,6 +287,7 @@ export default function DataTables({
           </button>
         ))}
       </div>
+      {!popup&&<EstateWorkbook key={vehicleEstateId||'none'} estateId={vehicleEstateId} tab={tab}/>}
       <div className="table-toolbar">
         <label>
           Search {tab === "blocks" ? "blocks" : "records"}
@@ -365,7 +368,7 @@ export default function DataTables({
               {columns.map(([key, title]) => (
                 <th key={key}>{title}</th>
               ))}
-              {!popup && <th>View</th>}
+              {!popup && <><th>View</th><th>Actions</th></>}
             </tr>
           </thead>
           <tbody>
@@ -386,6 +389,7 @@ export default function DataTables({
                     </button>
                   </td>
                 )}
+                {!popup&&<td><RecordActions kind={tab} estateId={r.estateId||vehicleEstateId} id={r.id}/></td>}
               </tr>
             ))}
           </tbody>
