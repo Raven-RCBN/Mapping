@@ -4,7 +4,7 @@ export function routePolicy(method, pathname) {
   const p=pathname.replace(/\/$/,'') || '/';
   const read=['GET','HEAD'].includes(method);
   let menus, action=read?'view':method==='DELETE'?'delete':method==='POST'?'add':'edit', resource;
-  if(p.startsWith('/estate-records/')){const menu={Block:'blocks',ProductionName:'names',MonthlyProduction:'monthly',YearlyProduction:'yearly',StockIssue:'materials',LedgerEntry:'ledger',CropReceipt:'crop-receipts',Wage:'wages',Vehicle:'vehicles',VehicleUsage:'vehicles',VehicleTransaction:'vehicles',TrialBalanceSummary:'trial-balance',TrialBalanceDetail:'trial-balance',ProductionComment:'comments',HarvestingActivity:'harvesting',FieldActivity:'field',DocumentRow:'imports'}[p.split('/')[2]];return menu?{menus:[menu],action}:null;}
+  if(p.startsWith('/estate-records/')){const menu={Block:'blocks',ProductionName:'names',MonthlyProduction:'monthly',YearlyProduction:'yearly',StockIssue:'materials',LedgerEntry:'ledger',CropReceipt:'crop-receipts',Wage:'wages',WageArea:'wages',Vehicle:'vehicles',VehicleUsage:'vehicles',VehicleTransaction:'vehicles',TrialBalanceSummary:'trial-balance',TrialBalanceDetail:'trial-balance',ProductionComment:'comments',HarvestingActivity:'harvesting',FieldActivity:'field',DocumentRow:'imports'}[p.split('/')[2]];return menu?{menus:[menu],action}:null;}
   if(p==='/estate-workbook/template'&&read)return {menus:dataMenus,any:true,action:'view'};
   if(['/estate-workbook/preview','/estate-workbook/apply'].includes(p)&&method==='POST')return {menus:['imports'],action:'add'};
   if(p==='/bootstrap') return {bootstrap:true};
