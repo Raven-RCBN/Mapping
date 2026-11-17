@@ -1,0 +1,12 @@
+android/.gradle/
+android/local.properties
+android/app/build/
+android/app/src/main/assets/
+*.apk
+*.jks
+*.keystore
+node_modules/
+
+# Branding source assets are required to build the application.
+!android/app/src/main/res/drawable-nodpi/agrinexus_logo.png
+!android/app/src/main/res/drawable-nodpi/mapintel_wordmark.png

@@ -1,0 +1,103 @@
+diff --git a/apps/api/src/service/session-auth.js b/apps/api/src/service/session-auth.js
+index 18f9fce..5633cef 100644
+--- a/apps/api/src/service/session-auth.js
++++ b/apps/api/src/service/session-auth.js
+@@ -5,6 +5,7 @@ const scrypt = promisify(derive);
+ const hash = (value) => createHash('sha256').update(value).digest('hex');
+ const COOKIE = '__Host-mapping-session';
+ const ttl = 8 * 60 * 60 * 1000;
++const rememberTtl = 30 * 24 * 60 * 60 * 1000;
+ export async function passwordHash(password) {
+   if (typeof password !== 'string' || password.length < 8 || password.length > 1024)
+     throw Error('Password must contain 8–1024 characters.');
+@@ -25,6 +26,7 @@ export function sessionModels(connection) {
+   }, { timestamps: true }));
+   const Session = connection.models.MappingSession || connection.model('MappingSession', new Schema({
+     _id: String, subject: { type: String, required: true, index: true }, expiresAt: { type: Date, expires: 0, required: true },
++    remember: { type: Boolean, default: false },
+   }));
+   return { User, Session };
+ }
+@@ -58,9 +60,9 @@ export async function sessionAuth(connection, origin) {
+   });
+   router.post('/login', async (req, res, next) => {
+     try {
+-      const { login, password } = req.body || {};
++      const { login, password, remember = false } = req.body || {};
+       if (limited(req.ip)) return res.status(429).json({ error: 'Too many attempts. Try again in 15 minutes.' });
+-      if (typeof login !== 'string' || login.length > 100 || typeof password !== 'string' || password.length > 1024)
++      if (typeof login !== 'string' || login.length > 100 || typeof password !== 'string' || password.length > 1024 || typeof remember !== 'boolean')
+         return res.status(401).json({ error: 'Invalid username or password.' });
+       const user = await User.findById(login).lean();
+       const valid = await verify(password, user?.passwordHash || dummy);
+@@ -69,8 +71,9 @@ export async function sessionAuth(connection, origin) {
+       // Replace any previous browser session on this device.
+       const previous = token(req);
+       if (previous) await Session.deleteOne({ _id: hash(previous) });
+-      await Session.create({ _id: hash(raw), subject: user._id, expiresAt: new Date(Date.now() + ttl) });
+-      res.cookie(COOKIE, raw, { ...cookie, maxAge: ttl });
++      const lifetime = remember ? rememberTtl : ttl;
++      await Session.create({ _id: hash(raw), subject: user._id, remember, expiresAt: new Date(Date.now() + lifetime) });
++      res.cookie(COOKIE, raw, { ...cookie, maxAge: lifetime });
+       res.json({ data: { authenticated: true } });
+     } catch (e) { next(e); }
+   });
+@@ -90,6 +93,16 @@ export async function sessionAuth(connection, origin) {
+       const session = await Session.findOne({ _id: hash(raw), expiresAt: { $gt: new Date() } }).lean();
+       const user = session && await User.findById(session.subject).lean();
+       if (!user?.active) return res.status(401).json({ error: 'Sign in to MapIntel.' });
++      // A remembered session has a rolling inactivity window. Never renew an
++      // expired/revoked session or skip the current active-user/access lookup.
++      // Cap renewal writes to at most once per five minutes per session.
++      if (session.remember && session.expiresAt.getTime() < Date.now() + rememberTtl - 5 * 60 * 1000) {
++        const renewed = await Session.updateOne(
++          { _id: session._id, remember: true, expiresAt: { $gt: new Date() } },
++          { $set: { expiresAt: new Date(Date.now() + rememberTtl) } },
++        );
++        if (!renewed.matchedCount) return res.status(401).json({ error: 'Sign in to MapIntel.' });
++      }
+       const isSuperuser = user._id === 'Admin' && user.role === 'admin';
+       req.access = { subject: user._id, role: user.role, isSuperuser, managed: true, estateIds: isSuperuser ? null : user.estateIds, permissions: user.permissions || {}, revision: user.revision || 0 };
+       next();
+diff --git a/apps/api/test/session-auth.test.js b/apps/api/test/session-auth.test.js
+index 6b944df..67cc71e 100644
+--- a/apps/api/test/session-auth.test.js
++++ b/apps/api/test/session-auth.test.js
+@@ -62,3 +62,37 @@ test('repeated failed sign-in attempts are throttled', async () => {
+   for (let i = 0; i < 12; i++) last = await login('wrong');
+   assert.equal(last.status, 429);
+ });
++
++test('remembered sessions roll for 30 idle days without reviving expired, revoked or disabled access', async () => {
++  await User.create({ _id: 'RememberTest', passwordHash: await passwordHash('remember-test-password'), role: 'viewer', estateIds: ['estate-a'] });
++  const auth = await sessionAuth(mongoose.connection, origin);
++  const mobile = express();
++  mobile.use('/identity', auth.router);
++  mobile.get('/private', auth.authenticate, (req, res) => res.json(req.access));
++  const signIn = remember => request(mobile).post('/identity/login').set('Origin', origin).set('X-Mapping-Client', '1')
++    .send({ login: 'RememberTest', password: 'remember-test-password', ...(remember === undefined ? {} : { remember }) });
++  const regular = await signIn();
++  assert.equal(regular.status, 200);
++  assert.ok(regular.headers['set-cookie'][0].includes('Max-Age=28800'));
++  assert.equal((await Session.findOne({ subject: 'RememberTest' }).lean()).remember, false);
++  await Session.deleteMany({ subject: 'RememberTest' });
++  assert.equal((await signIn('true')).status, 401);
++  const remembered = await signIn(true);
++  assert.equal(remembered.status, 200);
++  assert.ok(remembered.headers['set-cookie'][0].includes('Max-Age=2592000'));
++  const cookie = remembered.headers['set-cookie'][0].split(';')[0];
++  let record = await Session.findOne({ subject: 'RememberTest' }).lean();
++  assert.equal(record.remember, true);
++  assert.ok(record.expiresAt.getTime() > Date.now() + 29 * 86400000);
++  await Session.updateOne({ _id: record._id }, { expiresAt: new Date(Date.now() + 60000) });
++  assert.equal((await request(mobile).get('/private').set('Cookie', cookie)).status, 200);
++  record = await Session.findById(record._id).lean();
++  assert.ok(record.expiresAt.getTime() > Date.now() + 29 * 86400000);
++  await User.updateOne({ _id: 'RememberTest' }, { active: false });
++  assert.equal((await request(mobile).get('/private').set('Cookie', cookie)).status, 401);
++  await User.updateOne({ _id: 'RememberTest' }, { active: true });
++  await Session.updateOne({ _id: record._id }, { expiresAt: new Date(0) });
++  assert.equal((await request(mobile).get('/private').set('Cookie', cookie)).status, 401);
++  await Session.deleteOne({ _id: record._id });
++  assert.equal((await request(mobile).get('/private').set('Cookie', cookie)).status, 401);
++});
