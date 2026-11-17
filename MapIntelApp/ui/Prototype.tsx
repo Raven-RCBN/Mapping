@@ -670,6 +670,7 @@ export default function Prototype() {
   );
   const block = production.blocks.find((b) => b.blockCode === selected);
   function nav(t: Tab) {
+    if (t === "Map" && tab === "Production") setFertiliserLayer(null);
     setTab(t);
     setSearch("");
     setSheet("");
@@ -945,23 +946,6 @@ export default function Prototype() {
             </button>
           </div>
           <div className="map-canvas">
-            {fertiliserLayer && (
-              <details className="fertiliser-key">
-                <summary>
-                  {fertiliserLayer.label} · {fertiliserLayer.unit}
-                </summary>
-                {fertiliserLayer.bands?.map((b) => (
-                  <span key={b.min}>
-                    <i style={{ background: b.color }} />
-                    {b.label}
-                  </span>
-                ))}
-                <span>
-                  <i style={{ background: "#e7e9ec" }} />
-                  No record
-                </span>
-              </details>
-            )}
             <EstateMap
               mode={mode}
               date={date}
@@ -975,10 +959,12 @@ export default function Prototype() {
               nearby={nearby}
               focus={focus}
             />
-            <button className="layers-fab" onClick={() => setSheet("layers")}>
-              <LayersIcon />
-              Layers
-            </button>
+            {!fertiliserLayer && (
+              <button className="layers-fab" onClick={() => setSheet("layers")}>
+                <LayersIcon />
+                Layers
+              </button>
+            )}
             <div className="zoom-controls">
               <button
                 aria-label="Zoom in"
@@ -1026,10 +1012,28 @@ export default function Prototype() {
                 <Crosshair1Icon />
               </button>
             </div>
-            <div className="map-legend">
-              <span className="legend-line" /> Estate blocks{" "}
-              <span className="legend-dot" /> Points of interest
-            </div>
+            {fertiliserLayer ? (
+              <details open className="map-legend fertiliser-key">
+                <summary>
+                  {fertiliserLayer.label} · {fertiliserLayer.unit}
+                </summary>
+                {fertiliserLayer.bands?.map((b) => (
+                  <span key={b.min}>
+                    <i style={{ background: b.color }} />
+                    {b.label}
+                  </span>
+                ))}
+                <span>
+                  <i style={{ background: "#e7e9ec" }} />
+                  No record
+                </span>
+              </details>
+            ) : (
+              <div className="map-legend">
+                <span className="legend-line" /> Estate blocks{" "}
+                <span className="legend-dot" /> Points of interest
+              </div>
+            )}
           </div>
           <div className="map-caption">
             <span>
@@ -1058,24 +1062,41 @@ export default function Prototype() {
                 <span className="eyebrow">SELECTED BLOCK</span>
                 <h3>{selected}</h3>
                 <p>
-                  {block
-                    ? `${num(block.plantedHectares, 2)} ha · ${block.plantingYear || "Year unavailable"}`
-                    : "No linked block details"}
+                  {fertiliserLayer
+                    ? fertiliserLayer.details?.[selected]
+                      ? `${num(fertiliserLayer.details[selected].quantity, 2)} ${fertiliserLayer.quantityUnit} · ${num(fertiliserLayer.details[selected].value, 2)} ${fertiliserLayer.unit}`
+                      : "No fertiliser records for this selection"
+                    : block
+                      ? `${num(block.plantedHectares, 2)} ha · ${block.plantingYear || "Year unavailable"}`
+                      : "No linked block details"}
                 </p>
               </div>
-              {(live
-                ? live.allowMonthly || live.allowYearly
-                : access !== "Map only") && (
+              {fertiliserLayer ? (
                 <button
                   className="outline-button"
                   onClick={() => {
-                    setSearch(selected);
-                    setTab("Production");
+                    setAnalyticsKind("fertiliser");
+                    nav("Analytics");
                   }}
                 >
-                  Production
+                  Fertiliser details
                   <ArrowRightIcon />
                 </button>
+              ) : (
+                (live
+                  ? live.allowMonthly || live.allowYearly
+                  : access !== "Map only") && (
+                  <button
+                    className="outline-button"
+                    onClick={() => {
+                      setSearch(selected);
+                      setTab("Production");
+                    }}
+                  >
+                    Production
+                    <ArrowRightIcon />
+                  </button>
+                )
               )}
               <button
                 aria-label="Clear block"
@@ -1315,6 +1336,8 @@ export default function Prototype() {
                 {analyticsKind === "fertiliser" ? (
                   <FertiliserAnalytics
                     data={(window as any).__MAPINTEL_DATA__?.fertiliser}
+                    initialScope={fertiliserLayer?.scope}
+                    initialBlock={fertiliserLayer ? selected : ""}
                     onMap={(layer) => {
                       setFertiliserLayer(layer);
                       setHighlights([]);
@@ -1379,6 +1402,7 @@ export default function Prototype() {
                             value={year}
                             onChange={(e) => {
                               setYear(Number(e.target.value));
+                              setFertiliserLayer(null);
                               setHighlights([]);
                             }}
                           >

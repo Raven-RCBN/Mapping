@@ -1,6 +1,6 @@
-# MapIntel Android — 36.82.102
+# MapIntel Android — 36.82.103
 
-Installed application: `ai.agrinexus.mapintel`. Launcher name: **MapIntel**, with the gold Agrinexus a. Login/loading use the supplied MapIntel / ESTATE INTELLIGENCE wordmark beside the a. The login footer reads `MapIntel Ver 36.82.102` and `© Agrinexus Inteligence 2026`, as requested.
+Installed application: `ai.agrinexus.mapintel`. Launcher name: **MapIntel**, with the gold Agrinexus a. Login/loading use the supplied MapIntel / ESTATE INTELLIGENCE wordmark beside the a. The login footer reads `MapIntel Ver 36.82.103` and `© Agrinexus Inteligence 2026`, as requested.
 
 ## Development structure
 
@@ -21,7 +21,7 @@ npm run build:ui
 ./android/gradlew -p android :app:assembleDebug :app:lintDebug
 ```
 
-Set `JAVA_HOME` and `ANDROID_HOME` for the local installation. APK: `android/app/build/outputs/apk/debug/app-debug.apk`. The shared package is saved at `outputs/mapintel-android-20261117/MapIntel-36.82.102.apk` relative to the repository root. The installed/shared package is a debug-signed testing build; no private distribution key is included. Generated assets, APKs, SDK paths and caches are excluded from Git.
+Set `JAVA_HOME` and `ANDROID_HOME` for the local installation. APK: `android/app/build/outputs/apk/debug/app-debug.apk`. The shared package is saved at `outputs/mapintel-android-20261117/MapIntel-36.82.103.apk` relative to the repository root. The installed/shared package is a debug-signed testing build; no private distribution key is included. Generated assets, APKs, SDK paths and caches are excluded from Git.
 
 ## API and access
 
@@ -60,3 +60,7 @@ The compact header maximizes map height. Analytics offers Production per hectare
 Loading keeps the gold a stationary with an animated hollow gold ring and “Please wait while loading”. Fertiliser analysis deliberately excludes charts; it includes the webapp quantity/bag/kg-per-palm/MT-per-ha/area cards and mapped block table.
 
 Selection controls use compact in-app lists rather than Android popup dialogs. Production exposes the two latest available annual reporting years (currently 2025 and 2026); fertiliser uses its own dataset years. Keyboard dismissal blurs only text-edit controls and does not clear WebView focus.
+
+In fertiliser map view, a compact floating fertiliser key replaces the usual estate/POI key without consuming map height, and the Layers button is hidden. Returning from Production to its map restores the normal legend and Layers button. A selected map block shows fertiliser quantity/rate and opens the matching fertiliser detail filters; blocks without records retain their selected code and show unavailable values.
+
+Fertiliser acceptance is now verified on-device: the downloaded webapp records/cards/shading survive a true offline cold restart. The floating key uses the original vertical range list, expanded by default, positioned clear of zoom/GPS controls. See VALIDATION.md for the direct source comparison and offline restart evidence.

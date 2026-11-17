@@ -1327,3 +1327,50 @@
 .compact-select-list button:active {
   background: #dae7d4;
 }
+
+/* Swap the existing floating map key without reducing the map viewport. */
+.map-canvas > .fertiliser-key {
+  position: absolute;
+  left: 14px;
+  right: 72px;
+  bottom: 12px;
+  top: auto;
+  width: auto;
+  max-width: calc(100% - 86px);
+  max-height: 42%;
+  display: block;
+  z-index: 3;
+  overflow: auto;
+  pointer-events: auto;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #fffffff2;
+  box-shadow: 0 2px 8px #28483116;
+}
+.map-canvas > .fertiliser-key summary {
+  font-size: 10px;
+  line-height: 1.4;
+}
+.map-canvas > .fertiliser-key span {
+  display: inline-flex;
+  gap: 6px;
+  margin: 6px 10px 2px 0;
+  white-space: nowrap;
+  font-size: 9px;
+}
+
+/* Original vertical key: one range per row, floating in the free left column. */
+.map-canvas > .fertiliser-key {
+  left: 14px;
+  right: auto;
+  top: 14px;
+  bottom: auto;
+  width: 164px;
+  max-width: calc(100% - 86px);
+  max-height: calc(100% - 28px);
+}
+.map-canvas > .fertiliser-key span {
+  display: flex;
+  margin: 6px 0 0;
+  font-size: 10px;
+}

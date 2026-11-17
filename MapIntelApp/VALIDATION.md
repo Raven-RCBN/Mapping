@@ -1,3 +1,18 @@
+# MapIntel 36.82.103 — fertiliser online/offline acceptance and map context
+
+- Download completed on the connected Samsung phone. Saved fertiliser fields were compared directly with the authenticated webapp `/hts-analysis` response and matched, including 1,165 source records, products, palm counts, year sections and unit basis.
+- Six fertiliser cards rendered from downloaded data. Aggregate quantity, bag equivalents, MT/ha, mapped-block count and area matched the webapp screenshot; unavailable kg/palm remains unavailable rather than estimated.
+- With Wi-Fi and mobile data temporarily disabled and no active default network, a force-stop/cold restart reopened the remembered account. Fertiliser and boundary digests, all six card values and the shade legend matched the online state. Map image/canvas were ready. Original network settings were restored in a finally block.
+- A real map touch while offline selected a block. Its action was Fertiliser details, not Production; the detail screen retained the selected block, year, product and division. Blocks without records retain their code and show unavailable values.
+- The original-style vertical legend is expanded by default and floats inside the map. Geometry checks confirmed the key is clear of the zoom buttons. It replaces the estate/POI key without consuming map height. Layers is hidden only in fertiliser map view.
+- Returning via Production to Map restored the normal estate/POI legend and Layers button and removed fertiliser shading.
+- All 16 Node regression tests passed. Android assembly/lint and APK signature verification passed. Installed version: 36.82.103 / 3682103. No server publication was needed.
+- APK: `outputs/mapintel-android-20261117/MapIntel-36.82.103.apk`; SHA-256: `a4c4472d30deae8ee930a9d7488860752ae745c6f409f0293c08950b6b339f99`.
+
+This supersedes earlier pending acceptance notes for fertiliser downloads. The separate external nearby-location map download remains outside this fertiliser verification.
+
+---
+
 # MapIntel 36.82.102 — compact dropdown correction
 
 - Fixed keyboard dismissal closing dropdowns: text inputs alone are blurred; native keyboard hiding no longer clears WebView focus.

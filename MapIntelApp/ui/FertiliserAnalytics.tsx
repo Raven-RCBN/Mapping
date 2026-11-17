@@ -1,3 +1,4 @@
+import { buildFertiliserLayer } from "./fertiliser-view.js";
 import CompactSelect from "./CompactSelect";
 import { useMemo, useState } from "react";
 import {
@@ -12,18 +13,22 @@ const n = (v: any, d = 2) =>
 export default function FertiliserAnalytics({
   data,
   onMap,
+  initialScope = {},
+  initialBlock = "",
 }: {
   data: any;
+  initialScope?: any;
+  initialBlock?: string;
   onMap: (layer: any) => void;
 }) {
   const years = [
     ...new Set((data?.fertiliserSections || []).map((r: any) => r.year)),
   ].sort((a: any, b: any) => b - a);
-  const [year, setYear] = useState(String(years[0] || "")),
-    [division, setDivision] = useState(""),
-    [block, setBlock] = useState(""),
-    [product, setProduct] = useState("solids"),
-    [metric, setMetric] = useState("quantity");
+  const [year, setYear] = useState(String(initialScope.year || years[0] || "")),
+    [division, setDivision] = useState(initialScope.division || ""),
+    [block, setBlock] = useState(initialBlock || initialScope.block || ""),
+    [product, setProduct] = useState(initialScope.product || "solids"),
+    [metric, setMetric] = useState(initialScope.metric || "quantity");
   const valid =
     Array.isArray(data?.fertiliser) &&
     Array.isArray(data?.products) &&
@@ -62,29 +67,8 @@ export default function FertiliserAnalytics({
     ),
   ].sort((a: any, b: any) => a.localeCompare(b, undefined, { numeric: true }));
   function show() {
-    const result = fertiliserAnalysis(data, {
-      year,
-      division,
-      block,
-      product,
-      metric: unit === "kg" ? "perPalm" : metric,
-    });
     onMap(
-      fertiliserMapLayer(result, {
-        estateId: data.estateId,
-        year,
-        division,
-        productLabel:
-          product === "solids"
-            ? "Solid fertiliser"
-            : data.products[Number(product)].name,
-        unit:
-          unit === "kg"
-            ? "kg/palm"
-            : metric === "perHa"
-              ? unit + "/mapped ha"
-              : unit,
-      }),
+      buildFertiliserLayer(data, { year, division, block, product, metric }),
     );
   }
   return (
@@ -121,6 +105,9 @@ export default function FertiliserAnalytics({
             onChange={(e) => setBlock(e.target.value)}
           >
             <option value="">All mapped blocks</option>
+            {block && !codes.includes(block) && (
+              <option value={block}>{block}</option>
+            )}
             {codes.map((c: any) => (
               <option key={c}>{c}</option>
             ))}
