@@ -1,3 +1,11 @@
+# MapIntel 36.82.105 — APK packaging without test notes
+
+Removed remaining user-facing testing/preview wording from offline-viewing and location messages. The built app bundle was checked for test-only, test-estate, Mapping-test, testing-offline, preview-location and mockup notes; none were present. The separate MapIntelProbe instrumentation code was confirmed absent from the application DEX.
+
+Android assembly/lint, APK signature verification, application label and version checks passed. APK: `outputs/mapintel-android-20261117/MapIntel-36.82.105.apk`; SHA-256: `51da65683d5c290a682f5eeb7507a56b69274661b1098a289ecea484ff9da542`. This retains the existing debug signing/build configuration documented in README; no signing key is included in Git.
+
+---
+
 # MapIntel 36.82.104 — white loading background
 
 Native loading panels and the bundled map-loading overlay now use pure white. Device instrumentation returned loadingBackgroundWhite=true, logoStationary=true, ringAnimates=true and loadingMessage=true. Installed over the existing app without clearing its session or the verified fertiliser snapshot; fertiliser and boundary digests remain unchanged. Android assembly/lint and APK signature verification passed.

@@ -1694,7 +1694,7 @@ export default function Prototype() {
                   onClick={() => {
                     if (!saved && !offline) {
                       setMessage(
-                        "Save the estate before testing offline viewing.",
+                        "Save the estate to use offline viewing.",
                       );
                       setSheet("offline");
                       return;

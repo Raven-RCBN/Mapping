@@ -2,7 +2,7 @@ plugins { id 'com.android.application' }
 android {
  namespace 'ai.agrinexus.mapintel'
  compileSdk 35
- defaultConfig { applicationId 'ai.agrinexus.mapintel'; minSdk 26; targetSdk 35; versionCode 3682104; versionName '36.82.104'; testInstrumentationRunner 'ai.agrinexus.mapintel.MapIntelProbe' }
+ defaultConfig { applicationId 'ai.agrinexus.mapintel'; minSdk 26; targetSdk 35; versionCode 3682105; versionName '36.82.105'; testInstrumentationRunner 'ai.agrinexus.mapintel.MapIntelProbe' }
  buildFeatures { buildConfig true }
  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
  buildTypes { release { minifyEnabled false } }

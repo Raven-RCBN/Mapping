@@ -17,7 +17,7 @@ export async function savedNearby(): Promise<Nearby | null> {
 }
 export async function downloadNearby(fix: Fix): Promise<Nearby> {
   if (fix.demo)
-    throw Error("A preview location never requests a real location map.");
+    throw Error("A location map requires a current GPS position.");
   // A single bounded query, requested by the user. No background tracking or tiles.
   const lat = fix.latitude,
     lon = fix.longitude,
