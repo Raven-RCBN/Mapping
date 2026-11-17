@@ -1,3 +1,4 @@
+import CompactSelect from "./CompactSelect";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BottomSheet,
@@ -630,6 +631,13 @@ export default function Prototype() {
       .filter((r) => r.mt != null)
       .reduce((s, r) => s + (r.mt || 0), 0),
     bunches = baseRows.reduce((s, r) => s + (r.bunches || 0), 0);
+  const reportingYears = [
+    ...new Set(
+      production.rows.filter((r) => r.kind === "yearly").map((r) => r.year),
+    ),
+  ]
+    .sort((a, b) => b - a)
+    .slice(0, 2);
   const annual = production.rows.filter(
     (r) =>
       r.kind === "yearly" &&
@@ -864,12 +872,12 @@ export default function Prototype() {
       onClickCapture={(e) => {
         if (
           e.target instanceof Element &&
-          e.target.closest('button,a,select,[role="button"]')
+          e.target.closest('button,a,[role="button"]')
         )
           keyboard.hide();
       }}
       onKeyDownCapture={(e) => {
-        if (e.key === "Enter") {
+        if (e.key === "Enter" && !(e.target instanceof HTMLSelectElement)) {
           keyboard.hide();
           if (sheet === "search") findBlock();
         }
@@ -1152,7 +1160,7 @@ export default function Prototype() {
                   {period === "Monthly" ? (
                     <label>
                       Reporting month
-                      <select
+                      <CompactSelect
                         value={month}
                         onChange={(e) => setMonth(e.target.value)}
                       >
@@ -1173,27 +1181,19 @@ export default function Prototype() {
                               )}
                             </option>
                           ))}
-                      </select>
+                      </CompactSelect>
                     </label>
                   ) : (
                     <label>
                       Reporting year
-                      <select
+                      <CompactSelect
                         value={year}
                         onChange={(e) => setYear(Number(e.target.value))}
                       >
-                        {[
-                          ...new Set(
-                            production.rows
-                              .filter((r) => r.kind === "yearly")
-                              .map((r) => r.year),
-                          ),
-                        ]
-                          .sort((a, b) => b - a)
-                          .map((y) => (
-                            <option key={y}>{y}</option>
-                          ))}
-                      </select>
+                        {reportingYears.map((y) => (
+                          <option key={y}>{y}</option>
+                        ))}
+                      </CompactSelect>
                     </label>
                   )}
                 </div>
@@ -1300,7 +1300,7 @@ export default function Prototype() {
                 </div>
                 <label className="analytics-choice">
                   Analytics query
-                  <select
+                  <CompactSelect
                     value={analyticsKind}
                     onChange={(e) => {
                       setAnalyticsKind(e.target.value);
@@ -1310,7 +1310,7 @@ export default function Prototype() {
                   >
                     <option value="production">Production per hectare</option>
                     <option value="fertiliser">Annual block fertiliser</option>
-                  </select>
+                  </CompactSelect>
                 </label>
                 {analyticsKind === "fertiliser" ? (
                   <FertiliserAnalytics
@@ -1375,29 +1375,21 @@ export default function Prototype() {
                       <div className="filter-row">
                         <label>
                           Year
-                          <select
+                          <CompactSelect
                             value={year}
                             onChange={(e) => {
                               setYear(Number(e.target.value));
                               setHighlights([]);
                             }}
                           >
-                            {[
-                              ...new Set(
-                                production.rows
-                                  .filter((r) => r.kind === "yearly")
-                                  .map((r) => r.year),
-                              ),
-                            ]
-                              .sort((a, b) => b - a)
-                              .map((y) => (
-                                <option key={y}>{y}</option>
-                              ))}
-                          </select>
+                            {reportingYears.map((y) => (
+                              <option key={y}>{y}</option>
+                            ))}
+                          </CompactSelect>
                         </label>
                         <label>
                           Yield
-                          <select
+                          <CompactSelect
                             value={comparison}
                             onChange={(e) => {
                               setComparison(e.target.value);
@@ -1406,7 +1398,7 @@ export default function Prototype() {
                           >
                             <option value="above">Above</option>
                             <option value="below">Below</option>
-                          </select>
+                          </CompactSelect>
                         </label>
                       </div>
                       <label className="threshold-label">

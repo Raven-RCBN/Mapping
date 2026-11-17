@@ -1,3 +1,16 @@
+# MapIntel 36.82.102 — compact dropdown correction
+
+- Fixed keyboard dismissal closing dropdowns: text inputs alone are blurred; native keyboard hiding no longer clears WebView focus.
+- Replaced Android selection popups with compact in-app menus across Production, Analytics and fertiliser filters.
+- Production lists the latest two available annual reporting years, currently 2026 and 2025. Fertiliser retains its independent source years.
+- Installed on the connected Samsung phone without clearing the remembered session or saved estate.
+- Actual touch regression opened the Analytics query, chose fertiliser, returned to production, chose Below, and opened the year list. Final values: Production per hectare / 2026 / Below. Visible year options: 2026 and 2025. No menu remained stuck.
+- Android assembly/lint and APK signature verification passed; all 14 existing regression tests passed. No runtime UI errors were logged during checks.
+- APK SHA-256: `b54f924bc82fdd61b57b49b46c30957f48f5eace1faba7554a179a4757655757`.
+- Live fertiliser-data acceptance remains pending working phone internet, as documented below. No server deployment or network-setting change was made.
+
+---
+
 # MapIntel 36.82.101 verification — 17 November 2026
 
 - Android debug assembly and lint passed. Fourteen Node regression tests passed, covering exact map geometries, shared-polygon aggregation, null/zero handling, kg/palm bands and matched production-yield cohorts.

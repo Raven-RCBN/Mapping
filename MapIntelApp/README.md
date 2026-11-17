@@ -1,6 +1,6 @@
-# MapIntel Android — 36.82.101
+# MapIntel Android — 36.82.102
 
-Installed application: `ai.agrinexus.mapintel`. Launcher name: **MapIntel**, with the gold Agrinexus a. Login/loading use the supplied MapIntel / ESTATE INTELLIGENCE wordmark beside the a. The login footer reads `MapIntel Ver 36.82.101` and `© Agrinexus Inteligence 2026`, as requested.
+Installed application: `ai.agrinexus.mapintel`. Launcher name: **MapIntel**, with the gold Agrinexus a. Login/loading use the supplied MapIntel / ESTATE INTELLIGENCE wordmark beside the a. The login footer reads `MapIntel Ver 36.82.102` and `© Agrinexus Inteligence 2026`, as requested.
 
 ## Development structure
 
@@ -21,7 +21,7 @@ npm run build:ui
 ./android/gradlew -p android :app:assembleDebug :app:lintDebug
 ```
 
-Set `JAVA_HOME` and `ANDROID_HOME` for the local installation. APK: `android/app/build/outputs/apk/debug/app-debug.apk`. The shared package is saved at `outputs/mapintel-android-20261117/MapIntel-36.82.101.apk` relative to the repository root. The installed/shared package is a debug-signed testing build; no private distribution key is included. Generated assets, APKs, SDK paths and caches are excluded from Git.
+Set `JAVA_HOME` and `ANDROID_HOME` for the local installation. APK: `android/app/build/outputs/apk/debug/app-debug.apk`. The shared package is saved at `outputs/mapintel-android-20261117/MapIntel-36.82.102.apk` relative to the repository root. The installed/shared package is a debug-signed testing build; no private distribution key is included. Generated assets, APKs, SDK paths and caches are excluded from Git.
 
 ## API and access
 
@@ -58,3 +58,5 @@ See [VALIDATION.md](VALIDATION.md). The only server change for this rollout is t
 The compact header maximizes map height. Analytics offers Production per hectare and Annual block fertiliser. Fertiliser uses the webapp calculation helpers in `ui/shared`, with year, division, block, product and measure filters. Show on map applies the matching webapp kg-per-palm bands for solids and selected measure for liquids. Missing values remain unavailable. The authenticated `/hts-analysis` response is projected to fertiliser fields only and saved atomically with the estate snapshot; existing installations need one online update to obtain it. No wage records are exposed in the mobile snapshot. Unsupported operational-only responses show an unavailable state.
 
 Loading keeps the gold a stationary with an animated hollow gold ring and “Please wait while loading”. Fertiliser analysis deliberately excludes charts; it includes the webapp quantity/bag/kg-per-palm/MT-per-ha/area cards and mapped block table.
+
+Selection controls use compact in-app lists rather than Android popup dialogs. Production exposes the two latest available annual reporting years (currently 2025 and 2026); fertiliser uses its own dataset years. Keyboard dismissal blurs only text-edit controls and does not clear WebView focus.

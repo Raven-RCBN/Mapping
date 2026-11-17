@@ -1,3 +1,4 @@
+import CompactSelect from "./CompactSelect";
 import { useMemo, useState } from "react";
 import {
   fertiliserAnalysis,
@@ -92,15 +93,15 @@ export default function FertiliserAnalytics({
       <div className="fertiliser-controls">
         <label>
           Year
-          <select value={year} onChange={(e) => setYear(e.target.value)}>
+          <CompactSelect value={year} onChange={(e) => setYear(e.target.value)}>
             {years.map((y: any) => (
               <option key={y}>{y}</option>
             ))}
-          </select>
+          </CompactSelect>
         </label>
         <label>
           Division
-          <select
+          <CompactSelect
             value={division}
             onChange={(e) => {
               setDivision(e.target.value);
@@ -111,20 +112,23 @@ export default function FertiliserAnalytics({
             {divisions.map((d: any) => (
               <option key={d}>{d}</option>
             ))}
-          </select>
+          </CompactSelect>
         </label>
         <label>
           Map block
-          <select value={block} onChange={(e) => setBlock(e.target.value)}>
+          <CompactSelect
+            value={block}
+            onChange={(e) => setBlock(e.target.value)}
+          >
             <option value="">All mapped blocks</option>
             {codes.map((c: any) => (
               <option key={c}>{c}</option>
             ))}
-          </select>
+          </CompactSelect>
         </label>
         <label>
           Product
-          <select
+          <CompactSelect
             value={product}
             onChange={(e) => {
               setProduct(e.target.value);
@@ -137,17 +141,20 @@ export default function FertiliserAnalytics({
                 {p.name} ({p.unit})
               </option>
             ))}
-          </select>
+          </CompactSelect>
         </label>
         <label>
           Measure
-          <select value={metric} onChange={(e) => setMetric(e.target.value)}>
+          <CompactSelect
+            value={metric}
+            onChange={(e) => setMetric(e.target.value)}
+          >
             <option value="quantity">Quantity ({unit})</option>
             {unit === "kg" && (
               <option value="bags">50 kg bag equivalents</option>
             )}
             <option value="perHa">{unit} per mapped hectare</option>
-          </select>
+          </CompactSelect>
         </label>
       </div>
       <button

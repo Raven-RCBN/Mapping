@@ -19,7 +19,14 @@ export function useMobileDevice() {
 export function useKeyboard() {
   return {
     hide: () => {
-      (document.activeElement as HTMLElement)?.blur();
+      const active = document.activeElement;
+      if (!(
+        active instanceof HTMLInputElement ||
+        active instanceof HTMLTextAreaElement ||
+        (active instanceof HTMLElement && active.isContentEditable)
+      ))
+        return;
+      (active as HTMLElement).blur();
       (window as any).MapIntelAndroid?.hideKeyboard();
     },
     visible: false,
