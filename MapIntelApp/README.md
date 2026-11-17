@@ -1,6 +1,6 @@
-# MapIntel Android — 36.82.103
+# MapIntel Android — 36.82.104
 
-Installed application: `ai.agrinexus.mapintel`. Launcher name: **MapIntel**, with the gold Agrinexus a. Login/loading use the supplied MapIntel / ESTATE INTELLIGENCE wordmark beside the a. The login footer reads `MapIntel Ver 36.82.103` and `© Agrinexus Inteligence 2026`, as requested.
+Installed application: `ai.agrinexus.mapintel`. Launcher name: **MapIntel**, with the gold Agrinexus a. Login/loading use the supplied MapIntel / ESTATE INTELLIGENCE wordmark beside the a. The login footer reads `MapIntel Ver 36.82.104` and `© Agrinexus Inteligence 2026`, as requested.
 
 ## Development structure
 
@@ -21,7 +21,7 @@ npm run build:ui
 ./android/gradlew -p android :app:assembleDebug :app:lintDebug
 ```
 
-Set `JAVA_HOME` and `ANDROID_HOME` for the local installation. APK: `android/app/build/outputs/apk/debug/app-debug.apk`. The shared package is saved at `outputs/mapintel-android-20261117/MapIntel-36.82.103.apk` relative to the repository root. The installed/shared package is a debug-signed testing build; no private distribution key is included. Generated assets, APKs, SDK paths and caches are excluded from Git.
+Set `JAVA_HOME` and `ANDROID_HOME` for the local installation. APK: `android/app/build/outputs/apk/debug/app-debug.apk`. The shared package is saved at `outputs/mapintel-android-20261117/MapIntel-36.82.104.apk` relative to the repository root. The installed/shared package is a debug-signed testing build; no private distribution key is included. Generated assets, APKs, SDK paths and caches are excluded from Git.
 
 ## API and access
 

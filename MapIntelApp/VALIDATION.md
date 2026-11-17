@@ -1,3 +1,11 @@
+# MapIntel 36.82.104 — white loading background
+
+Native loading panels and the bundled map-loading overlay now use pure white. Device instrumentation returned loadingBackgroundWhite=true, logoStationary=true, ringAnimates=true and loadingMessage=true. Installed over the existing app without clearing its session or the verified fertiliser snapshot; fertiliser and boundary digests remain unchanged. Android assembly/lint and APK signature verification passed.
+
+APK SHA-256: `f0af0a045549bf422d7ed19f035a67c9112ca6960b08d0caa252bc1fd202db27`.
+
+---
+
 # MapIntel 36.82.103 — fertiliser online/offline acceptance and map context
 
 - Download completed on the connected Samsung phone. Saved fertiliser fields were compared directly with the authenticated webapp `/hts-analysis` response and matched, including 1,165 source records, products, palm counts, year sections and unit basis.
